@@ -405,6 +405,8 @@ if __name__ == "__main__":
 
     ## hier een comment toegevoegd
 
+    # this comment was not part of the first local master branch
+
     main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
 
