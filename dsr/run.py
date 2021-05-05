@@ -400,9 +400,10 @@ if __name__ == "__main__":
     tensors:
     T1, T2, etc. - Base tensors 
     grad_u - velocity gradient
-    
+     
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
+    ## hier een comment toegevoegd
 
     main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
