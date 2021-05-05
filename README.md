@@ -1,3 +1,12 @@
+# Data Driven Turbulence Modelling using Deep Symbolic Regression 
+
+In the future there will be notes here, see the original notes by the creator of DSR below
+
+
+
+
+
+
 # Deep symbolic regression
 
 Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regression--the task of recovering tractable mathematical expressions from an input dataset. The package `dsr` contains the code for DSR, including a single-point, parallelized launch script (`dsr/run.py`), baseline genetic programming-based symbolic regression algorithm, and an sklearn-like interface for use with your own data.
