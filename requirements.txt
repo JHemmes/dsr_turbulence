@@ -1,12 +1,12 @@
 pytest
 cython
-numpy
+numpy==1.20.1
 tensorflow==1.14
 numba
 sympy
 pandas
 scikit-learn
 click
-mpi4py
 dataclasses
-
+deap
+matplotlib

@@ -1,0 +1,618 @@
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=6 on runs ['scalarR_regsmape_1e-3']
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+pause here
+error occured
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 67, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 328, in learn
+    programs[np.argmax(r)].sympy_expr,
+  File "<__array_function__ internals>", line 6, in argmax
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/numpy/core/fromnumeric.py", line 1193, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out)
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/numpy/core/fromnumeric.py", line 58, in _wrapfunc
+    return bound(*args, **kwds)
+ValueError: attempt to get argmax of an empty sequence
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 266, in <module>
+    main_custom(config_template="config_test.json", mc=6, n_cores_task=6)
+  File "run.py", line 233, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+ValueError: attempt to get argmax of an empty sequence
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=6 on runs ['scalarR_regsmape_1e-3']
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=6 on runs ['scalarR_regsmape_1e-4']
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+error occured
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 67, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 328, in learn
+    r_max,
+  File "<__array_function__ internals>", line 6, in argmax
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/numpy/core/fromnumeric.py", line 1193, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out)
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/numpy/core/fromnumeric.py", line 58, in _wrapfunc
+    return bound(*args, **kwds)
+ValueError: attempt to get argmax of an empty sequence
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 266, in <module>
+    main_custom(config_template="config_test.json", mc=6, n_cores_task=6)
+  File "run.py", line 233, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+ValueError: attempt to get argmax of an empty sequence
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+pause here
+error occured
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 67, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 328, in learn
+    base_r_avg_full,
+  File "<__array_function__ internals>", line 6, in argmax
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/numpy/core/fromnumeric.py", line 1193, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out)
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/numpy/core/fromnumeric.py", line 58, in _wrapfunc
+    return bound(*args, **kwds)
+ValueError: attempt to get argmax of an empty sequence
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 266, in <module>
+    main_custom(config_template="config_test.json", mc=6, n_cores_task=6)
+  File "run.py", line 233, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+ValueError: attempt to get argmax of an empty sequence
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Traceback (most recent call last):
+  File "run.py", line 34, in <module>
+    from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, scatter_results
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/turbulence/dataprocessing.py", line 255
+    nanfunction = np.exp((np.exp(X1))/(X2 - np.exp((X2*np.exp(X2))/(np.log(const1) - np.exp(const2*np.log(const3)))) - X1))
+              ^
+IndentationError: expected an indented block
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=6 on runs ['scalarR_regsmape_1e-4']
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=6 on runs ['scalarR_regsmape_1e-3']
+Completed scalarR_regsmape_1e-4 (2 of 6) in 166622 s
+Completed scalarR_regsmape_1e-4 (4 of 6) in 167294 s
+Completed scalarR_regsmape_1e-4 (5 of 6) in 167468 s
+Completed scalarR_regsmape_1e-4 (3 of 6) in 168130 s
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121051/dsr_scalarR_regsmape_1e-4_2_hof.csv
+Invalid expressions: 26927 of 2000000 (1.3%).
+Error type counts:
+  invalid: 15343 (57.0%)
+  overflow: 8564 (31.8%)
+  underflow: 2167 (8.0%)
+  divide: 853 (3.2%)
+Error node counts:
+  log: 15881 (59.0%)
+  exp: 10729 (39.8%)
+  true_divide: 316 (1.2%)
+  multiply: 1 (0.0%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121051/dsr_scalarR_regsmape_1e-4_4_hof.csv
+Invalid expressions: 25538 of 2000000 (1.3%).
+Error type counts:
+  invalid: 14551 (57.0%)
+  overflow: 8079 (31.6%)
+  underflow: 2102 (8.2%)
+  divide: 806 (3.2%)
+Error node counts:
+  log: 15051 (58.9%)
+  exp: 10176 (39.8%)
+  true_divide: 308 (1.2%)
+  multiply: 3 (0.0%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121051/dsr_scalarR_regsmape_1e-4_5_hof.csv
+Invalid expressions: 28172 of 2000000 (1.4%).
+Error type counts:
+  invalid: 15945 (56.6%)
+  overflow: 9038 (32.1%)
+  underflow: 2330 (8.3%)
+  divide: 859 (3.0%)
+Error node counts:
+  log: 16460 (58.4%)
+  exp: 11364 (40.3%)
+  true_divide: 347 (1.2%)
+  multiply: 1 (0.0%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121051/dsr_scalarR_regsmape_1e-4_3_hof.csv
+Invalid expressions: 29724 of 2000000 (1.5%).
+Error type counts:
+  invalid: 17022 (57.3%)
+  overflow: 9344 (31.4%)
+  divide: 936 (3.1%)
+  underflow: 2422 (8.1%)
+Error node counts:
+  log: 17616 (59.3%)
+  exp: 11764 (39.6%)
+  true_divide: 343 (1.2%)
+  multiply: 1 (0.0%)
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 67, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 463, in learn
+    error_types[p.error_type] += p.count
+AttributeError: 'Program' object has no attribute 'error_type'
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 266, in <module>
+    main_custom(config_template="config_test.json", mc=6, n_cores_task=6)
+  File "run.py", line 233, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+AttributeError: 'Program' object has no attribute 'error_type'
+Completed scalarR_regsmape_1e-3 (5 of 6) in 165697 s
+Completed scalarR_regsmape_1e-3 (6 of 6) in 166191 s
+Completed scalarR_regsmape_1e-3 (2 of 6) in 166846 s
+Completed scalarR_regsmape_1e-3 (1 of 6) in 167398 s
+Completed scalarR_regsmape_1e-3 (4 of 6) in 167716 s
+Completed scalarR_regsmape_1e-3 (3 of 6) in 168407 s
+Results saved to: ./log/log_2021-04-15-121142/Results_dsr.csv
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121142/dsr_scalarR_regsmape_1e-3_5_hof.csv
+Invalid expressions: 22309 of 2000000 (1.1%).
+Error type counts:
+  invalid: 12631 (56.6%)
+  overflow: 7177 (32.2%)
+  underflow: 1790 (8.0%)
+  divide: 711 (3.2%)
+Error node counts:
+  log: 13078 (58.6%)
+  exp: 8964 (40.2%)
+  true_divide: 266 (1.2%)
+  multiply: 1 (0.0%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121142/dsr_scalarR_regsmape_1e-3_6_hof.csv
+Invalid expressions: 18373 of 2000000 (0.9%).
+Error type counts:
+  overflow: 5951 (32.4%)
+  invalid: 10425 (56.7%)
+  underflow: 1454 (7.9%)
+  divide: 543 (3.0%)
+Error node counts:
+  exp: 7405 (40.3%)
+  log: 10770 (58.6%)
+  true_divide: 198 (1.1%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121142/dsr_scalarR_regsmape_1e-3_2_hof.csv
+Invalid expressions: 23928 of 2000000 (1.2%).
+Error type counts:
+  invalid: 13560 (56.7%)
+  overflow: 7675 (32.1%)
+  divide: 722 (3.0%)
+  underflow: 1971 (8.2%)
+Error node counts:
+  log: 13994 (58.5%)
+  exp: 9644 (40.3%)
+  true_divide: 290 (1.2%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121142/dsr_scalarR_regsmape_1e-3_1_hof.csv
+Invalid expressions: 22215 of 2000000 (1.1%).
+Error type counts:
+  overflow: 7112 (32.0%)
+  invalid: 12752 (57.4%)
+  underflow: 1721 (7.7%)
+  divide: 630 (2.8%)
+Error node counts:
+  exp: 8833 (39.8%)
+  log: 13148 (59.2%)
+  true_divide: 234 (1.1%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121142/dsr_scalarR_regsmape_1e-3_4_hof.csv
+Invalid expressions: 23528 of 2000000 (1.2%).
+Error type counts:
+  invalid: 13281 (56.4%)
+  overflow: 7643 (32.5%)
+  underflow: 1872 (8.0%)
+  divide: 732 (3.1%)
+Error node counts:
+  log: 13741 (58.4%)
+  exp: 9514 (40.4%)
+  true_divide: 273 (1.2%)
+-- Building prior -------------------
+WARNING: Skipping invalid 'TrigConstraint' with arguments {}. Reason: There are no target Tokens.
+Sequences have minimum length 3.
+Sequences have maximum length 30.
+[const] cannot occur more than 4 times.
+[exp] cannot be a child of [log].
+[log] cannot be a child of [exp].
+[const] cannot be the only unique child of [exp, log, add, sub, mul, div].
+-------------------------------------
+Saving Hall of Fame to ./log/log_2021-04-15-121142/dsr_scalarR_regsmape_1e-3_3_hof.csv
+Invalid expressions: 22240 of 2000000 (1.1%).
+Error type counts:
+  invalid: 12561 (56.5%)
+  underflow: 1810 (8.1%)
+  overflow: 7174 (32.3%)
+  divide: 695 (3.1%)
+Error node counts:
+  log: 12984 (58.4%)
+  exp: 8984 (40.4%)
+  true_divide: 272 (1.2%)
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=100 on runs ['no_tidycache']
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=100 on runs ['tidycache']
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 67, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 463, in learn
+    error_types[p.error_type] += p.count
+AttributeError: 'Program' object has no attribute 'error_type'
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 264, in <module>
+    main_custom(config_template="config_test.json", mc=100, n_cores_task=6)
+  File "run.py", line 231, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+AttributeError: 'Program' object has no attribute 'error_type'
+Completed tidycache (3 of 100) in 44145 s
+Completed tidycache (5 of 100) in 45575 s
+Completed tidycache (2 of 100) in 45720 s
+Completed tidycache (4 of 100) in 45907 s
+Completed tidycache (6 of 100) in 46191 s
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 67, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 463, in learn
+    error_types[p.error_type] += p.count
+AttributeError: 'Program' object has no attribute 'error_type'
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 264, in <module>
+    main_custom(config_template="config_test.json", mc=100, n_cores_task=6)
+  File "run.py", line 231, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+AttributeError: 'Program' object has no attribute 'error_type'
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=100 on runs ['greedy_test']
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=100 on runs ['python_execute']
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Setting 'verbose' to False for parallelized run.
+Running dsr for n=100 on runs ['python_execute']
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "run.py", line 68, in train_dsr
+    result.update(model.train(seed=seed))
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/core.py", line 63, in train
+    **self.config_training)
+  File "/home/jasper/Documents/afstuderen/python/dsr_turbulence/dsr/dsr/train.py", line 348, in learn
+    df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/pandas/core/generic.py", line 3403, in to_csv
+    storage_options=storage_options,
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/pandas/io/formats/format.py", line 1083, in to_csv
+    csv_formatter.save()
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/pandas/io/formats/csvs.py", line 234, in save
+    storage_options=self.storage_options,
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/site-packages/pandas/io/common.py", line 647, in get_handle
+    newline="",
+FileNotFoundError: [Errno 2] No such file or directory: './log/log_2021-05-04-225023/dsr_python_execute_4.csv'
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "run.py", line 407, in <module>
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=12)
+  File "run.py", line 373, in main_custom
+    for result in pool.imap_unordered(work, names_and_seeds):
+  File "/home/jasper/anaconda3/envs/dsr_turbulence/lib/python3.7/multiprocessing/pool.py", line 748, in next
+    raise value
+FileNotFoundError: [Errno 2] No such file or directory: './log/log_2021-05-04-225023/dsr_python_execute_4.csv'
