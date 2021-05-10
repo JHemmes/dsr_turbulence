@@ -335,11 +335,12 @@ def main_custom(config_template="config.json",
 
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
-    X, y = load_frozen_RANS_dataset(config_task)
+    # X, y = load_frozen_RANS_dataset(config_task)
     #
-    # np.random.seed(0)
-    # X = np.random.random((10, 6))
+    np.random.seed(0)
+    X = np.random.random((10, 6))
     # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
+    y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0]
     # output = config
 
     # if the greedy algorithm the information on the dataset must be remembered
@@ -407,7 +408,7 @@ if __name__ == "__main__":
 
     # this comment was not part of the first local master branch
 
-    main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
+    main_custom(config_template="config_kDeficit.json", mc=12, n_cores_task=12)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
