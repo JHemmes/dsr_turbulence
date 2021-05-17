@@ -215,7 +215,10 @@ def load_frozen_RANS_dataset(config_task):
 
     return (X, y)
 
-def scatter_results(logdir, X, y, plot_sparta=True):
+
+
+
+def scatter_results_directory(logdir, X, y, plot_sparta=True):
 
     vardict = {}
     for ii in range(X.shape[1]):

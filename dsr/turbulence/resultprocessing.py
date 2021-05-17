@@ -8,6 +8,65 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
+from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
+
+
+def scatter_results(results, config):
+
+    plot_sparta = True
+
+    X, y = config['task']['dataset']
+
+    logdir = config['training']['logdir']
+
+    if plot_sparta:
+        with open(logdir + '/' + 'config.json', encoding='utf-8') as f:
+            config = json.load(f)
+        inputs = config['task']['dataset']['input']
+        # find grad_u_T1
+        if 'grad_u_T1' in inputs:
+            grad_u_T1 = X[:,inputs.index('grad_u_T1')]
+        else:
+            dummy_config = config['task']
+            dummy_config['dataset']['input'] = ['grad_u_T1']
+            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config)
+
+        # find K
+        if 'k' in inputs:
+            k = X[:, inputs.index('k')]
+        else:
+            dummy_config = config['task']
+            dummy_config['dataset']['input'] = ['k']
+            k, _ = load_frozen_RANS_dataset(dummy_config)
+        Rsparta = 2*k*grad_u_T1*1.4
+
+        yhat = results['program'].cython_execute(X)
+        NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
+
+        reward = results['r']
+        expression = results['expression']
+        name = results['name']
+        seed = results['seed']
+        filename = f'dsr_{name}_{seed}'
+
+        fig = plt.figure(figsize=(15,15), dpi=100)
+        ax = plt.gca()
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        plt.scatter(y, yhat, s=2)
+
+        if plot_sparta:
+            plt.scatter(y, Rsparta, s=2, zorder=-1)
+            plt.legend(['DSR', 'sparta'])
+
+        plt.xlabel('Target (ground truth)')
+        plt.ylabel('DSR model result')
+        plt.title(f'reward = {reward}, NRMSE = {NRMSE} \n  expression = ' + expression)
+        plt.grid('both')
+        plt.xlim([10e-6, 1])
+        plt.ylim([10e-6, 1])
+        plt.savefig(logdir + '/' + filename)
+
 
 
 def eval_expression(expression, X):
@@ -25,6 +84,7 @@ def eval_expression(expression, X):
     yhat = eval(expression)
 
     return yhat
+
 
 
 def plot_results(results, config):
