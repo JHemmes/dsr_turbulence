@@ -122,7 +122,6 @@ def broadcast(scalar, flat_bool):
     else:
         return scalar
 
-
 def load_frozen_RANS_dataset(config_task):
 
     case = config_task['dataset']['name']
@@ -278,10 +277,30 @@ def scatter_results(logdir, X, y, plot_sparta=True):
 
 if __name__ == '__main__':
     dsrpath = os.path.abspath(__file__)
-    os.chdir(dsrpath[:dsrpath.find('/dsr/dsr/')+8]) # change the working directory to main dsr dir with the config files
+    os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
+    logdir = '../logs_completed/log_2021-04-28-152005_kdeficit_10msamples'
 
+    # fig = plt.figure(figsize=(15, 15), dpi=100)
+    fig = plt.figure()
+    tidy = []
+    files = os.listdir(logdir)
+    for filename in files:
+        print(filename)
+        if (filename[:3] == 'dsr') and (filename[-7:-4] != 'hof'):
+            data = pd.read_csv(logdir + '/' + filename)
+            plt.plot(data['base_r_best'], color='C0')
+            tidy.append(data['base_r_best'].values)
 
+    plt.show()
+
+    tidylong = [array for array in tidy if len(array) > 5000]
+
+    tidy_mean = np.mean(tidylong, axis=0)
+
+    fig = plt.figure()
+    plt.plot(tidy_mean)
+    plt.show()
 
     #
     #
@@ -295,9 +314,9 @@ if __name__ == '__main__':
     #
     # X, y = load_frozen_RANS_dataset(config_task)
 
-    ###########  Code below is used to make the scatterplot of the results if that hasnt happened in the loop.
-
-    # logdir = './log/log_2021-04-15-121142'
+    # ##########  Code below is used to make the scatterplot of the results if that has not happened in the loop.
+    #
+    # logdir = '../logs_completed/log_2021-04-28-152005_kdeficit_10msamples'
     #
     # # Load the config file
     # with open(logdir + '/config.json', encoding='utf-8') as f:
@@ -312,6 +331,12 @@ if __name__ == '__main__':
     # scatter_results(logdir, X, y)
     #
     # print('end')
+
+
+
+
+######### code below is used to create plots of reward-vs iterations
+
 
     logdir = 'log/Completed logs/log_2021-04-22-135835_tidycache_400'
 
@@ -347,6 +372,11 @@ if __name__ == '__main__':
     plt.legend(['tidy', 'notidy'])
 
     print('end')
+
+
+
+
+
 
     # # these are the models from SPARTA
     # R = 2*k*grad_uTij1

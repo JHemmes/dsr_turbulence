@@ -33,6 +33,8 @@ from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, scatter_results
+from dsr.turbulence.resultprocessing import plot_results
+
 
 def train_dsr(name_and_seed, config):
     """Trains DSR and returns dict of reward, expression, and traversal"""
@@ -67,6 +69,7 @@ def train_dsr(name_and_seed, config):
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
+    plot_results(result, config)
     result.pop("program")
 
     return result
@@ -331,12 +334,12 @@ def main_custom(config_template="config.json",
 
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
-    # X, y = load_frozen_RANS_dataset(config_task)
+    X, y = load_frozen_RANS_dataset(config_task)
     #
-    np.random.seed(0)
-    X = np.random.random((10, 6))
-    # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
-    y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0]
+    # np.random.seed(0)
+    # X = np.random.random((10, 6))
+    # # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
+    # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0]
     # output = config
 
     # if the greedy algorithm the information on the dataset must be remembered
