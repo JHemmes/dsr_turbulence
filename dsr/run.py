@@ -195,10 +195,6 @@ def train_dsr_greedy(name_and_seed, config):
         return_result[key+'_expression'] = full_results[key]['dsr_result']['expression']
         return_result[key+'_t'] = full_results[key]['dsr_result']['t']
 
-
-
-
-
     return return_result
 
 
@@ -408,8 +404,8 @@ if __name__ == "__main__":
 
     # this comment was not part of the first local master branch
 
-    main_custom(config_template="config_kDeficit.json", mc=12, n_cores_task=12)
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
+    main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
+    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
 

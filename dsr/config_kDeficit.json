@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "python_execute",
+      "name" : "Controller_discovery",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
@@ -26,7 +26,7 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 10000,
+        "n_samples": 2000,
         "batch_size": 1000,
         "complexity": "length",
         "complexity_weight": 0.0,
