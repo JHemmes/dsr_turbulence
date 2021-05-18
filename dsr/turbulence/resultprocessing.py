@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
 
     #use function below to plot the contours when the logs are already written
-    retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
+    retrospecitvely_plot_contours('../logs_completed/log_2021-04-15-121142_regmspe_1e-3')
 
     print('end')
 
