@@ -33,7 +33,7 @@ from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
-from dsr.turbulence.resultprocessing import scatter_results
+from dsr.turbulence.resultprocessing import plot_results
 
 
 def train_dsr(name_and_seed, config):
@@ -69,7 +69,7 @@ def train_dsr(name_and_seed, config):
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
-    scatter_results(result, config)
+    plot_results(result, config)
     result.pop("program")
 
     return result
@@ -404,7 +404,7 @@ if __name__ == "__main__":
 
     # this comment was not part of the first local master branch
 
-    main_custom(config_template="config_kDeficit.json", mc=12, n_cores_task=12)
+    main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
