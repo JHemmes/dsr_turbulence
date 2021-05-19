@@ -335,12 +335,12 @@ def main_custom(config_template="config.json",
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
     X, y = load_frozen_RANS_dataset(config_task)
-    #
+
+    # Random data
     # np.random.seed(0)
     # X = np.random.random((10, 6))
     # # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
     # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0]
-    # output = config
 
     # if the greedy algorithm the information on the dataset must be remembered
     greedy = False
@@ -400,15 +400,8 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    ## hier een comment toegevoegd
-
-    # this comment was not part of the first local master branch
-
     main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
+
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
 
-    #
-    # programs returning nan after constant optimisation
-    # add, sub, x5, x2, exp, sub, mul, nan, mul, div, add, exp, add, mul, mul, add, add, add, x6, x6, x6, x2, nan, nan, exp, x2, x6, nan, x2, x4

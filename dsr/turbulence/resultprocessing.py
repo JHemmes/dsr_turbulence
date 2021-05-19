@@ -106,6 +106,28 @@ def case_contourplots(mesh_x, mesh_y, y, yhat, filename):
     fig.colorbar(ax0, ax=ax[1])
     plt.savefig(filename)
 
+def case_contourplots_with_sparta(mesh_x, mesh_y, y, yhat, ysparta, filename):
+
+    yhat = np.reshape(yhat, mesh_x.shape, order='F')
+    y = np.reshape(y, mesh_x.shape, order='F')
+    ysparta = np.reshape(ysparta, mesh_x.shape, order='F')
+
+    ymin = np.min(y)
+    ymax = np.max(y)
+
+    fig, ax = plt.subplots(3, figsize=(15,15), dpi=250)
+    fig.tight_layout()
+    ax0 = ax[0].contourf(mesh_x, mesh_y, y, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+    ax[0].set_title('Target', y=1.0, pad=-14)
+    ax1 = ax[1].contourf(mesh_x, mesh_y, yhat, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+    ax[1].set_title('DSR model', y=1.0, pad=-14)
+    ax2 = ax[2].contourf(mesh_x, mesh_y, ysparta, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+    ax[2].set_title('sparta', y=1.0, pad=-14)
+    fig.colorbar(ax0, ax=ax[0])
+    fig.colorbar(ax0, ax=ax[1])
+    fig.colorbar(ax0, ax=ax[2])
+    plt.savefig(filename+'sparta')
+
 def contourplot_results(results, config):
 
     # re-read config file in output directory to find in and outputs
@@ -144,6 +166,8 @@ def retrospecitvely_plot_contours(logdir):
         config['task']['dataset']['name'] = case
         X, y = load_frozen_RANS_dataset(config['task'])
 
+        ysparta = 2*1.4*X[:,0]*X[:,1]
+
         frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
         data_i = frozen['data_i']
 
@@ -165,8 +189,10 @@ def retrospecitvely_plot_contours(logdir):
 
                 yhat = eval_expression(df_row['expression'], X)
 
-                case_contourplots(mesh_x, mesh_y, y, yhat, filename)
+                # case_contourplots(mesh_x, mesh_y, y, yhat, filename)
+                case_contourplots_with_sparta(mesh_x, mesh_y, y, yhat, ysparta, filename)
             plt.close('all')
+
 
     #
 # def unused_code(inputs):
@@ -226,9 +252,9 @@ if __name__ == "__main__":
 
 
     #use function below to plot the contours when the logs are already written
-    retrospecitvely_plot_contours('../logs_completed/log_2021-04-15-121142_regmspe_1e-3')
+    retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
+    # retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
 
     print('end')
-
 
 
