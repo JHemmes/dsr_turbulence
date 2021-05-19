@@ -38,6 +38,7 @@ class Task:
     reward_function: Callable[[Program], float]
     evaluate: Callable[[Program], float]
     library: Library
+    sec_library: Library
     stochastic: bool
     extra_info: Dict[str, Any]
 

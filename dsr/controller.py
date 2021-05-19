@@ -168,7 +168,7 @@ class Controller(object):
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
-        lib = Program.library
+        lib = Program.sec_library
 
         # Find max_length from the LengthConstraint prior, if it exists
         prior_max_length = None
@@ -201,7 +201,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = lib.L
+        n_choices = lib.L # ?? change this to reduce the possibilities
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -596,6 +596,10 @@ class Controller(object):
                     tf.summary.scalar(v.name + '_grad_norm', tf.norm(g))
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
+
+        tf.get_variable_scope().reuse_variables()
+
+
 
     def sample(self, n):
         """Sample batch of n expressions"""

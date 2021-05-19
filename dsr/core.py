@@ -47,9 +47,17 @@ class DeepSymbolicOptimizer():
         self.seed(seed) # Must be called _after_ resetting graph
 
         self.pool = self.make_pool()
-        self.sess = tf.Session()
+        # self.sess = tf.Session()
+        # self.prior = self.make_prior()
+        # self.controller = self.make_controller()
+        self.sess = []
+        for _ in range(4):
+            self.sess.append(tf.Session())
+
         self.prior = self.make_prior()
         self.controller = self.make_controller()
+
+
 
     def train(self, seed=0):
 
@@ -90,13 +98,15 @@ class DeepSymbolicOptimizer():
         return seed_
 
     def make_prior(self):
-        prior = make_prior(Program.library, self.config_prior)
+        prior = make_prior(Program.sec_library, self.config_prior)
         return prior
 
     def make_controller(self):
-        controller = Controller(self.sess,
-                                self.prior,
-                                **self.config_controller)
+        controller = []
+        for sess in self.sess:
+            controller.append(Controller(sess,
+                                         self.prior,
+                                         **self.config_controller))
         return controller
 
     def make_pool(self):

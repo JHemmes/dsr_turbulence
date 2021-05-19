@@ -342,21 +342,20 @@ def main_custom(config_template="config.json",
     # # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
     # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0]
 
-    # if the greedy algorithm the information on the dataset must be remembered
-    greedy = False
-    if config_task['dataset']['output'] == 'bDelta':
-        greedy = True
-        config['task']['dataset_info'] = config['task']['dataset']
+    # disabled the greedy algorithm
+    # # if the greedy algorithm the information on the dataset must be remembered
+    # greedy = False
+    # if config_task['dataset']['output'] == 'bDelta':
+    #     greedy = True
+    #     config['task']['dataset_info'] = config['task']['dataset']
 
+    config["task"]["dataset_info"] = config["task"]["dataset"] # save dataset information for later use
     config["task"]["dataset"] = (X, y)
     config_task = config["task"]      # Set config task again after overwriting dataset
 
     # Define the work
     if method == "dsr":
-        if greedy:
-            work = partial(train_dsr_greedy, config=config)
-        else:
-            work = partial(train_dsr, config=config)
+        work = partial(train_dsr, config=config)
     elif method == "gp":
         work = partial(train_gp, logdir=logdir, config_task=config_task, config_gp=config_gp)
 
@@ -400,7 +399,7 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    main_custom(config_template="config_kDeficit.json", mc=1, n_cores_task=1)
+    main_custom(config_template="config_bDelta.json", mc=1, n_cores_task=1)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
