@@ -13,20 +13,6 @@ Deep symbolic regression (DSR) is a deep learning algorithm for symbolic regress
 
 This code supports the ICLR 2021 paper [Deep symbolic regression: Recovering mathematical expressions from data via risk-seeking policy gradients](https://openreview.net/forum?id=m5Qsh0kBQG).
 
-# Installation
-
-Installation is straightforward in a Python 3 virtual environment using Pip. From the repository root:
-
-```
-python3 -m venv venv3 # Create a Python 3 virtual environment
-source venv3/bin/activate # Activate the virtual environmnet
-pip install -r requirements.txt # Install Python dependencies
-export CFLAGS="-I $(python -c "import numpy; print(numpy.get_include())") $CFLAGS" # Needed on Mac to prevent fatal error: 'numpy/arrayobject.h' file not found
-pip install -e ./dsr # Install DSR package
-```
-
-To perform experiments involving the GP baseline, you will need the additional package `deap`.
-
 # Example usage
 
 To try out DSR, use the following command from the repository root:
