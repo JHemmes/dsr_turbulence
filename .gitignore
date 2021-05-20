@@ -7,4 +7,4 @@ dsr/dsr/summary*
 .gitignore
 ~$*
 **/log/
-**logs_completed/**
+**/logs_completed
