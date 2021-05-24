@@ -173,6 +173,7 @@ def learn(sessions, controllers, pool,
     # Initialize compute graph
     for sess in sessions:
         sess.run(tf.global_variables_initializer())
+    del sess  # deleting sess is good practice as future code might blindly use this
 
     # ?? disabled when changed to multiple sessions
     # if debug:
@@ -233,12 +234,15 @@ def learn(sessions, controllers, pool,
             action, ob, prior = controller.sample(batch_size)
 
             # actions need to be shuffled because the controllers are initialised with the same seed.
-            np.random.shuffle(action)
-            np.random.shuffle(ob)
-            np.random.shuffle(prior)
+            shuffler = np.random.permutation(batch_size)
+            action = action[shuffler]
+            ob = [item[shuffler] for item in ob]
+            prior = prior[shuffler]
+
             actions.append(action)
             obs.append(ob)
             priors.append(prior)
+        del controller  # deleting controller is good practice as future code might blindly use this
 
         actions = np.stack(actions, axis=-1)
         obs = np.stack(obs, axis=-1)
@@ -320,14 +324,10 @@ def learn(sessions, controllers, pool,
             l = l[keep]
             s = list(compress(s, keep))
             invalid = invalid[keep]
-            if n_controller > 1:
-                actions = actions[keep, :, :]
-                obs = [o[keep, :, :] for o in obs]
-                priors = priors[keep, :, :, :]
-            else:
-                actions = actions[keep, :]
-                obs = [o[keep, :] for o in obs]
-                priors = priors[keep, :, :]
+
+            actions = actions[keep]
+            obs = [o[keep] for o in obs]
+            priors = priors[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
@@ -405,6 +405,7 @@ def learn(sessions, controllers, pool,
 
             # Train the controller
             summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
+        del controller # deleting controller is good practice as future code might blindly use this
 
         # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
         # if summary:
@@ -455,8 +456,6 @@ def learn(sessions, controllers, pool,
             all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
             break
-            # ?? Here I could implement an ealy stopping, for example limit to iterations ect.
-            # Number of iterations wihtout change?
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))

@@ -597,7 +597,7 @@ class Controller(object):
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
-        tf.get_variable_scope().reuse_variables()
+        tf.get_variable_scope().reuse_variables() # i think this causes the issue. I dont want to reuse variables
 
 
 
@@ -661,10 +661,14 @@ class Controller(object):
         else:
             _ = self.sess.run([self.train_op], feed_dict=feed_dict)
 
+
+        # ?? errors the second time a summary is called. Disabled for now since the writer in train.py is defective anyway
         # Return summaries
-        if self.summary:
-            summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
-        else:
-            summaries = None
+        # if self.summary:
+        #     summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
+        # else:
+        #     summaries = None
+
+        summaries = None
 
         return summaries
