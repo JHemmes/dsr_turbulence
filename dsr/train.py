@@ -170,10 +170,10 @@ def learn(sessions, controllers, pool,
     const_params = const_params if const_params is not None else {}
     Program.set_const_optimizer(const_optimizer, **const_params)
 
-    # Initialize compute graph
-    for sess in sessions:
-        sess.run(tf.global_variables_initializer())
-    del sess  # deleting sess is good practice as future code might blindly use this
+    # Initialize compute graph ?? moved to core.py to make the initialisation part of the comput graph
+    # for sess in sessions:
+    #     sess.run(tf.global_variables_initializer())
+    # del sess  # deleting sess is good practice as future code might blindly use this
 
     # ?? disabled when changed to multiple sessions
     # if debug:

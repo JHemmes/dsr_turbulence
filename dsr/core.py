@@ -47,16 +47,33 @@ class DeepSymbolicOptimizer():
         self.seed(seed) # Must be called _after_ resetting graph
 
         self.pool = self.make_pool()
-        # self.sess = tf.Session()
-        # self.prior = self.make_prior()
-        # self.controller = self.make_controller()
-        self.sess = []
-        for _ in range(4):
-            self.sess.append(tf.Session())
-
+        # oldest # self.sess = tf.Session()
+        # oldest # self.prior = self.make_prior()
+        # oldest # self.controller = self.make_controller()
+        # self.sess = []
+        #
+        # for _ in range(4):
+        #     # graph = tf.Graph()
+        #     # self.sess.append(tf.Session(graph=graph))
+        #     self.sess.append(tf.Session())
+        #
         self.prior = self.make_prior()
-        self.controller = self.make_controller()
+        # self.controller = self.make_controller()
 
+
+        self.sess = []
+        self.controller = []
+
+        for _ in range(4):
+            graph = tf.Graph()
+            with graph.as_default():
+                new_sess = tf.Session()
+                self.sess.append(new_sess)
+                new_controller = Controller(new_sess,
+                                            self.prior,
+                                            **self.config_controller)
+                new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
+                self.controller.append(new_controller)
 
 
     def train(self, seed=0):

@@ -597,13 +597,12 @@ class Controller(object):
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
-        tf.get_variable_scope().reuse_variables() # i think this causes the issue. I dont want to reuse variables
+        # tf.get_variable_scope().reuse_variables() # i think this causes the issue. I dont want to reuse variables
 
 
 
     def sample(self, n):
         """Sample batch of n expressions"""
-        
         feed_dict = {self.batch_size : n}
 
         actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
@@ -628,7 +627,6 @@ class Controller(object):
 
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
-
         feed_dict = {
             self.baseline : b,
             self.sampled_batch_ph : sampled_batch
