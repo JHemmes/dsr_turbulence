@@ -8,3 +8,4 @@ dsr/dsr/summary*
 ~$*
 **/log/
 **/logs_completed
+*nohup.out

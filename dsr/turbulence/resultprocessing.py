@@ -7,6 +7,7 @@ import numpy as np
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+plt.ioff()
 import time
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
 from dsr.program import from_str_tokens
@@ -250,11 +251,135 @@ if __name__ == "__main__":
     dsrpath = os.path.abspath(__file__)
     os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
-
-    #use function below to plot the contours when the logs are already written
-    retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
+    ############################################################################
+    # #use function below to plot the contours when the logs are already written
     # retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
+    # # retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
+    #
+    # print('end')
 
-    print('end')
 
+
+
+    expression = 'x2*(-0.7289507583079632*x1 + 0.076926414459202349*x1/(x3 + x5) - 0.095542880884756653)'
+
+
+
+    with open('config_kDeficit.json', encoding='utf-8') as f:
+        config = json.load(f)
+
+
+    X, y = load_frozen_RANS_dataset(config['task'])
+
+    y_hat = eval_expression(expression, X)
+
+    n_rep = 1
+
+
+    print(f'{n_rep} evaluations of reward for different error metrics')
+
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        ans = -np.mean((y - y_hat)**2)
+
+    print(f'neg_mse took: {round(time.time() - starttime,2)}')
+    print(ans)
+
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        ans = -np.sqrt(np.mean((y - y_hat)**2))
+    print(f'neg_rmse took: {round(time.time() - starttime,2)}')
+    print(ans)
+
+
+
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        var_y = np.std(y)
+        ans = -np.mean((y - y_hat)**2)/var_y
+    print(f'neg_nmse took: {round(time.time() - starttime,2)}')
+    print(ans)
+
+
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        var_y = np.std(y)
+        ans = -np.sqrt(np.mean((y - y_hat)**2)/var_y)
+    print(f'neg_nrmse took: {round(time.time() - starttime,2)}')
+
+
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        ans = -np.log(1 + np.mean((y - y_hat)**2))
+    print(f'neglog_mse took: {round(time.time() - starttime,2)}')
+    print(ans)
+
+
+    args = [1.]
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        ans = 1/(1 + args[0]*np.mean((y - y_hat)**2))
+    print(f'inv_mse took: {round(time.time() - starttime,2)}')
+
+
+    args = [1.]
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        var_y = np.std(y)
+        ans = 1/(1 + args[0]*np.mean((y - y_hat)**2)/var_y)
+    print(f'inv_nmse took: {round(time.time() - starttime,2)}')
+    print(ans)
+
+    args = [1.]
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        var_y = np.std(y)
+        ans = 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y))
+    print(f'inv_nrmse took: {round(time.time() - starttime,2)}, with var_y IN the loop')
+    print(ans)
+
+    args = [1.]
+    starttime = time.time()
+    var_y = np.std(y)
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        ans = 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y))
+    print(f'inv_nrmse took: {round(time.time() - starttime,2)}, with var_y OUT the loop')
+    print(ans)
+
+
+    starttime = time.time()
+    for _ in range(n_rep):
+        # Negative mean squared error
+        # Range: [-inf, 0]
+        # Value = -var(y) when y_hat == mean(y)
+        ans = -np.mean((y-y_hat)**2 /np.sqrt(0.001**2 + y**2))
+    print(f'reg_mspe: {round(time.time() - starttime,2)}')
+    print(ans)
 
