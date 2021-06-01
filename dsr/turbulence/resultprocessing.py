@@ -6,8 +6,9 @@ import pickle
 import numpy as np
 import json
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-plt.ioff()
 import time
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
 from dsr.program import from_str_tokens
