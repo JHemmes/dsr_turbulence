@@ -47,24 +47,21 @@ class DeepSymbolicOptimizer():
         self.seed(seed) # Must be called _after_ resetting graph
 
         self.pool = self.make_pool()
-        # oldest # self.sess = tf.Session()
-        # oldest # self.prior = self.make_prior()
-        # oldest # self.controller = self.make_controller()
-        # self.sess = []
-        #
-        # for _ in range(4):
-        #     # graph = tf.Graph()
-        #     # self.sess.append(tf.Session(graph=graph))
-        #     self.sess.append(tf.Session())
-        #
         self.prior = self.make_prior()
-        # self.controller = self.make_controller()
 
+        # count the number of tensors in the inputs, if any:
+        n_tensors = 0
+        for input in self.config_task['dataset_info']['input']:
+            if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                n_tensors += 1
+
+        if n_tensors == 0:
+            n_tensors = 1
 
         self.sess = []
         self.controller = []
 
-        for _ in range(4):
+        for _ in range(n_tensors):
             graph = tf.Graph()
             with graph.as_default():
                 new_sess = tf.Session()

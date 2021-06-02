@@ -3,6 +3,7 @@
 import os
 import multiprocessing
 from itertools import compress
+from itertools import combinations
 from datetime import datetime
 from collections import defaultdict
 
@@ -216,7 +217,6 @@ def learn(sessions, controllers, pool,
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
-    n_controller = len(controllers)
 
     for step in range(n_epochs):
 
@@ -227,8 +227,6 @@ def learn(sessions, controllers, pool,
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
-        if step == 250:
-            print('pause_here')
 
         raw_actions = []
         actions = []
@@ -238,7 +236,7 @@ def learn(sessions, controllers, pool,
             action, ob, prior = controller.sample(batch_size)
             raw_actions.append(action)
 
-            # actions need to be shuffled because the controllers are initialised with the same seed.
+            # actions need to be shuffled because the controllers are initialised with the same seed. If multiple RNNs
             shuffler = np.random.permutation(batch_size)
             action = action[shuffler]
             ob = [item[shuffler] for item in ob]
@@ -247,15 +245,25 @@ def learn(sessions, controllers, pool,
             actions.append(action)
             obs.append(ob)
             priors.append(prior)
-        del controller  # deleting controller is good practice as future code might blindly use this
 
-        bool1 = raw_actions[0] == raw_actions[1]
-        bool2 = raw_actions[0] == raw_actions[2]
-        bool3 = raw_actions[0] == raw_actions[3]
+        # Choose to stack actions or not, if there is one controller they should not be stacked
+        # Also calculate percentage of how much the sampled actions differ if there are multiple RNNs:
+        if len(controllers) > 1:
+            actions = np.stack(actions, axis=-1)
+            obs = np.stack(obs, axis=-1)
+            priors = np.stack(priors, axis=-1)
 
-        actions = np.stack(actions, axis=-1)
-        obs = np.stack(obs, axis=-1)
-        priors = np.stack(priors, axis=-1)
+            all_means = []
+            for a, b in combinations(raw_actions, 2):
+                all_means.append(np.mean(a==b))
+            sample_metric = np.mean(all_means)
+
+        else:
+            actions = action
+            obs = ob
+            priors = prior
+
+            sample_metric = 1  # Dummy value
 
 
         programs = [from_tokens(a, optimize=True) for a in actions]
@@ -338,6 +346,22 @@ def learn(sessions, controllers, pool,
             obs = [o[keep] for o in obs]
             priors = priors[keep]
 
+
+
+        # filter out invalids from training batch
+        keep = ~invalid
+
+        base_r = base_r[keep]
+        r_train = r = r[keep]
+        programs = list(compress(programs, keep))
+        l = l[keep]
+        s = list(compress(s, keep))
+        invalid = invalid[keep]
+
+        actions = actions[keep]
+        obs = [o[keep] for o in obs]
+        priors = priors[keep]
+
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
 
@@ -358,6 +382,7 @@ def learn(sessions, controllers, pool,
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
             invalid_avg_sub = np.mean(invalid)
+            # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
                          base_r_max,
@@ -374,9 +399,10 @@ def learn(sessions, controllers, pool,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
-                         n_novel_sub, # ?? removed a_ent_full adn a_ent_sub since the calculation did not make sense with the new actions list
+                         n_novel_sub, # ?? removed a_ent_full adn a_ent_sub
                          invalid_avg_full,
-                         invalid_avg_sub
+                         invalid_avg_sub,
+                         sample_metric
                          ]] # changed this array to a list, changed save routine to pandas to allow expression string
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
@@ -395,7 +421,7 @@ def learn(sessions, controllers, pool,
         for ii, controller in enumerate(controllers):
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
 
-            if n_controller == 1:
+            if len(controllers) == 1:
                 lengths = np.array([min(len(p.traversal), controller.max_length)
                                     for p in programs], dtype=np.int32)
 
@@ -424,7 +450,7 @@ def learn(sessions, controllers, pool,
 
             # Train the controller
             summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
-        del controller # deleting controller is good practice as future code might blindly use this
+
 
         # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
         # if summary:
