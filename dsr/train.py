@@ -227,11 +227,16 @@ def learn(sessions, controllers, pool,
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
+        if step == 250:
+            print('pause_here')
+
+        raw_actions = []
         actions = []
         obs = []
         priors = []
         for controller in controllers:
             action, ob, prior = controller.sample(batch_size)
+            raw_actions.append(action)
 
             # actions need to be shuffled because the controllers are initialised with the same seed.
             shuffler = np.random.permutation(batch_size)
@@ -243,6 +248,10 @@ def learn(sessions, controllers, pool,
             obs.append(ob)
             priors.append(prior)
         del controller  # deleting controller is good practice as future code might blindly use this
+
+        bool1 = raw_actions[0] == raw_actions[1]
+        bool2 = raw_actions[0] == raw_actions[2]
+        bool3 = raw_actions[0] == raw_actions[3]
 
         actions = np.stack(actions, axis=-1)
         obs = np.stack(obs, axis=-1)
@@ -371,6 +380,16 @@ def learn(sessions, controllers, pool,
                          ]] # changed this array to a list, changed save routine to pandas to allow expression string
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
+
+
+        # val_list = []
+        # for controller in controllers:
+        #     with controller.sess.graph.as_default():
+        #         train_vars = tf.trainable_variables()
+        #         var_names = [v.name for v in train_vars]
+        #         values = controller.sess.run(var_names)
+        #         val_list.append(values)
+
 
 
         for ii, controller in enumerate(controllers):
