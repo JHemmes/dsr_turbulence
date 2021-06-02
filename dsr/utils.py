@@ -102,11 +102,10 @@ def setup_output_files(logdir, output_file):
                     "n_unique_full",
                     "n_unique_sub",
                     "n_novel_full",
-                    "n_novel_sub",
-                    "a_ent_full",
-                    "a_ent_sub",
+                    "n_novel_sub", # Removed a_end_full, a_ent_sub for now.
                     "invalid_avg_full",
-                    "invalid_avg_sub"]
+                    "invalid_avg_sub",
+                    "sample_metric"]
         f.write("{}\n".format(",".join(headers)))
 
     return all_r_output_file, hof_output_file, pf_output_file

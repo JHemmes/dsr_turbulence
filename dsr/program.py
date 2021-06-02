@@ -17,7 +17,7 @@ import dsr.utils as U
 
 def _finish_tokens(tokens):
     """
-    Complete the pre-order traversal.
+    Complete the pre-order traversal. using secondary library!
 
     Parameters
     ----------
@@ -34,7 +34,7 @@ def _finish_tokens(tokens):
 
     """
 
-    arities = np.array([Program.library.arities[t] for t in tokens])
+    arities = np.array([Program.sec_library.arities[t] for t in tokens])
     dangling = 1 + np.cumsum(arities - 1)
 
     if 0 in dangling:
@@ -42,9 +42,15 @@ def _finish_tokens(tokens):
         tokens = tokens[:expr_length]
     else:
         # Extend with first variable until complete
-        tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
+        tokens = np.append(tokens, np.random.choice(Program.sec_library.input_tokens, size=dangling[-1]))
 
     return tokens
+
+def find_mul_token():
+    return Program.library.names.index('mul')
+
+def find_add_token():
+    return Program.library.names.index('add')
 
 
 def from_str_tokens(str_tokens, optimize, skip_cache=False):
@@ -133,23 +139,44 @@ def from_tokens(tokens, optimize, skip_cache=False):
     '''
         Truncate expressions that complete early; extend ones that don't complete
     '''
-    tokens = _finish_tokens(tokens)
+    if len(tokens.shape) > 1:
+        # enforce sum of four tensors.
 
-    # For stochastic Tasks, there is no cache; always generate a new Program.
-    # For deterministic Programs, if the Program is in the cache, return it;
-    # otherwise, create a new one and add it to the cache.
-    if skip_cache:
-        p = Program(tokens, optimize=optimize)
-    elif Program.task.stochastic:
-        p = Program(tokens, optimize=optimize)
+        n_tensors = tokens.shape[1]
+        mul_token = find_mul_token()
+        add_token = find_add_token()
+        for ii in range(tokens.shape[1]):
+            subtokens = _finish_tokens(tokens[:,ii])
+            subtokens += n_tensors # offset the integers by the number of tokens
+            if ii == 0:
+                subtokens = np.insert(subtokens, 0, [mul_token, ii])
+                final_tokens = subtokens
+            else:
+                subtokens = np.insert(subtokens, 0, [add_token, mul_token, ii])
+                final_tokens = np.insert(final_tokens, 0, subtokens)
+
+        p = Program(final_tokens, optimize=optimize)
+
+
     else:
-        key = tokens.tostring()
-        if key in Program.cache:
-            p = Program.cache[key]
-            p.count += 1
-        else:
+        # create program as usual.
+
+        tokens = _finish_tokens(tokens)
+        # For stochastic Tasks, there is no cache; always generate a new Program.
+        # For deterministic Programs, if the Program is in the cache, return it;
+        # otherwise, create a new one and add it to the cache.
+        if skip_cache:
             p = Program(tokens, optimize=optimize)
-            Program.cache[key] = p
+        elif Program.task.stochastic:
+            p = Program(tokens, optimize=optimize)
+        else:
+            key = tokens.tostring()
+            if key in Program.cache:
+                p = Program.cache[key]
+                p.count += 1
+            else:
+                p = Program(tokens, optimize=optimize)
+                Program.cache[key] = p
 
     return p
 
@@ -229,6 +256,7 @@ class Program(object):
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
         self.len_traversal = len(self.traversal)
+        self.tokens = tokens
 
         if self.have_cython and self.len_traversal > 1:
             self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])
@@ -392,6 +420,8 @@ class Program(object):
 
         Program.task = task
         Program.library = task.library
+        Program.sec_library = task.sec_library
+        # Set dummy lib here
 
     @classmethod
     def set_const_optimizer(cls, name, **kwargs):

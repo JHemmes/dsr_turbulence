@@ -168,7 +168,7 @@ class Controller(object):
         self.summary = summary
         self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
 
-        lib = Program.library
+        lib = Program.sec_library
 
         # Find max_length from the LengthConstraint prior, if it exists
         prior_max_length = None
@@ -201,7 +201,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = lib.L
+        n_choices = lib.L # ?? change this to reduce the possibilities
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -597,9 +597,12 @@ class Controller(object):
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
+        # tf.get_variable_scope().reuse_variables() # i think this causes the issue. I dont want to reuse variables
+
+
+
     def sample(self, n):
         """Sample batch of n expressions"""
-        
         feed_dict = {self.batch_size : n}
 
         actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
@@ -624,7 +627,6 @@ class Controller(object):
 
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
-
         feed_dict = {
             self.baseline : b,
             self.sampled_batch_ph : sampled_batch
@@ -657,10 +659,14 @@ class Controller(object):
         else:
             _ = self.sess.run([self.train_op], feed_dict=feed_dict)
 
+
+        # ?? errors the second time a summary is called. Disabled for now since the writer in train.py is defective anyway
         # Return summaries
-        if self.summary:
-            summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
-        else:
-            summaries = None
+        # if self.summary:
+        #     summaries = self.sess.run(self.summaries, feed_dict=feed_dict)
+        # else:
+        #     summaries = None
+
+        summaries = None
 
         return summaries

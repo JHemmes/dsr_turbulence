@@ -3,6 +3,7 @@
 import os
 import multiprocessing
 from itertools import compress
+from itertools import combinations
 from datetime import datetime
 from collections import defaultdict
 
@@ -36,7 +37,7 @@ def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
-def learn(sess, controller, pool,
+def learn(sessions, controllers, pool,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
@@ -149,11 +150,13 @@ def learn(sess, controller, pool,
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
-    # Create the summary writer
-    if summary:
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        summary_dir = os.path.join("summary", timestamp)
-        writer = tf.summary.FileWriter(summary_dir, sess.graph)
+    # ?? disabled when changed to multiple sessions
+    # # Create the summary writer
+    # if summary:
+    #     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    #     summary_dir = os.path.join("summary", timestamp)
+    #     for sess in sessions: # doenst work properly for multiple sessions
+    #         writer = tf.summary.FileWriter(summary_dir, sess.graph)
 
     # Create log file
     if output_file is not None:
@@ -168,15 +171,18 @@ def learn(sess, controller, pool,
     const_params = const_params if const_params is not None else {}
     Program.set_const_optimizer(const_optimizer, **const_params)
 
-    # Initialize compute graph
-    sess.run(tf.global_variables_initializer())
+    # Initialize compute graph ?? moved to core.py to make the initialisation part of the comput graph
+    # for sess in sessions:
+    #     sess.run(tf.global_variables_initializer())
+    # del sess  # deleting sess is good practice as future code might blindly use this
 
-    if debug:
-        tvars = tf.trainable_variables()
-        def print_var_means():
-            tvars_vals = sess.run(tvars)
-            for var, val in zip(tvars, tvars_vals):
-                print(var.name, "mean:", val.mean(),"var:", val.var())
+    # ?? disabled when changed to multiple sessions
+    # if debug:
+    #     tvars = tf.trainable_variables()
+    #     def print_var_means():
+    #         tvars_vals = sess.run(tvars)
+    #         for var, val in zip(tvars, tvars_vals):
+    #             print(var.name, "mean:", val.mean(),"var:", val.var())
 
     # Create the pool of workers, if pool is not already given
     if pool is None:
@@ -185,16 +191,20 @@ def learn(sess, controller, pool,
         if n_cores_batch > 1:
             pool = multiprocessing.Pool(n_cores_batch)
 
-    # Create the priority queue
-    k = controller.pqt_k
-    if controller.pqt and k is not None and k > 0:
-        priority_queue = make_queue(priority=True, capacity=k)
-    else:
-        priority_queue = None
 
-    if debug >= 1:
-        print("\nInitial parameter means:")
-        print_var_means()
+    # ?? disabled when changed to multiple sessions
+    priority_queue = None
+    # Create the priority queue
+    # k = controller.pqt_k
+    # if controller.pqt and k is not None and k > 0:
+    #     priority_queue = make_queue(priority=True, capacity=k)
+    # else:
+    #     priority_queue = None
+
+    # ?? disabled when changed to multiple sessions
+    # if debug >= 1:
+    #     print("\nInitial parameter means:")
+    #     print_var_means()
 
     base_r_history = None
 
@@ -217,27 +227,67 @@ def learn(sess, controller, pool,
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
-        actions, obs, priors = controller.sample(batch_size)
 
-        # Instantiate, optimize, and evaluate expressions
-        if pool is None:
-            programs = [from_tokens(a, optimize=True) for a in actions]
+        raw_actions = []
+        actions = []
+        obs = []
+        priors = []
+        for controller in controllers:
+            action, ob, prior = controller.sample(batch_size)
+            raw_actions.append(action)
+
+            # actions need to be shuffled because the controllers are initialised with the same seed. If multiple RNNs
+            shuffler = np.random.permutation(batch_size)
+            action = action[shuffler]
+            ob = [item[shuffler] for item in ob]
+            prior = prior[shuffler]
+
+            actions.append(action)
+            obs.append(ob)
+            priors.append(prior)
+
+        # Choose to stack actions or not, if there is one controller they should not be stacked
+        # Also calculate percentage of how much the sampled actions differ if there are multiple RNNs:
+        if len(controllers) > 1:
+            actions = np.stack(actions, axis=-1)
+            obs = np.stack(obs, axis=-1)
+            priors = np.stack(priors, axis=-1)
+
+            all_means = []
+            for a, b in combinations(raw_actions, 2):
+                all_means.append(np.mean(a==b))
+            sample_metric = np.mean(all_means)
+
         else:
-            # To prevent interfering with the cache, un-optimized programs are
-            # first generated serially. Programs that need optimizing are
-            # optimized optimized in parallel. Since multiprocessing operates on
-            # copies of programs, we manually set the optimized constants and
-            # base reward after the pool joins.
-            programs = [from_tokens(a, optimize=False) for a in actions]
+            actions = action
+            obs = ob
+            priors = prior
 
-            # Filter programs that have not yet computed base_r
-            programs_to_optimize = list(set([p for p in programs if "base_r" not in p.__dict__]))
+            sample_metric = 1  # Dummy value
 
-            # Optimize and compute base_r
-            results = pool.map(work, programs_to_optimize)
-            for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
-                p.set_constants(optimized_constants)
-                p.base_r = base_r
+
+        programs = [from_tokens(a, optimize=True) for a in actions]
+
+        # ?? disabled when changed to multiple sessions since pool is currently always None
+        # # Instantiate, optimize, and evaluate expressions
+        # if pool is None:
+        #     programs = [from_tokens(a, optimize=True) for a in actions]
+        # else:
+        #     # To prevent interfering with the cache, un-optimized programs are
+        #     # first generated serially. Programs that need optimizing are
+        #     # optimized optimized in parallel. Since multiprocessing operates on
+        #     # copies of programs, we manually set the optimized constants and
+        #     # base reward after the pool joins.
+        #     programs = [from_tokens(a, optimize=False) for a in actions]
+        #
+        #     # Filter programs that have not yet computed base_r
+        #     programs_to_optimize = list(set([p for p in programs if "base_r" not in p.__dict__]))
+        #
+        #     # Optimize and compute base_r
+        #     results = pool.map(work, programs_to_optimize)
+        #     for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
+        #         p.set_constants(optimized_constants)
+        #         p.base_r = base_r
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
@@ -270,7 +320,7 @@ def learn(sess, controller, pool,
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
-        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        # a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions)) # ?? this doenst make sense i think
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
@@ -284,8 +334,6 @@ def learn(sess, controller, pool,
                 r[np.isinf(r)] = min_noinf
             quantile = np.quantile(r, 1 - epsilon, interpolation="higher") # ?? Jasper Hemmes, changed to nanquantile (changed the cont_optimiser to render function invalid if nan constants are returned)
             keep = base_r >= quantile
-            if len(r[keep]) == 0: #  ?? Here to catch error in debugger
-                print('no R to keep left')
 
             base_r = base_r[keep]
             r_train = r = r[keep]
@@ -293,9 +341,26 @@ def learn(sess, controller, pool,
             l = l[keep]
             s = list(compress(s, keep))
             invalid = invalid[keep]
-            actions = actions[keep, :]
-            obs = [o[keep, :] for o in obs]
-            priors = priors[keep, :, :]
+
+            actions = actions[keep]
+            obs = [o[keep] for o in obs]
+            priors = priors[keep]
+
+
+
+        # filter out invalids from training batch
+        keep = ~invalid
+
+        base_r = base_r[keep]
+        r_train = r = r[keep]
+        programs = list(compress(programs, keep))
+        l = l[keep]
+        s = list(compress(s, keep))
+        invalid = invalid[keep]
+
+        actions = actions[keep]
+        obs = [o[keep] for o in obs]
+        priors = priors[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
@@ -308,20 +373,16 @@ def learn(sess, controller, pool,
             ewma = -1
             b_train = quantile
 
-        try:  # ?? Here to catch error in debugger
-            a = programs[np.argmax(r)].sympy_expr
-        except ValueError:
-            print('error occured')
-
         # Collect sub-batch statistics and write output
         if output_file is not None:
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+            # a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
             invalid_avg_sub = np.mean(invalid)
+            # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
                          base_r_max,
@@ -338,35 +399,63 @@ def learn(sess, controller, pool,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
-                         n_novel_sub,
-                         a_ent_full,
-                         a_ent_sub,
+                         n_novel_sub, # ?? removed a_ent_full adn a_ent_sub
                          invalid_avg_full,
-                         invalid_avg_sub
+                         invalid_avg_sub,
+                         sample_metric
                          ]] # changed this array to a list, changed save routine to pandas to allow expression string
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
 
-        # Compute sequence lengths
-        lengths = np.array([min(len(p.traversal), controller.max_length)
-                            for p in programs], dtype=np.int32)
 
-        # Create the Batch
-        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                              lengths=lengths, rewards=r)
+        # val_list = []
+        # for controller in controllers:
+        #     with controller.sess.graph.as_default():
+        #         train_vars = tf.trainable_variables()
+        #         var_names = [v.name for v in train_vars]
+        #         values = controller.sess.run(var_names)
+        #         val_list.append(values)
 
-        # Update and sample from the priority queue
-        if priority_queue is not None:
-            priority_queue.push_best(sampled_batch, programs)
-            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
-        else:
-            pqt_batch = None
 
-        # Train the controller
-        summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
-        if summary:
-            writer.add_summary(summaries, step)
-            writer.flush()
+
+        for ii, controller in enumerate(controllers):
+            # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
+
+            if len(controllers) == 1:
+                lengths = np.array([min(len(p.traversal), controller.max_length)
+                                    for p in programs], dtype=np.int32)
+
+                # Create the Batch
+                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                                      lengths=lengths, rewards=r)
+            else:
+                # find length of sub tokens:
+                if ii == 0:
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
+                                        for p in programs], dtype=np.int32)
+                else:
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:
+                                                         np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
+                                        for p in programs], dtype=np.int32)
+
+                sampled_batch = Batch(actions=actions[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
+                                      lengths=lengths, rewards=r)
+
+            # Update and sample from the priority queue
+            if priority_queue is not None:
+                priority_queue.push_best(sampled_batch, programs)
+                pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+            else:
+                pqt_batch = None
+
+            # Train the controller
+            summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
+
+
+        # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
+        # if summary:
+        #     writer.add_summary(summaries, step)
+        #     writer.flush()
 
         # Update new best expression
         new_r_best = False
@@ -412,15 +501,13 @@ def learn(sess, controller, pool,
             all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
             break
-            # ?? Here I could implement an ealy stopping, for example limit to iterations ect.
-            # Number of iterations wihtout change?
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
-
-        if debug >= 2:
-            print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
-            print_var_means()
+        #
+        # if debug >= 2:
+        #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
+        #     print_var_means()
 
         if len(Program.cache) > 50000:
             #  if the cache contains more than 50000 function, tidy cache. ?? added by Jasper Hemmes 2021

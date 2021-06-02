@@ -7,7 +7,7 @@ from dsr.functions import create_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
 
 
-def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
+def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_nrmse",
     metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
     reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
     normalize_variance=False, protected=False):
@@ -203,15 +203,30 @@ def make_regression_task(name, function_set, dataset, metric="inv_nrmse",
                            protected=protected)
     library = Library(tokens)
 
+    # create secondary library without the tensors to pass to the controllers
+    tens_idx = []
+    tens = []
+    for idx, val in enumerate(dataset_info['input']):
+        if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+            tens.append(val)
+            tens_idx.append(idx)
+
+    sec_tokens = create_tokens(n_input_var=X_train.shape[1]-len(tens),
+                               function_set=function_set,
+                               protected=protected)
+    sec_library = Library(sec_tokens)
+
+
     stochastic = reward_noise > 0.0
 
     extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
-                evaluate=evaluate,
-                library=library,
-                stochastic=stochastic,
-                extra_info=extra_info)
+                         evaluate=evaluate,
+                         library=library,
+                         sec_library=sec_library,
+                         stochastic=stochastic,
+                         extra_info=extra_info)
 
     return task
 

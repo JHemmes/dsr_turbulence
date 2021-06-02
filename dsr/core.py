@@ -47,9 +47,31 @@ class DeepSymbolicOptimizer():
         self.seed(seed) # Must be called _after_ resetting graph
 
         self.pool = self.make_pool()
-        self.sess = tf.Session()
         self.prior = self.make_prior()
-        self.controller = self.make_controller()
+
+        # count the number of tensors in the inputs, if any:
+        n_tensors = 0
+        for input in self.config_task['dataset_info']['input']:
+            if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                n_tensors += 1
+
+        if n_tensors == 0:
+            n_tensors = 1
+
+        self.sess = []
+        self.controller = []
+
+        for _ in range(n_tensors):
+            graph = tf.Graph()
+            with graph.as_default():
+                new_sess = tf.Session()
+                self.sess.append(new_sess)
+                new_controller = Controller(new_sess,
+                                            self.prior,
+                                            **self.config_controller)
+                new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
+                self.controller.append(new_controller)
+
 
     def train(self, seed=0):
 
@@ -90,13 +112,15 @@ class DeepSymbolicOptimizer():
         return seed_
 
     def make_prior(self):
-        prior = make_prior(Program.library, self.config_prior)
+        prior = make_prior(Program.sec_library, self.config_prior)
         return prior
 
     def make_controller(self):
-        controller = Controller(self.sess,
-                                self.prior,
-                                **self.config_controller)
+        controller = []
+        for sess in self.sess:
+            controller.append(Controller(sess,
+                                         self.prior,
+                                         **self.config_controller))
         return controller
 
     def make_pool(self):
