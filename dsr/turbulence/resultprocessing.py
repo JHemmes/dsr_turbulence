@@ -15,10 +15,23 @@ from dsr.program import from_str_tokens
 
 
 def plot_results(results, config):
-    scatter_results(results, config)
-    contourplot_results(results, config)
+    inputs = config['task']['dataset_info']['input']
+    for input in inputs:
+        if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+            tensor = True
+            break
+        else:
+            tensor = False
 
-def scatter_results(results, config):
+    if tensor:
+        print('do nothing (yet)')
+        # scatter_results_tensor(results, config)
+        # contourplot_results_tensor(results, config)
+    else:
+        scatter_results_scalar(results, config)
+        contourplot_results_scalar(results, config)
+
+def scatter_results_scalar(results, config):
 
     plot_sparta = True
 
@@ -27,9 +40,74 @@ def scatter_results(results, config):
     logdir = config['training']['logdir']
 
     if plot_sparta:
-        with open(logdir + '/' + 'config.json', encoding='utf-8') as f:
-            config = json.load(f)
-        inputs = config['task']['dataset']['input']
+        inputs = config['task']['dataset_info']['input']
+
+        # find grad_u_T1
+        if 'grad_u_T1' in inputs:
+            grad_u_T1 = X[:,inputs.index('grad_u_T1')]
+        else:
+            dummy_config = config['task']
+            dummy_config['dataset']['input'] = ['grad_u_T1']
+            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config)
+
+        # find K
+        if 'k' in inputs:
+            k = X[:, inputs.index('k')]
+        else:
+            dummy_config = config['task']
+            dummy_config['dataset']['input'] = ['k']
+            k, _ = load_frozen_RANS_dataset(dummy_config)
+        Rsparta = 2*k*grad_u_T1*1.4
+
+        yhat = results['program'].cython_execute(X)
+        NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
+
+        reward = results['r']
+        expression = results['expression']
+        name = results['name']
+        seed = results['seed']
+        filename = f'dsr_{name}_{seed}'
+
+        fig = plt.figure(figsize=(15,15), dpi=100)
+        ax = plt.gca()
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        plt.scatter(y, yhat, s=2)
+
+        if plot_sparta:
+            plt.scatter(y, Rsparta, s=2, zorder=-1)
+            plt.legend(['DSR', 'sparta'])
+
+        plt.xlabel('Target (ground truth)')
+        plt.ylabel('DSR model result')
+        plt.title(f'reward = {reward}, NRMSE = {NRMSE} \n  expression = ' + expression)
+        plt.grid('both')
+        plt.xlim([10e-6, 1])
+        plt.ylim([10e-6, 1])
+        plt.savefig(logdir + '/' + filename)
+
+
+def scatter_results_tensor(results, config):
+
+    plot_sparta = True
+
+    X, y = config['task']['dataset']
+
+    logdir = config['training']['logdir']
+
+    if plot_sparta:
+
+        sparta1 = '(24.94*inv1**2 + 2.65*inv2)*T1 + 2.96*T2 + (2.49*inv2 + 20.05)*T3 + (2.49inv1 + 14.93)*T4'
+        sparta2 = 'T1*(0.46*inv1**2 + 11.68*inv2 -0.30inv2**2+0.37) + T2*(-12.25*inv1 - 0.63inv2**2 + 8.23)' \
+                  'T3*(-1.36inv2 - 2.44) + T4*(-1.36inv1 + 0.41*inv2 - 6.52)'
+        sparta3 = 'T1*(0.11*inv1*inv2 + 0.27*inv1*(inv2**2) -0.13inv1*(inv2**3) + 0.07*inv1*(inv2**4) + 17.48*inv1 ' \
+                  '+ 0.01*(inv1**2)*inv2 + 1.251*(inv1**2) + 3.67*inv2 + 7.52*(inv2**2) -0.3)' \
+                  '+ T2*(0.17*inv1*(inv2**2) - 0.16*inv1*(inv2**2) - 36.25*inv1 - 2.39*(inv1**2) +19.22*inv2 +7.04)' \
+                  '+ T3*(-0.22*(inv1**2) - 5.23*inv2 - 2.93)'
+
+
+        inputs = config['task']['dataset_info']['input']
+
         # find grad_u_T1
         if 'grad_u_T1' in inputs:
             grad_u_T1 = X[:,inputs.index('grad_u_T1')]
@@ -130,7 +208,7 @@ def case_contourplots_with_sparta(mesh_x, mesh_y, y, yhat, ysparta, filename):
     fig.colorbar(ax0, ax=ax[2])
     plt.savefig(filename+'sparta')
 
-def contourplot_results(results, config):
+def contourplot_results_scalar(results, config):
 
     # re-read config file in output directory to find in and outputs
     logdir = config['training']['logdir']

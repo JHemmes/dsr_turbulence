@@ -155,8 +155,16 @@ def from_tokens(tokens, optimize, skip_cache=False):
                 subtokens = np.insert(subtokens, 0, [add_token, mul_token, ii])
                 final_tokens = np.insert(final_tokens, 0, subtokens)
 
-        p = Program(final_tokens, optimize=optimize)
-
+        if skip_cache:
+            p = Program(final_tokens, optimize=optimize)
+        else:
+            key = final_tokens.tostring()
+            if key in Program.cache:
+                p = Program.cache[key]
+                p.count += 1
+            else:
+                p = Program(final_tokens, optimize=optimize)
+                Program.cache[key] = p
 
     else:
         # create program as usual.

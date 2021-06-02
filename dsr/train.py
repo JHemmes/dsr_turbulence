@@ -517,7 +517,7 @@ def learn(sessions, controllers, pool,
         with open(all_r_output_file, 'ab') as f:
             np.save(f, all_r)
 
-    # Save the hall of fame ?? possibly edit this to save hof each 10 iterations?
+    # Save the hall of fame
     if hof is not None and hof > 0:
         programs = list(Program.cache.values()) # All unique Programs found during training
 
