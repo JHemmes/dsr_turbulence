@@ -34,6 +34,7 @@ def calc_sij_rij(grad_u, omega):
 
     return Sij, Rij
 
+
 def calc_tensor_basis(Sij, Rij):
     """ Calculates the integrity basis of the base tensor expansion.
 
@@ -90,14 +91,15 @@ def calc_invariants(Sij, Rij):
 
     return invariants
 
+
 def flatten_tensor(tensor):
     """ Flattens symmetric tensor.
 
     :param tensor: Given tensor (3,3,num_of_points)
     :return: tensor_flatten: Flatted tensor (6*num_of_points)
     """
-    num_of_cells =  tensor.shape[2]
-    tensor_flatten = np.zeros([6, num_of_cells])
+    num_of_points =  tensor.shape[2]
+    tensor_flatten = np.zeros([6, num_of_points])
     tensor_flatten[0, :] = tensor[0, 0, :]
     tensor_flatten[1, :] = tensor[0, 1, :]
     tensor_flatten[2, :] = tensor[0, 2, :]
@@ -105,6 +107,29 @@ def flatten_tensor(tensor):
     tensor_flatten[4, :] = tensor[1, 2, :]
     tensor_flatten[5, :] = tensor[2, 2, :]
     return tensor_flatten.flatten('A')
+
+
+def de_flatten_tensor(tensor_flat):
+    """De-Flattens symmetric tensor.
+
+    :param tensor: Given Flattened tensor (6*num_of_points)
+    :return: tensor: De-Flattened tensor (3,3,num_of_points)
+    """
+    num_of_points = int(tensor_flat.shape[0]/6)
+    tensor = np.zeros((3, 3, num_of_points))
+
+    tensor[0, 0, :] = tensor_flat[:num_of_points]
+    tensor[0, 1, :] = tensor_flat[num_of_points:2*num_of_points]
+    tensor[1, 0, :] = tensor_flat[num_of_points:2*num_of_points]
+    tensor[0, 2, :] = tensor_flat[2*num_of_points:3*num_of_points]
+    tensor[2, 0, :] = tensor_flat[2*num_of_points:3*num_of_points]
+    tensor[1, 1, :] = tensor_flat[3*num_of_points:4*num_of_points]
+    tensor[1, 2, :] = tensor_flat[4*num_of_points:5*num_of_points]
+    tensor[2, 1, :] = tensor_flat[4*num_of_points:5*num_of_points]
+    tensor[2, 2, :] = tensor_flat[5*num_of_points:]
+
+    return tensor
+
 
 def broadcast_scalar(scalar):
     """ broadcasts scalar to use with flattened tensors.
@@ -114,6 +139,7 @@ def broadcast_scalar(scalar):
     """
     return np.repeat(scalar, 6)
 
+
 def broadcast(scalar, flat_bool):
     """ Returns broadcasted scalar or not, depending on flat_bool """
 
@@ -121,6 +147,7 @@ def broadcast(scalar, flat_bool):
         return broadcast_scalar(scalar)
     else:
         return scalar
+
 
 def load_frozen_RANS_dataset(config_task):
 

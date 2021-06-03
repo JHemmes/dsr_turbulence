@@ -26,8 +26,8 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 200,
-        "batch_size": 100,
+        "n_samples": 1000000,
+        "batch_size": 1000,
         "complexity": "length",
         "complexity_weight": 0.0,
         "const_optimizer": "scipy",
@@ -44,7 +44,7 @@
         "save_all_r": false,
         "early_stopping": true,
         "pareto_front": false,
-        "hof": 10
+        "hof": 100
    },
    "controller": {
       "cell": "lstm",

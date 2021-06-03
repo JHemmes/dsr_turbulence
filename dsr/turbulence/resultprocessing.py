@@ -10,8 +10,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import time
-from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
+from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, de_flatten_tensor
 from dsr.program import from_str_tokens
+import copy
 
 
 def plot_results(results, config):
@@ -24,9 +25,8 @@ def plot_results(results, config):
             tensor = False
 
     if tensor:
-        print('do nothing (yet)')
-        # scatter_results_tensor(results, config)
-        # contourplot_results_tensor(results, config)
+        scatter_results_tensor(results, config)
+        contourplot_results_tensor(results, config)
     else:
         scatter_results_scalar(results, config)
         contourplot_results_scalar(results, config)
@@ -92,41 +92,19 @@ def scatter_results_tensor(results, config):
     plot_sparta = True
 
     X, y = config['task']['dataset']
-
     logdir = config['training']['logdir']
 
     if plot_sparta:
 
-        sparta1 = '(24.94*inv1**2 + 2.65*inv2)*T1 + 2.96*T2 + (2.49*inv2 + 20.05)*T3 + (2.49inv1 + 14.93)*T4'
-        sparta2 = 'T1*(0.46*inv1**2 + 11.68*inv2 -0.30inv2**2+0.37) + T2*(-12.25*inv1 - 0.63inv2**2 + 8.23)' \
-                  'T3*(-1.36inv2 - 2.44) + T4*(-1.36inv1 + 0.41*inv2 - 6.52)'
-        sparta3 = 'T1*(0.11*inv1*inv2 + 0.27*inv1*(inv2**2) -0.13inv1*(inv2**3) + 0.07*inv1*(inv2**4) + 17.48*inv1 ' \
-                  '+ 0.01*(inv1**2)*inv2 + 1.251*(inv1**2) + 3.67*inv2 + 7.52*(inv2**2) -0.3)' \
-                  '+ T2*(0.17*inv1*(inv2**2) - 0.16*inv1*(inv2**2) - 36.25*inv1 - 2.39*(inv1**2) +19.22*inv2 +7.04)' \
-                  '+ T3*(-0.22*(inv1**2) - 5.23*inv2 - 2.93)'
-
-
-        inputs = config['task']['dataset_info']['input']
-
-        # find grad_u_T1
-        if 'grad_u_T1' in inputs:
-            grad_u_T1 = X[:,inputs.index('grad_u_T1')]
-        else:
-            dummy_config = config['task']
-            dummy_config['dataset']['input'] = ['grad_u_T1']
-            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config)
-
-        # find K
-        if 'k' in inputs:
-            k = X[:, inputs.index('k')]
-        else:
-            dummy_config = config['task']
-            dummy_config['dataset']['input'] = ['k']
-            k, _ = load_frozen_RANS_dataset(dummy_config)
-        Rsparta = 2*k*grad_u_T1*1.4
+        yhat_sparta = calc_tensor_sparta_yhat(config)
 
         yhat = results['program'].cython_execute(X)
         NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
+
+        # de-flatten tensors:
+        y = de_flatten_tensor(y)
+        yhat = de_flatten_tensor(yhat)
+        yhat_sparta = de_flatten_tensor(yhat_sparta)
 
         reward = results['r']
         expression = results['expression']
@@ -134,23 +112,194 @@ def scatter_results_tensor(results, config):
         seed = results['seed']
         filename = f'dsr_{name}_{seed}'
 
-        fig = plt.figure(figsize=(15,15), dpi=100)
-        ax = plt.gca()
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        plt.scatter(y, yhat, s=2)
+
+
+        fig, axs = plt.subplots(2, 3, figsize=(22,15), dpi=100)
+        axs_flat = np.reshape(axs, (6,))
+        axs[0, 0].scatter(y[0, 0, :], yhat[0, 0, :], s=2)
+        axs[0, 0].set_title("T[1,1]")
+        axs[0, 0].set_ylabel('DSR model result')
+
+        axs[0, 1].scatter(y[0, 1, :], yhat[0, 1, :], s=2)
+        axs[0, 1].set_title("T[1,2]")
+
+        axs[0, 2].scatter(y[0, 2, :], yhat[0, 2, :], s=2)
+        axs[0, 2].set_title("T[1,3]")
+
+        axs[1, 0].scatter(y[1, 1, :], yhat[1, 1, :], s=2)
+        axs[1, 0].set_title("T[2,2]")
+        axs[1, 0].set_xlabel('target (ground truth)')
+        axs[1, 0].set_ylabel('DSR model result')
+
+        axs[1, 1].scatter(y[1, 2, :], yhat[1, 2, :], s=2)
+        axs[1, 1].set_title("T[2,3]")
+        axs[1, 1].set_xlabel('target (ground truth)')
+
+        axs[1, 2].scatter(y[2, 2, :], yhat[2, 2, :], s=2)
+        axs[1, 2].set_title("T[3,3]")
+        axs[1, 2].set_xlabel('target (ground truth)')
 
         if plot_sparta:
-            plt.scatter(y, Rsparta, s=2, zorder=-1)
-            plt.legend(['DSR', 'sparta'])
+            axs[0, 0].scatter(y[0, 0, :], yhat_sparta[0, 0, :], s=2, zorder=-1)
+            axs[0, 0].set_ylim([min(yhat_sparta[0, 0, :]), max(yhat_sparta[0, 0, :])])
 
-        plt.xlabel('Target (ground truth)')
-        plt.ylabel('DSR model result')
-        plt.title(f'reward = {reward}, NRMSE = {NRMSE} \n  expression = ' + expression)
+            axs[0, 1].scatter(y[0, 1, :], yhat_sparta[0, 1, :], s=2, zorder=-1)
+            axs[0, 1].set_ylim([min(yhat_sparta[0, 1, :]), max(yhat_sparta[0, 1, :])])
+
+            axs[0, 2].scatter(y[0, 2, :], yhat_sparta[0, 2, :], s=2, zorder=-1)
+            axs[0, 2].set_ylim([min(yhat_sparta[0, 2, :]), max(yhat_sparta[0, 2, :])])
+
+            axs[1, 0].scatter(y[1, 1, :], yhat_sparta[1, 1, :], s=2, zorder=-1)
+            axs[1, 0].set_ylim([min(yhat_sparta[1, 1, :]), max(yhat_sparta[1, 1, :])])
+
+            axs[1, 1].scatter(y[1, 2, :], yhat_sparta[1, 2, :], s=2, zorder=-1)
+            axs[1, 1].set_ylim([min(yhat_sparta[1, 2, :]), max(yhat_sparta[1, 2, :])])
+
+            axs[1, 2].scatter(y[2, 2, :], yhat_sparta[2, 2, :], s=2, zorder=-1)
+            axs[1, 2].set_ylim([min(yhat_sparta[2, 2, :]), max(yhat_sparta[2, 2, :])])
+
+        for ax in axs_flat:
+            if plot_sparta:
+                ax.legend(['DSR', 'sparta'])
+
+        plt.suptitle(f'reward = {reward}, NRMSE = {NRMSE} \n  expression = ' + expression)
         plt.grid('both')
-        plt.xlim([10e-6, 1])
-        plt.ylim([10e-6, 1])
         plt.savefig(logdir + '/' + filename)
+        # log_axes = [axs[0, 0], axs[0, 1], axs[1, 2]]
+        # lin_axes = [axs[0, 2], axs[1, 0], axs[1, 1]]
+        #
+        # for ax in log_axes:
+        #     ax.set_xscale('log')
+        #     ax.set_yscale('log')
+        #     if plot_sparta:
+        #         ax.legend(['DSR', 'sparta'])
+        #
+        # for ax in lin_axes:
+        #     if plot_sparta:
+        #         ax.legend(['DSR', 'sparta'])
+
+
+def calc_tensor_sparta_yhat(config):
+
+    # load all required inputs
+    dummy_config = copy.deepcopy(config['task'])
+    dummy_config.pop('dataset')
+    dummy_config['dataset'] = dummy_config.pop('dataset_info')
+    dummy_config['dataset']['input'] = ['T1', 'T2', 'T3', 'T4', 'inv1', 'inv2']
+    dummy_config['dataset']['output'] = 'bDelta'
+    RANSdata, _ = load_frozen_RANS_dataset(dummy_config)
+    T1 = RANSdata[:,0]
+    T2 = RANSdata[:,1]
+    T3 = RANSdata[:,2]
+    T4 = RANSdata[:,3]
+    inv1 = RANSdata[:,4]
+    inv2 = RANSdata[:,5]
+
+    model1 = False
+    model2 = False
+    model3 = True
+
+    if model1:
+        yhat_sparta = (24.94*inv1**2 + 2.65*inv2)*T1 + 2.96*T2 + (2.49*inv2 + 20.05)*T3 + (2.49*inv1 + 14.93)*T4
+    if model2:
+        yhat_sparta = T1*(0.46*inv1**2 + 11.68*inv2 - 0.30*(inv2**2) + 0.37) + T2*(-12.25*inv1 - 0.63*(inv2**2) + 8.23) + \
+                T3*(-1.36*inv2 - 2.44) + T4*(-1.36*inv1 + 0.41*inv2 - 6.52)
+    if model3:
+        yhat_sparta = T1*(0.11*inv1*inv2 + 0.27*inv1*(inv2**2) - 0.13*inv1*(inv2**3) + 0.07*inv1*(inv2**4) \
+                + 17.48*inv1 + 0.01*(inv1**2)*inv2 + 1.251*(inv1**2) + 3.67*inv2 + 7.52*(inv2**2) - 0.3) \
+                + T2*(0.17*inv1*(inv2**2) - 0.16*inv1*(inv2**2) - 36.25*inv1 - 2.39*(inv1**2) + 19.22*inv2 + 7.04) \
+                + T3*(-0.22*(inv1**2) + 1.8*inv2 + 0.07*(inv2**2)+2.65) + T4*(0.2*(inv1**2) - 5.23*inv2 - 2.93)
+
+    return yhat_sparta
+
+
+def contourplot_results_tensor(results, config):
+
+    # re-read config file in output directory to find in and outputs
+    logdir = config['training']['logdir']
+    with open(logdir + '/config.json', encoding='utf-8') as f:
+        config = json.load(f)
+
+    name = results['name']
+    seed = results['seed']
+
+    cases = ['PH10595', 'CD12600', 'CBFS13700']
+
+    for case in cases:
+
+        config['task']['dataset']['name'] = case
+        X, y = load_frozen_RANS_dataset(config['task'])
+
+        yhat = results['program'].cython_execute(X)
+
+        y = de_flatten_tensor(y)
+        yhat = de_flatten_tensor(yhat)
+
+        # load mesh data
+        frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
+        data_i = frozen['data_i']
+
+        mesh_x = data_i['meshRANS'][0, :, :]
+        mesh_y = data_i['meshRANS'][1, :, :]
+
+        filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
+
+        # here set up grid spec, dress 6 axes one by one using dress_contour_axes
+        fig = plt.figure(figsize=(22, 15), dpi=250)  # , constrained_layout=False
+        outer_grid = fig.add_gridspec(2, 3)  # outer_grid = fig11.add_gridspec(4, 4, wspace=0, hspace=0)
+        axes = []
+
+        for row in range(2):
+            for col in range(3):
+
+                inner_grid = outer_grid[row, col].subgridspec(2, 1, wspace=0, hspace=0)
+                axs = inner_grid.subplots()
+                r = row
+                c = col
+
+                if r == 1:
+                    c = col + 1
+
+                if (r == 1) and (c == 3):
+                    r = 2
+                    c = 2
+                # outer_grid[row, col].suptitle(f'T{r + 1},{c + 1}')
+
+                ymin = np.min(y[r, c, :])
+                ymax = np.max(y[r, c, :])
+
+                y_plot = y[r, c, :]
+                yhat_plot = yhat[r, c, :]
+                y_plot = np.reshape(y_plot, mesh_x.shape, order='F')
+                yhat_plot = np.reshape(yhat_plot, mesh_x.shape, order='F')
+
+                ax0 = axs[0].contourf(mesh_x, mesh_y, y_plot, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+                axs[0].set_title(f'Target {r+1},{c+1}', y=1.0, pad=-14)
+                ax1 = axs[1].contourf(mesh_x, mesh_y, yhat_plot, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+                axs[1].set_title('DSR Model', y=1.0, pad=-14)
+                axes.append([ax0, ax1, axs])
+
+        for pair in axes:
+            ax0 = pair[0]
+            axs = pair[2]
+            fig.colorbar(ax0, ax=axs[0])
+            fig.colorbar(ax0, ax=axs[1])
+        plt.savefig(filename, bbox_inches='tight')
+
+
+def dress_countour_axes():
+    print('nothing here yet')
+
+
+def dress_countour_axes_sparta():
+    print('nothing here yet')
+
+
+
+
+
+
+
 
 def eval_expression(expression, X):
 

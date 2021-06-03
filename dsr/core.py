@@ -61,9 +61,10 @@ class DeepSymbolicOptimizer():
         self.sess = []
         self.controller = []
 
-        for _ in range(n_tensors):
+        for ii in range(n_tensors):
             graph = tf.Graph()
             with graph.as_default():
+                self.seed(seed+ii)
                 new_sess = tf.Session()
                 self.sess.append(new_sess)
                 new_controller = Controller(new_sess,
@@ -71,7 +72,6 @@ class DeepSymbolicOptimizer():
                                             **self.config_controller)
                 new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
                 self.controller.append(new_controller)
-
 
     def train(self, seed=0):
 

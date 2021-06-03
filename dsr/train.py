@@ -346,7 +346,8 @@ def learn(sessions, controllers, pool,
             obs = [o[keep] for o in obs]
             priors = priors[keep]
 
-
+        if np.mean(invalid) == 1:
+            print('catch error')
 
         # filter out invalids from training batch
         keep = ~invalid
