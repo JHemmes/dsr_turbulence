@@ -171,11 +171,6 @@ def learn(sessions, controllers, pool,
     const_params = const_params if const_params is not None else {}
     Program.set_const_optimizer(const_optimizer, **const_params)
 
-    # Initialize compute graph ?? moved to core.py to make the initialisation part of the comput graph
-    # for sess in sessions:
-    #     sess.run(tf.global_variables_initializer())
-    # del sess  # deleting sess is good practice as future code might blindly use this
-
     # ?? disabled when changed to multiple sessions
     # if debug:
     #     tvars = tf.trainable_variables()
@@ -218,6 +213,12 @@ def learn(sessions, controllers, pool,
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
 
+    if len(controllers) > 1:
+        tensor_dsr = True
+    else:
+        tensor_dsr = False
+
+
     for step in range(n_epochs):
 
         # Set of str representations for all Programs ever seen
@@ -228,19 +229,22 @@ def learn(sessions, controllers, pool,
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
 
-        raw_actions = []
+        # raw_actions = []
         actions = []
         obs = []
         priors = []
         for controller in controllers:
             action, ob, prior = controller.sample(batch_size)
-            raw_actions.append(action)
 
-            # actions need to be shuffled because the controllers are initialised with the same seed. If multiple RNNs
-            shuffler = np.random.permutation(batch_size)
-            action = action[shuffler]
-            ob = [item[shuffler] for item in ob]
-            prior = prior[shuffler]
+            # disabled for now since initialised with different seeds:
+
+            # raw_actions.append(action)
+            # if tensor_dsr:
+            #     # for tensor_dsr actions need to be shuffled if controllers are initialised with the same seed.
+            #     shuffler = np.random.permutation(batch_size)
+            #     action = action[shuffler]
+            #     ob = [item[shuffler] for item in ob]
+            #     prior = prior[shuffler]
 
             actions.append(action)
             obs.append(ob)
@@ -248,15 +252,16 @@ def learn(sessions, controllers, pool,
 
         # Choose to stack actions or not, if there is one controller they should not be stacked
         # Also calculate percentage of how much the sampled actions differ if there are multiple RNNs:
-        if len(controllers) > 1:
+        if tensor_dsr:
             actions = np.stack(actions, axis=-1)
             obs = np.stack(obs, axis=-1)
             priors = np.stack(priors, axis=-1)
 
-            all_means = []
-            for a, b in combinations(raw_actions, 2):
-                all_means.append(np.mean(a==b))
-            sample_metric = np.mean(all_means)
+            # all_means = []
+            # for a, b in combinations(raw_actions, 2):
+            #     all_means.append(np.mean(a==b))
+            # sample_metric = np.mean(all_means)
+            sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
 
         else:
             actions = action
@@ -349,19 +354,21 @@ def learn(sessions, controllers, pool,
         if np.mean(invalid) == 1:
             print('catch error')
 
-        # filter out invalids from training batch
-        keep = ~invalid
 
-        base_r = base_r[keep]
-        r_train = r = r[keep]
-        programs = list(compress(programs, keep))
-        l = l[keep]
-        s = list(compress(s, keep))
-        invalid = invalid[keep]
-
-        actions = actions[keep]
-        obs = [o[keep] for o in obs]
-        priors = priors[keep]
+        # disabled for now because of investigation into effect of invalids
+        # # filter out invalids from training batch
+        # keep = ~invalid
+        #
+        # base_r = base_r[keep]
+        # r_train = r = r[keep]
+        # programs = list(compress(programs, keep))
+        # l = l[keep]
+        # s = list(compress(s, keep))
+        # invalid = invalid[keep]
+        #
+        # actions = actions[keep]
+        # obs = [o[keep] for o in obs]
+        # priors = priors[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
@@ -422,14 +429,7 @@ def learn(sessions, controllers, pool,
         for ii, controller in enumerate(controllers):
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
 
-            if len(controllers) == 1:
-                lengths = np.array([min(len(p.traversal), controller.max_length)
-                                    for p in programs], dtype=np.int32)
-
-                # Create the Batch
-                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                                      lengths=lengths, rewards=r)
-            else:
+            if tensor_dsr:
                 # find length of sub tokens:
                 if ii == 0:
                     lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
@@ -439,7 +439,16 @@ def learn(sessions, controllers, pool,
                                                          np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
                                         for p in programs], dtype=np.int32)
 
+                # Create the Batch
                 sampled_batch = Batch(actions=actions[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
+                                      lengths=lengths, rewards=r)
+
+            else:
+                lengths = np.array([min(len(p.traversal), controller.max_length)
+                                    for p in programs], dtype=np.int32)
+
+                # Create the Batch
+                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                                       lengths=lengths, rewards=r)
 
             # Update and sample from the priority queue

@@ -287,20 +287,6 @@ def contourplot_results_tensor(results, config):
         plt.savefig(filename, bbox_inches='tight')
 
 
-def dress_countour_axes():
-    print('nothing here yet')
-
-
-def dress_countour_axes_sparta():
-    print('nothing here yet')
-
-
-
-
-
-
-
-
 def eval_expression(expression, X):
 
     vardict = {}
@@ -473,6 +459,53 @@ def retrospecitvely_plot_contours(logdir):
 #     plt.legend(['y target', 'yhat good', 'yhat bad'])
 #     plt.show()
 
+def load_hof(path):
+    print('Not implemented')
+
+
+def load_iterations(logdir):
+
+    return_dict = {}
+    for filename in os.listdir(logdir):
+        split = filename.split('_')[-1].split('.')
+        if (split[0].isnumeric()) and split[1] == 'csv':
+            df_append = pd.read_csv(f'{logdir}/{filename}')
+            return_dict[filename] = df_append
+
+    return return_dict
+
+def plot_iterations_metrics(logdir):
+
+    plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best']
+    # plot_metrics = ['invalid_avg_full', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best', 'sample_metric']
+
+    results = load_iterations(logdir)
+
+    plot_dict = {}
+    for metric in plot_metrics:
+        plot_dict[metric] = []
+
+    for key in results:
+        for metric in plot_metrics:
+            if len(results[key][metric].values) < 1000:
+                print('pause')
+            plot_dict[metric].append(results[key][metric].values)
+
+    mean_n_novel_sub = np.mean(np.sum(np.array(plot_dict['n_novel_sub']), axis = 1))
+
+    for metric in plot_metrics:
+        fig = plt.figure()
+        for arr in plot_dict[metric]:
+            plt.plot(arr, label=None)
+        plt.plot(np.mean(np.array(plot_dict[metric]), axis=0), color='red', label='mean')
+        plt.xlabel('iterations')
+        plt.ylabel(metric)
+        plt.legend()
+        plt.grid()
+        plt.savefig(f'{logdir}/iterations_{metric}')
+
+
+
 
 
 if __name__ == "__main__":
@@ -486,128 +519,15 @@ if __name__ == "__main__":
     #
     # print('end')
 
+    # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
+    logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
+
+    plot_iterations_metrics(logdir)
 
 
 
-    expression = 'x2*(-0.7289507583079632*x1 + 0.076926414459202349*x1/(x3 + x5) - 0.095542880884756653)'
+    print('end')
 
 
 
-    with open('config_kDeficit.json', encoding='utf-8') as f:
-        config = json.load(f)
-
-
-    X, y = load_frozen_RANS_dataset(config['task'])
-
-    y_hat = eval_expression(expression, X)
-
-    n_rep = 1
-
-
-    print(f'{n_rep} evaluations of reward for different error metrics')
-
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        ans = -np.mean((y - y_hat)**2)
-
-    print(f'neg_mse took: {round(time.time() - starttime,2)}')
-    print(ans)
-
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        ans = -np.sqrt(np.mean((y - y_hat)**2))
-    print(f'neg_rmse took: {round(time.time() - starttime,2)}')
-    print(ans)
-
-
-
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        var_y = np.std(y)
-        ans = -np.mean((y - y_hat)**2)/var_y
-    print(f'neg_nmse took: {round(time.time() - starttime,2)}')
-    print(ans)
-
-
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        var_y = np.std(y)
-        ans = -np.sqrt(np.mean((y - y_hat)**2)/var_y)
-    print(f'neg_nrmse took: {round(time.time() - starttime,2)}')
-
-
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        ans = -np.log(1 + np.mean((y - y_hat)**2))
-    print(f'neglog_mse took: {round(time.time() - starttime,2)}')
-    print(ans)
-
-
-    args = [1.]
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        ans = 1/(1 + args[0]*np.mean((y - y_hat)**2))
-    print(f'inv_mse took: {round(time.time() - starttime,2)}')
-
-
-    args = [1.]
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        var_y = np.std(y)
-        ans = 1/(1 + args[0]*np.mean((y - y_hat)**2)/var_y)
-    print(f'inv_nmse took: {round(time.time() - starttime,2)}')
-    print(ans)
-
-    args = [1.]
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        var_y = np.std(y)
-        ans = 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y))
-    print(f'inv_nrmse took: {round(time.time() - starttime,2)}, with var_y IN the loop')
-    print(ans)
-
-    args = [1.]
-    starttime = time.time()
-    var_y = np.std(y)
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        ans = 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y))
-    print(f'inv_nrmse took: {round(time.time() - starttime,2)}, with var_y OUT the loop')
-    print(ans)
-
-
-    starttime = time.time()
-    for _ in range(n_rep):
-        # Negative mean squared error
-        # Range: [-inf, 0]
-        # Value = -var(y) when y_hat == mean(y)
-        ans = -np.mean((y-y_hat)**2 /np.sqrt(0.001**2 + y**2))
-    print(f'reg_mspe: {round(time.time() - starttime,2)}')
-    print(ans)
 
