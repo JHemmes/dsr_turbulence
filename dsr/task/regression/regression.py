@@ -341,7 +341,7 @@ def make_regression_metric(name, y_train, *args):
     # For inverse MSE-based rewards, invalid reward is 0.0
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
-        "neg_mse" : -var_y,
+        "neg_mse" : -np.inf,   # used to be -var_y
         "neg_rmse" : -np.sqrt(var_y),
         "neg_nmse" : -1.0,
         "neg_nrmse" : -1.0,

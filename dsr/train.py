@@ -337,7 +337,7 @@ def learn(sessions, controllers, pool,
                 # ?? added by Jasper Hemmes
                 min_noinf = min(r[~np.isinf(r)])
                 r[np.isinf(r)] = min_noinf
-            quantile = np.quantile(r, 1 - epsilon, interpolation="higher") # ?? Jasper Hemmes, changed to nanquantile (changed the cont_optimiser to render function invalid if nan constants are returned)
+            quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
 
             base_r = base_r[keep]
@@ -355,7 +355,7 @@ def learn(sessions, controllers, pool,
             print('catch error')
 
 
-        # disabled for now because of investigation into effect of invalids
+        # # disabled for now because of investigation into effect of invalids
         # # filter out invalids from training batch
         # keep = ~invalid
         #
@@ -369,6 +369,7 @@ def learn(sessions, controllers, pool,
         # actions = actions[keep]
         # obs = [o[keep] for o in obs]
         # priors = priors[keep]
+
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)

@@ -520,7 +520,9 @@ if __name__ == "__main__":
     # print('end')
 
     # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
-    logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
+    # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
+    logdir = '../logs_completed/log_old_vs_new_code/new'
+
 
     plot_iterations_metrics(logdir)
 
