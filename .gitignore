@@ -9,4 +9,5 @@ dsr/dsr/summary*
 **/log/
 **/logs_completed
 *nohup.out
+**/__pycache__/*
 
