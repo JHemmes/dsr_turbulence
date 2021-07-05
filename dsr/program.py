@@ -441,17 +441,17 @@ class Program(object):
         def f(consts):
             # set constants
             self.set_constants(consts, ad=True)
+            self.invalid = False
 
             # perform reverse ad, which sets r and jac attributes for program
             self.base_r, self.jac = self.task.ad_reverse(self)
 
             obj = -self.base_r  # const optimizer minimizes the objective function
 
-            self.invalid = False
+            # self.invalid = False
             return obj
 
         def f_jac(consts):
-            # print(f'jacobian: {self.jac}')
             return -self.jac
 
         # Create the objective function, which is a function of the constants being optimized
@@ -468,8 +468,6 @@ class Program(object):
 
         assert self.execute is not None, "set_execute needs to be called first"
 
-        # should work for [ 8,  8,  7,  6,  8, 13,  6,  7,  1,  4,  5]
-
         if len(self.const_pos) > 0:
             # Do the optimization
 
@@ -477,6 +475,7 @@ class Program(object):
             self.task.set_ad_traversal(self)
 
             x0 = np.ones(len(self.const_pos)) # Initial guess
+            # optimized_constants, results = Program.const_optimizer(f_old, x0)
             optimized_constants, results = Program.const_optimizer(f, x0, jac=f_jac)
 
             # only used to catch interesting equations during testing
@@ -533,6 +532,11 @@ class Program(object):
             if any(np.isnan(optimized_constants)):
                 self.invalid = True
             self.set_constants(optimized_constants)
+
+            # delete optimisation variables to save cache memory
+            del self.ad_traversal, self.ad_const_pos, self.jac
+
+
 
         else:
             # No need to optimize if there are no constants
@@ -623,11 +627,11 @@ class Program(object):
             Program.cyfunc          = cyfunc
             execute_function        = Program.cython_execute
             Program.have_cython     = True
-            ad_execute    = Program.ad_python_execute
+            ad_execute              = Program.ad_python_execute
         else:
             execute_function        = Program.python_execute
             Program.have_cython     = False
-            ad_execute    = Program.ad_python_execute
+            ad_execute              = Program.ad_python_execute
 
         if protected:
             Program.execute = execute_function
