@@ -67,9 +67,9 @@ class ScipyMinimize(ConstOptimizer):
         super(ScipyMinimize, self).__init__(**kwargs)
 
     
-    def __call__(self, f, x0):
+    def __call__(self, f, x0, options=None, jac=None):
         with np.errstate(divide='ignore'):
             # opt_result = partial(minimize, **self.kwargs)(f, x0)
-            opt_result = partial(minimize, **self.kwargs)(f, x0, options={'maxiter': 25})
+            opt_result = partial(minimize, **self.kwargs)(f, x0, options=options, jac=jac)
         x = opt_result['x']
-        return x
+        return x, opt_result

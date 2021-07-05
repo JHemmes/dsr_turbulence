@@ -270,6 +270,8 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
+        # dummy programs used for testing, 1, 2 and 3 constants, with an existing minimum:
+        # actions = [np.array([8,  8,  7,  6,  8, 13,  6,  7,  1,  4,  5]), np.array([ 9, 13,  8, 13,  6]), np.array([10, 13,  8,  8,  3, 13,  7, 13,  5])]
 
         programs = [from_tokens(a, optimize=True) for a in actions]
 

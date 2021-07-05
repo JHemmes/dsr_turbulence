@@ -8,8 +8,9 @@ from textwrap import indent
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import pretty
+from functools import lru_cache
 
-from dsr.functions import PlaceholderConstant
+from dsr.functions import PlaceholderConstant, AD_PlaceholderConstant
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
@@ -346,7 +347,80 @@ class Program(object):
         assert False, "Function should never get here!"
         return None    
     
-    
+
+    def ad_python_execute(self, X):
+        """Executes the program according to X using Python.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+
+        Returns
+        -------
+        y_hats : array-like, shape = [n_samples]
+            The result of executing the program on X.
+        """
+
+        # # Check for single-node programs
+        # node = self.traversal[0]
+        # if isinstance(node, float):
+        #     return np.repeat(node, X.shape[0])
+        # if isinstance(node, int):
+        #     return X[:, node]
+
+        apply_stack = []
+        idx_counter = 0
+
+        # FWD pass
+        for node in self.ad_traversal:
+            # reset adjoint val to 0 for rwd pass
+            node.adjoint_val = 0
+
+            apply_stack.append([node])
+            # while length of last entry = the arity + 1 of the last entry
+            while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+                # Apply functions that have sufficient arguments
+                token = apply_stack[-1][0]
+                terminals = apply_stack[-1][1:]
+
+                if token.input_var is not None:
+                    token.value = X[:, token.input_var]
+                    token.index = idx_counter
+                    idx_counter += 1
+                else:
+                    token.value = token(*terminals)
+                    token.index = idx_counter
+                    idx_counter += 1
+                if len(apply_stack) != 1:
+                    apply_stack.pop()
+                    apply_stack[-1].append(token)
+                else:
+                    r = token.value
+                    break
+
+        # RWD pass:
+        # set first adjoint value to 1
+        self.ad_traversal[0].adjoint_val = 1
+
+        # execute RWD pass, only update tokens that are parents of constants
+        for token in self.ad_traversal:
+            if token.parent_of_const:
+                if token.name == 'const':
+                    token.adjoint_val = np.sum(token.adjoint_val)
+                else:
+                    token.ad_function(token)
+
+        # extract the const adjoint values from tree
+        jacobian = []
+        for ii in self.ad_const_pos:
+            token = self.ad_traversal[ii]
+            jacobian.append(token.adjoint_val)
+
+        return r[0], np.array(jacobian)
+
+
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -364,8 +438,24 @@ class Program(object):
             Array of optimized constants.
         """
 
-        # Create the objective function, which is a function of the constants being optimized
         def f(consts):
+            # set constants
+            self.set_constants(consts, ad=True)
+
+            # perform reverse ad, which sets r and jac attributes for program
+            self.base_r, self.jac = self.task.ad_reverse(self)
+
+            obj = -self.base_r  # const optimizer minimizes the objective function
+
+            self.invalid = False
+            return obj
+
+        def f_jac(consts):
+            # print(f'jacobian: {self.jac}')
+            return -self.jac
+
+        # Create the objective function, which is a function of the constants being optimized
+        def f_old(consts):
             self.set_constants(consts)
             r = self.task.reward_function(self)
             obj = -r # Constant optimizer minimizes the objective function
@@ -378,12 +468,68 @@ class Program(object):
 
         assert self.execute is not None, "set_execute needs to be called first"
 
+        # should work for [ 8,  8,  7,  6,  8, 13,  6,  7,  1,  4,  5]
+
         if len(self.const_pos) > 0:
             # Do the optimization
+
+            # set ad_traversal
+            self.task.set_ad_traversal(self)
+
             x0 = np.ones(len(self.const_pos)) # Initial guess
-            optimized_constants = Program.const_optimizer(f, x0)
-            # ?? added by Jasper Hemmes
-            # some times scipy minimize returns nan constants, rendering the program invalid.
+            optimized_constants, results = Program.const_optimizer(f, x0, jac=f_jac)
+
+            # only used to catch interesting equations during testing
+            # if len(self.const_pos) == 1:
+            #     if results['nfev'] > 25:
+            #         print(results)
+            #         print(self.traversal)
+            #         print('Pause here')
+            #
+            # if len(self.const_pos) == 2:
+            #     if np.mean(optimized_constants) != 1:
+            #         if results['nfev'] > 40:
+            #             print(results)
+            #             print('Pause here')
+            #
+            # if len(self.const_pos) == 3:
+            #     if np.mean(optimized_constants) != 1:
+            #         if results['nfev'] > 40:
+            #             print(results)
+            #             print('Pause here')
+
+            # used below to check timing of optimisation
+            # nreps = 10
+            # import time
+            #
+            # start = time.time()
+            # for ii in range(nreps):
+            #     constant, results = Program.const_optimizer(f_old, x0)
+            #     # print(f'f_old: {Program.const_optimizer(f_old, x0)}')
+            # print(f'f_old constants: {constant}')
+            # print(results)
+            # print(f'f_old took: {time.time() - start} seconds')
+            # print('\n')
+            #
+            # start = time.time()
+            # for ii in range(nreps):
+            #     self.task.set_ad_traversal(self)
+            #     constant, results = Program.const_optimizer(f, x0)
+            # print(f'f_new WITHOUT jac constants: {constant}')
+            # print(results)
+            # print(f'f_new WITHOUT jac took: {time.time() - start} seconds')
+            # print('\n')
+            #
+            # start = time.time()
+            # for ii in range(nreps):
+            #     self.task.set_ad_traversal(self)
+            #     constant, results = Program.const_optimizer(f, x0, jac=f_jac)
+            # print(f'f_new WITH jac constants: {constant}')
+            # print(results)
+            # print(f'f_new WITH jac took: {time.time() - start} seconds')
+            # print('\n')
+
+            # some times minimize returns nan constants, rendering the program invalid.
             if any(np.isnan(optimized_constants)):
                 self.invalid = True
             self.set_constants(optimized_constants)
@@ -394,14 +540,19 @@ class Program(object):
 
         return optimized_constants
 
-    def set_constants(self, consts):
+    def set_constants(self, consts, ad=False):
         """Sets the program's constants to the given values"""
 
         for i, const in enumerate(consts):
             # Create a new instance of PlaceholderConstant instead of changing
             # the "values" attribute, otherwise all Programs will have the same
             # instance and just overwrite each other's value.
-            self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
+            if ad:
+                const_to_append = AD_PlaceholderConstant(const)
+                const_to_append.parent_of_const = True
+                self.ad_traversal[self.ad_const_pos[i]] = const_to_append
+            else:
+                self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
     @classmethod
     def clear_cache(cls):
@@ -472,9 +623,11 @@ class Program(object):
             Program.cyfunc          = cyfunc
             execute_function        = Program.cython_execute
             Program.have_cython     = True
+            ad_execute    = Program.ad_python_execute
         else:
             execute_function        = Program.python_execute
             Program.have_cython     = False
+            ad_execute    = Program.ad_python_execute
 
         if protected:
             Program.execute = execute_function
@@ -523,8 +676,20 @@ class Program(object):
                     invalid_log.update(p)
                     return y
 
-            Program.execute = unsafe_execute
+            # Define closure for execute function
+            def unsafe_ad_reverse(p, X):
+                """This is a wrapper for execute_function. If a floating-point error
+                would be hit, a warning is logged instead, p.invalid is set to True,
+                and the appropriate nan/inf value is returned. It's up to the task's
+                reward function to decide how to handle nans/infs."""
 
+                with np.errstate(all='log'):
+                    y = ad_execute(p, X)
+                    invalid_log.update(p)
+                    return y
+
+            Program.execute = unsafe_execute
+            Program.ad_reverse = unsafe_ad_reverse
 
     @cached_property
     def complexity(self):

@@ -2,8 +2,9 @@
 
 import numpy as np
 from fractions import Fraction
+from copy import deepcopy
 
-from dsr.library import Token, PlaceholderConstant
+from dsr.library import Token, AD_Token, PlaceholderConstant, AD_PlaceholderConstant
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
 
@@ -31,6 +32,52 @@ def harmonic(x1):
     else:
         return GAMMA + np.log(x1) + 0.5/x1 - 1./(12*x1**2) + 1./(120*x1**4)
 
+def ad_mul(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val*self.right_child.value
+    # update right child adjoint value
+    self.right_child.adjoint_val += self.adjoint_val*self.left_child.value
+
+def ad_add(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val
+    # update right child adjoint value
+    self.right_child.adjoint_val += self.adjoint_val
+
+def ad_sub(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val
+    # update right child adjoint value
+    self.right_child.adjoint_val += -self.adjoint_val
+
+def ad_div(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val/self.right_child.value
+    # update right child adjoint value
+    self.right_child.adjoint_val += -self.adjoint_val*(self.value/self.right_child.value)
+
+def ad_exp(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val*self.value
+
+def ad_log(self):
+    # update left child adjoint valuex
+    self.left_child.adjoint_val += self.adjoint_val/self.left_child.value
+
+def ad_sum(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val
+
+def ad_n2(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val*2*self.left_child.value
+
+def ad_sqrt(self):
+    # update left child adjoint value
+    self.left_child.adjoint_val += self.adjoint_val/(2*np.sqrt(self.left_child.value))
+
+
+
 
 # Annotate unprotected ops
 unprotected_ops = [
@@ -54,6 +101,7 @@ unprotected_ops = [
     Token(np.minimum, "min", arity=1, complexity=4),
     Token(np.tanh, "tanh", arity=1, complexity=4),
     Token(np.reciprocal, "inv", arity=1, complexity=2),
+    Token(np.sum, "sum", arity=1, complexity=2),
 
     # Custom unary operators
     Token(logabs, "logabs", arity=1, complexity=4),
@@ -63,7 +111,6 @@ unprotected_ops = [
     Token(sigmoid, "sigmoid", arity=1, complexity=4),
     Token(harmonic, "harmonic", arity=1, complexity=4)
 ]
-
 
 """Define custom protected operators"""
 def protected_div(x1, x2):
@@ -193,3 +240,55 @@ def create_tokens(n_input_var, function_set, protected):
         tokens.append(token)
 
     return tokens
+
+# create dict of inputs to easily create ad tokens
+ad_token_inputs = {'add':  {'function': np.add, 'ad_function': ad_add, 'name': 'add', 'arity': 2, 'complexity':1},
+                   'sub':  {'function': np.subtract, 'ad_function': ad_sub, 'name': 'sub', 'arity': 2, 'complexity':1},
+                   'mul':  {'function': np.multiply, 'ad_function': ad_mul, 'name': 'mul', 'arity': 2, 'complexity':1},
+                   'div':  {'function': np.divide, 'ad_function': ad_div, 'name': 'div', 'arity': 2, 'complexity':2},
+                   'exp':  {'function': np.exp, 'ad_function': ad_exp, 'name': 'exp', 'arity': 1, 'complexity':4},
+                   'log':  {'function': np.log, 'ad_function': ad_log, 'name': 'log', 'arity': 1, 'complexity':4},
+                   'sqrt': {'function': np.sqrt, 'ad_function': ad_sqrt, 'name': 'sqrt', 'arity': 1, 'complexity':4},
+                   'n2':   {'function': np.square, 'ad_function': ad_n2, 'name': 'n2', 'arity': 1, 'complexity':2},
+                   'sum':  {'function': np.sum, 'ad_function': ad_sum, 'name': 'sum', 'arity': 1, 'complexity':2}}
+
+def create_ad_tokens(traversal):
+    # must be unique tokens because otherwise the values of tokens appearing more than once are just overwritten
+
+    ad_traversal = []
+
+    for token in traversal:
+        if token.input_var != None:
+            token_instance = deepcopy(token)
+            token_instance.left_child = None
+            token_instance.right_child = None
+            token_instance.value = None
+            token_instance.adjoint_val = 0
+            token_instance.index = None
+            token_instance.parent_of_const = False
+            ad_traversal.append(token_instance)
+        elif token.name == 'const':
+            ad_traversal.append(token)
+        else:
+            ad_traversal.append(AD_Token(**ad_token_inputs[token.name]))
+
+    return ad_traversal
+
+def create_metric_ad_tokens(names, y=None):
+    # must be unique tokens because otherwise the values of tokens appearing more than once are just overwritten
+
+    constant_dict = {'one': 1,
+                     'y': y,
+                     'n': len(y),
+                     'n_var_y': np.var(y)*len(y)}
+
+    metric_traversal = []
+
+    for name in names:
+        if name in constant_dict.keys():
+            token = AD_PlaceholderConstant(value=constant_dict[name], name=name)
+            metric_traversal.append(token)
+        else:
+            metric_traversal.append(AD_Token(**ad_token_inputs[name]))
+
+    return metric_traversal
