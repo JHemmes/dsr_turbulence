@@ -105,7 +105,15 @@ def setup_output_files(logdir, output_file):
                     "n_novel_sub", # Removed a_end_full, a_ent_sub for now.
                     "invalid_avg_full",
                     "invalid_avg_sub",
-                    "sample_metric"]
+                    "sample_metric",
+                    "nfev_avg_full",
+                    "nfev_avg_sub",
+                    "eq_w_const_full",
+                    "eq_w_const_sub",
+                    "n_const_per_eq_full",
+                    "n_const_per_eq_sub",
+                    "duration"
+                   ]
         f.write("{}\n".format(",".join(headers)))
 
     return all_r_output_file, hof_output_file, pf_output_file

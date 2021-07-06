@@ -262,6 +262,8 @@ class Program(object):
         against reward function, and evalutes the reward.
         """
 
+        self.nfev = 0
+        self.ad_r = None
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
         self.len_traversal = len(self.traversal)
@@ -274,7 +276,7 @@ class Program(object):
         self.str = tokens.tostring()
 
         if optimize:
-            _ = self.optimize()
+            _ = self.optimize
 
         self.count = 1
 
@@ -421,6 +423,7 @@ class Program(object):
         return r[0], np.array(jacobian)
 
 
+    @property
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -444,9 +447,9 @@ class Program(object):
             self.invalid = False
 
             # perform reverse ad, which sets r and jac attributes for program
-            self.base_r, self.jac = self.task.ad_reverse(self)
+            self.ad_r, self.jac = self.task.ad_reverse(self)
 
-            obj = -self.base_r  # const optimizer minimizes the objective function
+            obj = -self.ad_r  # const optimizer minimizes the objective function
 
             # self.invalid = False
             return obj
@@ -476,26 +479,11 @@ class Program(object):
 
             x0 = np.ones(len(self.const_pos)) # Initial guess
             # optimized_constants, results = Program.const_optimizer(f_old, x0)
-            optimized_constants, results = Program.const_optimizer(f, x0, jac=f_jac)
-
-            # only used to catch interesting equations during testing
-            # if len(self.const_pos) == 1:
-            #     if results['nfev'] > 25:
-            #         print(results)
-            #         print(self.traversal)
-            #         print('Pause here')
+            optimized_constants, nfev = Program.const_optimizer(f, x0, jac=f_jac)
+            self.nfev = nfev
             #
-            # if len(self.const_pos) == 2:
-            #     if np.mean(optimized_constants) != 1:
-            #         if results['nfev'] > 40:
-            #             print(results)
-            #             print('Pause here')
-            #
-            # if len(self.const_pos) == 3:
-            #     if np.mean(optimized_constants) != 1:
-            #         if results['nfev'] > 40:
-            #             print(results)
-            #             print('Pause here')
+            # if nfev > 100:
+            #     print('pause here')
 
             # used below to check timing of optimisation
             # nreps = 10
@@ -503,28 +491,25 @@ class Program(object):
             #
             # start = time.time()
             # for ii in range(nreps):
-            #     constant, results = Program.const_optimizer(f_old, x0)
+            #     constant, nfev = Program.const_optimizer(f_old, x0)
             #     # print(f'f_old: {Program.const_optimizer(f_old, x0)}')
-            # print(f'f_old constants: {constant}')
-            # print(results)
+            # print(f'f_old constants: {constant}, nfev: {nfev}')
             # print(f'f_old took: {time.time() - start} seconds')
             # print('\n')
             #
             # start = time.time()
             # for ii in range(nreps):
             #     self.task.set_ad_traversal(self)
-            #     constant, results = Program.const_optimizer(f, x0)
-            # print(f'f_new WITHOUT jac constants: {constant}')
-            # print(results)
+            #     constant, nfev = Program.const_optimizer(f, x0)
+            # print(f'f_new WITHOUT jac constants: {constant}, nfev: {nfev}')
             # print(f'f_new WITHOUT jac took: {time.time() - start} seconds')
             # print('\n')
             #
             # start = time.time()
             # for ii in range(nreps):
             #     self.task.set_ad_traversal(self)
-            #     constant, results = Program.const_optimizer(f, x0, jac=f_jac)
-            # print(f'f_new WITH jac constants: {constant}')
-            # print(results)
+            #     constant, nfev = Program.const_optimizer(f, x0, jac=f_jac)
+            # print(f'f_new WITH jac constants: {constant}, nfev: {nfev}')
             # print(f'f_new WITH jac took: {time.time() - start} seconds')
             # print('\n')
 
@@ -708,8 +693,10 @@ class Program(object):
         set"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
-            return self.task.reward_function(self)
+            if self.ad_r != None:
+                return self.ad_r
+            else:
+                return self.task.reward_function(self)
 
     @cached_property
     def r(self):

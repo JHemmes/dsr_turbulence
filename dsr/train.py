@@ -6,6 +6,7 @@ from itertools import compress
 from itertools import combinations
 from datetime import datetime
 from collections import defaultdict
+import time
 
 import tensorflow as tf
 import pandas as pd
@@ -25,7 +26,7 @@ tf.random.set_random_seed(0)
 
 # Work for multiprocessing pool: optimize constants and compute reward
 def work(p):
-    optimized_constants = p.optimize()
+    optimized_constants = p.optimize
     return optimized_constants, p.base_r
 
 
@@ -220,7 +221,7 @@ def learn(sessions, controllers, pool,
 
 
     for step in range(n_epochs):
-
+        start_time = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
@@ -270,9 +271,6 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        # dummy programs used for testing, 1, 2 and 3 constants, with an existing minimum:
-        # actions = [np.array([8,  8,  7,  6,  8, 13,  6,  7,  1,  4,  5]), np.array([ 9, 13,  8, 13,  6]), np.array([10, 13,  8,  8,  3, 13,  7, 13,  5])]
-
         programs = [from_tokens(a, optimize=True) for a in actions]
 
         # ?? disabled when changed to multiple sessions since pool is currently always None
@@ -303,6 +301,8 @@ def learn(sessions, controllers, pool,
         s = [p.str for p in programs] # Str representations of Programs
         invalid = np.array([p.invalid for p in programs], dtype=bool)
         all_r[step] = base_r
+        nfev = np.array([p.nfev for p in programs])
+        n_consts = np.array([len(p.const_pos) for p in programs])
 
         if eval_all:
             success = [p.evaluate.get("success") for p in programs]
@@ -331,7 +331,9 @@ def learn(sessions, controllers, pool,
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
-
+        eq_w_const_full = np.mean(n_consts > 0)
+        n_const_per_eq_full = np.mean(n_consts[n_consts > 0])
+        nfev_avg_full = np.mean(nfev[nfev > 1])
 
         # Risk-seeking policy gradient: train on top epsilon fraction of samples
         if epsilon is not None and epsilon < 1.0:
@@ -352,25 +354,8 @@ def learn(sessions, controllers, pool,
             actions = actions[keep]
             obs = [o[keep] for o in obs]
             priors = priors[keep]
-
-        if np.mean(invalid) == 1:
-            print('catch error')
-
-
-        # # disabled for now because of investigation into effect of invalids
-        # # filter out invalids from training batch
-        # keep = ~invalid
-        #
-        # base_r = base_r[keep]
-        # r_train = r = r[keep]
-        # programs = list(compress(programs, keep))
-        # l = l[keep]
-        # s = list(compress(s, keep))
-        # invalid = invalid[keep]
-        #
-        # actions = actions[keep]
-        # obs = [o[keep] for o in obs]
-        # priors = priors[keep]
+            n_consts = n_consts[keep]
+            nfev = nfev[keep]
 
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
@@ -393,6 +378,10 @@ def learn(sessions, controllers, pool,
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
             invalid_avg_sub = np.mean(invalid)
+            eq_w_const_sub = np.mean(n_consts > 0)
+            n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
+            nfev_avg_sub = np.mean(nfev[nfev > 1])
+            duration = time.time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
@@ -413,7 +402,14 @@ def learn(sessions, controllers, pool,
                          n_novel_sub, # ?? removed a_ent_full adn a_ent_sub
                          invalid_avg_full,
                          invalid_avg_sub,
-                         sample_metric
+                         sample_metric,
+                         nfev_avg_full,
+                         nfev_avg_sub,
+                         eq_w_const_full,
+                         eq_w_const_sub,
+                         n_const_per_eq_full,
+                         n_const_per_eq_sub,
+                         duration
                          ]] # changed this array to a list, changed save routine to pandas to allow expression string
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
