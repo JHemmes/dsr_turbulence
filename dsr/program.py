@@ -478,7 +478,7 @@ class Program(object):
             self.task.set_ad_traversal(self)
 
             x0 = np.ones(len(self.const_pos)) # Initial guess
-            # optimized_constants, results = Program.const_optimizer(f_old, x0)
+            # optimized_constants, nfev = Program.const_optimizer(f_old, x0)
             optimized_constants, nfev = Program.const_optimizer(f, x0, jac=f_jac)
             self.nfev = nfev
             #

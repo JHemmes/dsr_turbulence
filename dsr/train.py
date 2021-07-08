@@ -518,9 +518,9 @@ def learn(sessions, controllers, pool,
         #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
         #     print_var_means()
 
-        if len(Program.cache) > 50000:
-            #  if the cache contains more than 50000 function, tidy cache. ?? added by Jasper Hemmes 2021
-            Program.tidy_cache(hof)
+        # if len(Program.cache) > 50000:
+            #  if the cache contains more than 50000 function, tidy cache.
+        Program.tidy_cache(hof)
 
     if save_all_r:
         with open(all_r_output_file, 'ab') as f:
