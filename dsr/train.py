@@ -219,7 +219,6 @@ def learn(sessions, controllers, pool,
     else:
         tensor_dsr = False
 
-
     for step in range(n_epochs):
         start_time = time.time()
         # Set of str representations for all Programs ever seen
@@ -327,7 +326,7 @@ def learn(sessions, controllers, pool,
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
-        # a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions)) # ?? this doenst make sense i think
+        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
@@ -374,7 +373,7 @@ def learn(sessions, controllers, pool,
             base_r_avg_sub = np.mean(base_r)
             r_avg_sub = np.mean(r)
             l_avg_sub = np.mean(l)
-            # a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
             n_unique_sub = len(set(s))
             n_novel_sub = len(set(s).difference(s_history))
             invalid_avg_sub = np.mean(invalid)
@@ -399,7 +398,9 @@ def learn(sessions, controllers, pool,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
-                         n_novel_sub, # ?? removed a_ent_full adn a_ent_sub
+                         n_novel_sub,
+                         a_ent_full,
+                         a_ent_sub,
                          invalid_avg_full,
                          invalid_avg_sub,
                          sample_metric,
@@ -518,9 +519,9 @@ def learn(sessions, controllers, pool,
         #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
         #     print_var_means()
 
-        # if len(Program.cache) > 50000:
-            #  if the cache contains more than 50000 function, tidy cache.
-        Program.tidy_cache(hof)
+        if len(Program.cache) > 10000:
+            # if the cache contains more than x function, tidy cache.
+            Program.tidy_cache(hof)
 
     if save_all_r:
         with open(all_r_output_file, 'ab') as f:
