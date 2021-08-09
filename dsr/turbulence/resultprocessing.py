@@ -476,10 +476,17 @@ def load_iterations(logdir):
 
 def plot_iterations_metrics(logdir):
 
-    plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best']
+    plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best',
+                    'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub', 'n_const_per_eq_full',
+                    'n_const_per_eq_sub', 'duration', 'a_end_full', 'a_ent_sub']
     # plot_metrics = ['invalid_avg_full', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best', 'sample_metric']
 
     results = load_iterations(logdir)
+
+    n_iter = 0
+    for key, value in results.items():
+        if value.shape[0] > n_iter:
+            n_iter = value.shape[0]
 
     plot_dict = {}
     for metric in plot_metrics:
@@ -487,11 +494,13 @@ def plot_iterations_metrics(logdir):
 
     for key in results:
         for metric in plot_metrics:
-            if len(results[key][metric].values) < 1000:
-                print('pause')
-            plot_dict[metric].append(results[key][metric].values)
+            if len(results[key][metric].values) == n_iter:
+                plot_dict[metric].append(results[key][metric].values)
 
-    mean_n_novel_sub = np.mean(np.sum(np.array(plot_dict['n_novel_sub']), axis = 1))
+    # find number of iterations completed:
+
+
+    # mean_n_novel_sub = np.mean(np.sum(np.array(plot_dict['n_novel_sub']), axis = 1))
 
     for metric in plot_metrics:
         fig = plt.figure()
@@ -503,6 +512,7 @@ def plot_iterations_metrics(logdir):
         plt.legend()
         plt.grid()
         plt.savefig(f'{logdir}/iterations_{metric}')
+
 
 
 
@@ -521,7 +531,7 @@ if __name__ == "__main__":
 
     # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
     # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
-    logdir = '../logs_completed/log_old_vs_new_code/new'
+    logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
 
 
     plot_iterations_metrics(logdir)

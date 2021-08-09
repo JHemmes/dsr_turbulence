@@ -504,6 +504,7 @@ def learn(sessions, controllers, pool,
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
+        # Stop if early stopping criteria is met
         if eval_all and any(success):
             all_r = all_r[:(step + 1)]
             print("Early stopping criteria met; breaking early.")
