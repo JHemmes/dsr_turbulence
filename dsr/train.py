@@ -340,7 +340,7 @@ def learn(sessions, controllers, pool,
                 # ?? added by Jasper Hemmes
                 min_noinf = min(r[~np.isinf(r)])
                 r[np.isinf(r)] = min_noinf
-            quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
+            quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
 
             base_r = base_r[keep]
