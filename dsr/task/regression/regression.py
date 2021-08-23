@@ -3,7 +3,7 @@ import pandas as pd
 
 import dsr
 from dsr.library import Library
-from dsr.functions import create_tokens
+from dsr.functions import create_tokens, create_ad_tokens, create_metric_ad_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
 
 
@@ -107,7 +107,7 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
     var_y_test_noiseless = np.var(y_test_noiseless)
 
     # Define closures for metric
-    metric, invalid_reward, max_reward = make_regression_metric(metric, y_train, *metric_params)
+    metric, invalid_reward, max_reward, ad_metric_traversal = make_regression_metric(metric, y_train, *metric_params)
     if extra_metric_test is not None:
         print("Setting extra test metric to {}.".format(extra_metric_test))
         metric_test, _, _ = make_regression_metric(extra_metric_test, y_test, *extra_metric_test_params) 
@@ -154,6 +154,31 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
                 r /= np.sqrt(1 + 12*scale**2)
 
         return r
+
+    def set_ad_traversal(p):
+
+        # create ad tokens:
+        ad_traversal = create_ad_tokens(p.traversal)
+        # update traversal with error metric
+        p.ad_traversal = ad_metric_traversal[:-1] + ad_traversal + [ad_metric_traversal[-1]]
+        # add ad_const_pos for ad traversal.
+        p.ad_const_pos = [pos + len(ad_metric_traversal[:-1]) for pos in p.const_pos]
+
+    def reverse_ad(p):
+
+        # on each evaluation reset the adjoint tokens to 0, except the first to 1.
+
+        # Compute estimated values
+        base_r, jac = p.ad_reverse(X_train)
+
+        # For invalid expressions, return invalid_reward
+        if p.invalid:
+            return invalid_reward, np.zeros(jac.shape)
+
+
+        # set self.r and self.jac at end of this function
+
+        return base_r, jac
 
 
     def evaluate(p):
@@ -217,11 +242,24 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
     sec_library = Library(sec_tokens)
 
 
+    # # add to function set
+    # ad_function_set = function_set + ['n2', 'sum']
+    # # create library for automatic differentiation in reverse mode
+    # ad_tokens = create_tokens(n_input_var=X_train.shape[1],
+    #                        function_set=ad_function_set,
+    #                        protected=protected)
+    # ad_library = Library(ad_tokens)
+
+
+
+
     stochastic = reward_noise > 0.0
 
     extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
+                         ad_reverse=reverse_ad,
+                         set_ad_traversal=set_ad_traversal,
                          evaluate=evaluate,
                          library=library,
                          sec_library=sec_library,
@@ -372,4 +410,12 @@ def make_regression_metric(name, y_train, *args):
     }
     max_reward = all_max_rewards[name]
 
-    return metric, invalid_reward, max_reward
+
+    all_ad_metric_traversals = {
+        'mse' : ['div', 'sum', 'n2', 'sub', 'y', 'n'],
+        'inv_nrmse' : ['div', 'one', 'add', 'one', 'sqrt', 'div', 'sum', 'n2', 'sub', 'y', 'n_var_y']
+    }
+
+    ad_metric_traversal = create_metric_ad_tokens(all_ad_metric_traversals[name], y=y_train)
+
+    return metric, invalid_reward, max_reward, ad_metric_traversal

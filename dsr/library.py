@@ -53,6 +53,85 @@ class Token():
         return self.name
 
 
+class AD_Token():
+    """
+    An arbitrary token or "building block" of a Program object. With AD_capabilities.
+
+    Attributes
+    ----------
+    name : str
+        Name of token.
+
+    arity : int
+        Arity (number of arguments) of token.
+
+    complexity : float
+        Complexity of token.
+
+    function : callable
+        Function associated with the token; used for exectuable Programs.
+
+    input_var : int or None
+        Index of input if this Token is an input variable, otherwise None.
+
+    Methods
+    -------
+    __call__(input)
+        Call the Token's function according to input.
+    """
+
+    def __init__(self, function, ad_function, name, arity, complexity, input_var=None):
+        self.function = function
+        self.ad_function = ad_function
+        self.name = name
+        self.arity = arity
+        self.complexity = complexity
+        self.input_var = input_var
+        self.left_child = None
+        self.right_child = None
+        self.value = None
+        self.adjoint_val = 0
+        self.index = None
+        self.parent_of_const = False
+
+        if input_var is not None:
+            assert function is None, "Input variables should not have functions."
+            assert arity == 0, "Input variables should have arity zero."
+
+    def __call__(self, *args):
+        assert self.function is not None, \
+            "Token {} is not callable.".format(self.name)
+        if self.arity == 2:
+            self.left_child = args[0]
+            self.right_child = args[1]
+            if any([self.left_child.parent_of_const, self.right_child.parent_of_const]):
+                self.parent_of_const = True
+            args = [self.left_child.value, self.right_child.value]
+        elif self.arity == 1:
+            self.left_child = args[0]
+            if self.left_child.parent_of_const:
+                self.parent_of_const = True
+            args = [self.left_child.value]
+        else:
+            return self.function(*args)
+
+        self.value = self.function(*args)
+
+        return self.value
+
+    def __repr__(self):
+        return self.name
+
+    def fwd_pass_call(self, *args):
+        # set children, calculate value of node using children. Children will be passed as args*
+        assert self.function is not None, \
+            "Token {} is not callable.".format(self.name)
+
+        self.value = self.function(*args)
+
+        return self.node_val
+
+
 class PlaceholderConstant(Token):
     """
     A Token for placeholder constants that will be optimized with respect to
@@ -65,9 +144,6 @@ class PlaceholderConstant(Token):
     """
 
     def __init__(self, value=None):
-        if value is not None:
-            value = np.atleast_1d(value)
-        self.value = value
 
         def function():
             assert self.value is not None, \
@@ -76,10 +152,46 @@ class PlaceholderConstant(Token):
 
         super().__init__(function=function, name="const", arity=0, complexity=1)
 
+        if value is not None:
+            value = np.atleast_1d(value)
+        self.value = value
+
     def __repr__(self):
         if self.value is None:
             return self.name
         return str(self.value[0])
+
+class AD_PlaceholderConstant(AD_Token):
+    """
+    A Token for placeholder constants that will be optimized with respect to
+    the reward function. The function simply returns the "value" attribute.
+
+    Parameters
+    ----------
+    value : float or None
+        Current value of the constant, or None if not yet set.
+    """
+
+    def __init__(self, value=None, name='const'):
+
+        def function():
+            assert self.value is not None, \
+                "Constant is not callable with value None."
+            return self.value
+
+        super().__init__(function=function, ad_function=None, name=name, arity=0, complexity=1)
+
+        if value is not None:
+            value = np.atleast_1d(value)
+        self.value = value
+
+    def __repr__(self):
+        if self.name == 'const':
+            if self.value is None:
+                return self.name
+            return str(self.value[0])
+        return self.name
+
 
 
 class Library():

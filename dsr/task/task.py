@@ -36,6 +36,8 @@ class Task:
     """
 
     reward_function: Callable[[Program], float]
+    ad_reverse: Callable[[Program], float]
+    set_ad_traversal: Callable[[Program], list]
     evaluate: Callable[[Program], float]
     library: Library
     sec_library: Library

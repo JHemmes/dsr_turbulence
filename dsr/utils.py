@@ -88,24 +88,34 @@ def setup_output_files(logdir, output_file):
         # a_ent_* : Empirical positional entropy across sequences averaged over positions
         # invalid_avg_* : Fraction of invalid Programs per batch
         headers = ["base_r_best",
-                    "base_r_max",
-                    "base_r_avg_full",
-                    "base_r_avg_sub",
-                    "r_best",
-                    "r_max",
-                    "batch_r_max_expression",
-                    "r_avg_full",
-                    "r_avg_sub",
-                    "l_avg_full",
-                    "l_avg_sub",
-                    "ewma",
-                    "n_unique_full",
-                    "n_unique_sub",
-                    "n_novel_full",
-                    "n_novel_sub", # Removed a_end_full, a_ent_sub for now.
-                    "invalid_avg_full",
-                    "invalid_avg_sub",
-                    "sample_metric"]
+                   "base_r_max",
+                   "base_r_avg_full",
+                   "base_r_avg_sub",
+                   "r_best",
+                   "r_max",
+                   "batch_r_max_expression",
+                   "r_avg_full",
+                   "r_avg_sub",
+                   "l_avg_full",
+                   "l_avg_sub",
+                   "ewma",
+                   "n_unique_full",
+                   "n_unique_sub",
+                   "n_novel_full",
+                   "n_novel_sub",
+                   "a_end_full",
+                   "a_ent_sub",
+                   "invalid_avg_full",
+                   "invalid_avg_sub",
+                   "sample_metric",
+                   "nfev_avg_full",
+                   "nfev_avg_sub",
+                   "eq_w_const_full",
+                   "eq_w_const_sub",
+                   "n_const_per_eq_full",
+                   "n_const_per_eq_sub",
+                   "duration"
+                   ]
         f.write("{}\n".format(",".join(headers)))
 
     return all_r_output_file, hof_output_file, pf_output_file
@@ -133,7 +143,6 @@ class cached_property(object):
 
 # Entropy computation in batch
 def empirical_entropy(labels):
-
     n_labels = len(labels)
 
     if n_labels <= 1:
