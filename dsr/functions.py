@@ -1,8 +1,8 @@
 """Common Tokens used for executable Programs."""
-
 import numpy as np
 from fractions import Fraction
 from copy import deepcopy
+from numba import jit
 
 from dsr.library import Token, AD_Token, PlaceholderConstant, AD_PlaceholderConstant
 
@@ -37,6 +37,14 @@ def ad_mul(self):
     self.left_child.adjoint_val += self.adjoint_val*self.right_child.value
     # update right child adjoint value
     self.right_child.adjoint_val += self.adjoint_val*self.left_child.value
+
+# numba cache wrapper for ad_mul token
+# @jit(nopython=True, cache=True)
+# def ad_mul(self):
+#     # update left child adjoint value
+#     self.left_child.adjoint_val += self.adjoint_val*self.right_child.value
+#     # update right child adjoint value
+#     self.right_child.adjoint_val += self.adjoint_val*self.left_child.value
 
 def ad_add(self):
     # update left child adjoint value
