@@ -10,4 +10,5 @@ dsr/dsr/summary*
 **/logs_completed
 *nohup.out
 **/__pycache__/*
+*.idea/*
 

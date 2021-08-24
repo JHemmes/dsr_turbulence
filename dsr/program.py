@@ -276,7 +276,7 @@ class Program(object):
         self.str = tokens.tostring()
 
         if optimize:
-            _ = self.optimize
+            _ = self.optimize()
 
         self.count = 1
 
@@ -423,7 +423,7 @@ class Program(object):
         return r[0], np.array(jacobian)
 
 
-    @property
+    # @property
     def optimize(self):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -481,37 +481,6 @@ class Program(object):
             # optimized_constants, nfev = Program.const_optimizer(f_old, x0)
             optimized_constants, nfev = Program.const_optimizer(f, x0, jac=f_jac)
             self.nfev = nfev
-            #
-            # if nfev > 100:
-            #     print('pause here')
-
-            # used below to check timing of optimisation
-            # nreps = 10
-            # import time
-            #
-            # start = time.time()
-            # for ii in range(nreps):
-            #     constant, nfev = Program.const_optimizer(f_old, x0)
-            #     # print(f'f_old: {Program.const_optimizer(f_old, x0)}')
-            # print(f'f_old constants: {constant}, nfev: {nfev}')
-            # print(f'f_old took: {time.time() - start} seconds')
-            # print('\n')
-            #
-            # start = time.time()
-            # for ii in range(nreps):
-            #     self.task.set_ad_traversal(self)
-            #     constant, nfev = Program.const_optimizer(f, x0)
-            # print(f'f_new WITHOUT jac constants: {constant}, nfev: {nfev}')
-            # print(f'f_new WITHOUT jac took: {time.time() - start} seconds')
-            # print('\n')
-            #
-            # start = time.time()
-            # for ii in range(nreps):
-            #     self.task.set_ad_traversal(self)
-            #     constant, nfev = Program.const_optimizer(f, x0, jac=f_jac)
-            # print(f'f_new WITH jac constants: {constant}, nfev: {nfev}')
-            # print(f'f_new WITH jac took: {time.time() - start} seconds')
-            # print('\n')
 
             # some times minimize returns nan constants, rendering the program invalid.
             if any(np.isnan(optimized_constants)):
@@ -519,7 +488,7 @@ class Program(object):
             self.set_constants(optimized_constants)
 
             # delete optimisation variables to save cache memory
-            del self.ad_traversal, self.ad_const_pos, self.jac
+            self.ad_traversal = self.ad_const_pos = self.jac = None
 
 
 

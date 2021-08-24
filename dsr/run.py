@@ -157,7 +157,6 @@ def main_custom(config_template="config.json",
     config_task = config["task"]      # Set config task again after overwriting dataset
 
     # Define the work
-
     work = partial(train_dsr, config=config)
 
     # Farm out the work
@@ -200,8 +199,8 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    # main_custom(config_template="config_kDeficit.json", mc=4, n_cores_task=1)
-    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
