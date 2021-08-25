@@ -212,7 +212,7 @@ def learn(sessions, controllers, pool,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
+    # all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
 
     if len(controllers) > 1:
         tensor_dsr = True
@@ -299,9 +299,14 @@ def learn(sessions, controllers, pool,
         l = np.array([len(p.traversal) for p in programs])
         s = [p.str for p in programs] # Str representations of Programs
         invalid = np.array([p.invalid for p in programs], dtype=bool)
-        all_r[step] = base_r
+        # all_r[step] = base_r
         nfev = np.array([p.nfev for p in programs])
         n_consts = np.array([len(p.const_pos) for p in programs])
+
+        if any(np.isnan(base_r)):
+            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+            r[np.where(np.isnan(r))[0]] = min(r)
 
         if eval_all:
             success = [p.evaluate.get("success") for p in programs]
@@ -319,10 +324,10 @@ def learn(sessions, controllers, pool,
                     base_r_history[key] = [p.base_r]
 
         # Collect full-batch statistics
-        base_r_max = np.max(base_r)
+        base_r_max = max(base_r)
         base_r_best = max(base_r_max, base_r_best)
         base_r_avg_full = np.mean(base_r)
-        r_max = np.max(r)
+        r_max = max(r)
         r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
@@ -504,14 +509,14 @@ def learn(sessions, controllers, pool,
 
         # Stop if early stopping criteria is met
         # Stop if early stopping criteria is met
-        if eval_all and any(success):
-            all_r = all_r[:(step + 1)]
-            print("Early stopping criteria met; breaking early.")
-            break
-        if early_stopping and p_base_r_best.evaluate.get("success"):
-            all_r = all_r[:(step + 1)]
-            print("Early stopping criteria met; breaking early.")
-            break
+        # if eval_all and any(success):
+        #     all_r = all_r[:(step + 1)]
+        #     print("Early stopping criteria met; breaking early.")
+        #     break
+        # if early_stopping and p_base_r_best.evaluate.get("success"):
+        #     all_r = all_r[:(step + 1)]
+        #     print("Early stopping criteria met; breaking early.")
+        #     break
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
@@ -523,10 +528,10 @@ def learn(sessions, controllers, pool,
         if len(Program.cache) > 10000:
             # if the cache contains more than x function, tidy cache.
             Program.tidy_cache(hof)
-
-    if save_all_r:
-        with open(all_r_output_file, 'ab') as f:
-            np.save(f, all_r)
+    #
+    # if save_all_r:
+    #     with open(all_r_output_file, 'ab') as f:
+    #         np.save(f, all_r)
 
     # Save the hall of fame
     if hof is not None and hof > 0:
