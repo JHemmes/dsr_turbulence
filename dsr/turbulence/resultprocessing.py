@@ -474,7 +474,7 @@ def load_iterations(logdir):
 
     return return_dict
 
-def plot_iterations_metrics(logdir):
+def plot_iterations_metrics(logdir, finished=True):
 
     plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best',
                     'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub', 'n_const_per_eq_full',
@@ -483,10 +483,11 @@ def plot_iterations_metrics(logdir):
 
     results = load_iterations(logdir)
 
-    n_iter = 0
-    for key, value in results.items():
-        if value.shape[0] > n_iter:
-            n_iter = value.shape[0]
+    if finished:
+        n_iter = 0
+        for key, value in results.items():
+            if value.shape[0] > n_iter:
+                n_iter = value.shape[0]
 
     plot_dict = {}
     for metric in plot_metrics:
@@ -494,7 +495,10 @@ def plot_iterations_metrics(logdir):
 
     for key in results:
         for metric in plot_metrics:
-            if len(results[key][metric].values) == n_iter:
+            if finished:
+                if len(results[key][metric].values) == n_iter:
+                    plot_dict[metric].append(results[key][metric].values)
+            else:
                 plot_dict[metric].append(results[key][metric].values)
 
     # find number of iterations completed:
@@ -506,7 +510,8 @@ def plot_iterations_metrics(logdir):
         fig = plt.figure()
         for arr in plot_dict[metric]:
             plt.plot(arr, label=None)
-        plt.plot(np.mean(np.array(plot_dict[metric]), axis=0), color='red', label='mean')
+        if finished:
+            plt.plot(np.mean(np.array(plot_dict[metric]), axis=0), color='red', label='mean')
         plt.xlabel('iterations')
         plt.ylabel(metric)
         plt.legend()
@@ -532,9 +537,9 @@ if __name__ == "__main__":
     # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
     # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
     logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
+    logdir = './log/log_2021-08-25-170231'
 
-
-    plot_iterations_metrics(logdir)
+    plot_iterations_metrics(logdir, finished=False)
 
 
 
