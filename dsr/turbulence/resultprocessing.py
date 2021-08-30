@@ -371,7 +371,7 @@ def contourplot_results_scalar(results, config):
 
         case_contourplots(mesh_x, mesh_y, y, yhat, filename)
 
-def retrospecitvely_plot_contours(logdir):
+def retrospecitvely_plot_contours(logdir, with_sparta=True):
     with open(logdir + '/config.json', encoding='utf-8') as f:
         config = json.load(f)
 
@@ -404,10 +404,12 @@ def retrospecitvely_plot_contours(logdir):
 
                 yhat = eval_expression(df_row['expression'], X)
 
-                # case_contourplots(mesh_x, mesh_y, y, yhat, filename)
-                case_contourplots_with_sparta(mesh_x, mesh_y, y, yhat, ysparta, filename)
-            plt.close('all')
+                if with_sparta:
+                    case_contourplots_with_sparta(mesh_x, mesh_y, y, yhat, ysparta, filename)
+                else:
+                    case_contourplots(mesh_x, mesh_y, y, yhat, filename)
 
+            plt.close('all')
 
     #
 # def unused_code(inputs):
@@ -530,7 +532,7 @@ if __name__ == "__main__":
     ############################################################################
     # #use function below to plot the contours when the logs are already written
     # retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
-    # # retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
+    retrospecitvely_plot_contours('./log/log_2021-08-25-170231', False)
     #
     # print('end')
 
