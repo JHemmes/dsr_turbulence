@@ -442,37 +442,10 @@ class Program(object):
         """
 
         def reverse_ad(consts):
+            self.invalid = False
             self.set_constants(consts, ad=True)
-            self.r, self.jac = self.task.ad_reverse(self)
-            return -self.r, -self.jac
-
-        # def f(consts):
-        #     # set constants
-        #     self.set_constants(consts, ad=True)
-        #     self.invalid = False
-        #
-        #     # perform reverse ad, which sets r and jac attributes for program
-        #     self.ad_r, self.jac = self.task.ad_reverse(self)
-        #
-        #     obj = -self.ad_r  # const optimizer minimizes the objective function
-        #
-        #     # self.invalid = False
-        #     return obj
-        #
-        # def f_jac(consts):
-        #     return -self.jac
-        #
-        # # Create the objective function, which is a function of the constants being optimized
-        # def f_old(consts):
-        #     self.set_constants(consts)
-        #     r = self.task.reward_function(self)
-        #     obj = -r # Constant optimizer minimizes the objective function
-        #
-        #     # Need to reset to False so that a single invalid call during
-        #     # constant optimization doesn't render the whole Program invalid.
-        #     self.invalid = False
-        #
-        #     return obj
+            self.ad_r, self.jac = self.task.ad_reverse(self)
+            return -self.ad_r, -self.jac
 
         assert self.execute is not None, "set_execute needs to be called first"
 
@@ -483,8 +456,9 @@ class Program(object):
             self.task.set_ad_traversal(self)
 
             x0 = np.ones(len(self.const_pos)) # Initial guess
-            # optimized_constants, nfev = Program.const_optimizer(f_old, x0)
+
             optimized_constants, nfev = Program.const_optimizer(reverse_ad, x0, jac=True)
+
             self.nfev = nfev
 
             # some times minimize returns nan constants, rendering the program invalid.
@@ -667,7 +641,8 @@ class Program(object):
         set"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if self.ad_r != None:
+
+            if not self.ad_r == None:
                 return self.ad_r
             else:
                 return self.task.reward_function(self)

@@ -272,27 +272,6 @@ def learn(sessions, controllers, pool,
 
         programs = [from_tokens(a, optimize=True) for a in actions]
 
-        # ?? disabled when changed to multiple sessions since pool is currently always None
-        # # Instantiate, optimize, and evaluate expressions
-        # if pool is None:
-        #     programs = [from_tokens(a, optimize=True) for a in actions]
-        # else:
-        #     # To prevent interfering with the cache, un-optimized programs are
-        #     # first generated serially. Programs that need optimizing are
-        #     # optimized optimized in parallel. Since multiprocessing operates on
-        #     # copies of programs, we manually set the optimized constants and
-        #     # base reward after the pool joins.
-        #     programs = [from_tokens(a, optimize=False) for a in actions]
-        #
-        #     # Filter programs that have not yet computed base_r
-        #     programs_to_optimize = list(set([p for p in programs if "base_r" not in p.__dict__]))
-        #
-        #     # Optimize and compute base_r
-        #     results = pool.map(work, programs_to_optimize)
-        #     for (optimized_constants, base_r), p in zip(results, programs_to_optimize):
-        #         p.set_constants(optimized_constants)
-        #         p.base_r = base_r
-
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
