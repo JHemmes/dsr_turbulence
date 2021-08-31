@@ -11,4 +11,4 @@ dsr/dsr/summary*
 *nohup.out
 **/__pycache__/*
 *.idea/*
-
+**/turbulence/transfer_learning/*

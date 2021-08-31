@@ -443,6 +443,7 @@ class Program(object):
 
         def reverse_ad(consts):
             self.set_constants(consts, ad=True)
+            self.invalid = False
             self.r, self.jac = self.task.ad_reverse(self)
             return -self.r, -self.jac
 

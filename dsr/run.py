@@ -66,10 +66,15 @@ def train_dsr(name_and_seed, config):
     model = DeepSymbolicOptimizer(config)
     start = time.time()
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
-    result.update(model.train(seed=seed))
-    result["t"] = time.time() - start
-    plot_results(result, config)
-    result.pop("program")
+
+    model.train(seed=seed)
+    # model.save('./turbulence/transfer_learning/scalarR')
+
+
+    # result.update(model.train(seed=seed))
+    # result["t"] = time.time() - start
+    # plot_results(result, config)
+    # result.pop("program")
 
     return result
 
@@ -199,7 +204,7 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=3)
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)

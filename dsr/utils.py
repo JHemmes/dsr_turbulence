@@ -87,33 +87,10 @@ def setup_output_files(logdir, output_file):
         # n_novel_* : Number of never-before-seen Programs per batch
         # a_ent_* : Empirical positional entropy across sequences averaged over positions
         # invalid_avg_* : Fraction of invalid Programs per batch
-        headers = ["base_r_best",
-                   "base_r_max",
-                   "base_r_avg_full",
-                   "base_r_avg_sub",
-                   "r_best",
-                   "r_max",
-                   "batch_r_max_expression",
-                   "r_avg_full",
-                   "r_avg_sub",
-                   "l_avg_full",
-                   "l_avg_sub",
-                   "ewma",
-                   "n_unique_full",
-                   "n_unique_sub",
-                   "n_novel_full",
-                   "n_novel_sub",
-                   "a_end_full",
-                   "a_ent_sub",
+        headers = ["a_ent_full",
                    "invalid_avg_full",
-                   "invalid_avg_sub",
-                   "sample_metric",
                    "nfev_avg_full",
-                   "nfev_avg_sub",
-                   "eq_w_const_full",
-                   "eq_w_const_sub",
                    "n_const_per_eq_full",
-                   "n_const_per_eq_sub",
                    "duration"
                    ]
         f.write("{}\n".format(",".join(headers)))

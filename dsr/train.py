@@ -219,7 +219,7 @@ def learn(sessions, controllers, pool,
     else:
         tensor_dsr = False
 
-    for step in range(n_epochs):
+    for step in range(200):
         start_time = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
@@ -293,130 +293,108 @@ def learn(sessions, controllers, pool,
         #         p.set_constants(optimized_constants)
         #         p.base_r = base_r
 
-        # Retrieve metrics
-        base_r = np.array([p.base_r for p in programs])
-        r = np.array([p.r for p in programs])
-        l = np.array([len(p.traversal) for p in programs])
-        s = [p.str for p in programs] # Str representations of Programs
+        # # Retrieve metrics
+        # base_r = np.array([p.base_r for p in programs])
+        # r = np.array([p.r for p in programs])
+        # l = np.array([len(p.traversal) for p in programs])
+        # s = [p.str for p in programs] # Str representations of Programs
         invalid = np.array([p.invalid for p in programs], dtype=bool)
-        # all_r[step] = base_r
+        r = np.ones(invalid.shape)
+        r[invalid] = 0
+        # # all_r[step] = base_r
         nfev = np.array([p.nfev for p in programs])
         n_consts = np.array([len(p.const_pos) for p in programs])
-
-        if any(np.isnan(base_r)):
-            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
-            r[np.where(np.isnan(r))[0]] = min(r)
-
-        if eval_all:
-            success = [p.evaluate.get("success") for p in programs]
-            # Check for success before risk-seeking, but don't break until after
-            if any(success):
-                p_final = programs[success.index(True)]
-
-        # Update reward history
-        if base_r_history is not None:
-            for p in programs:
-                key = p.str
-                if key in base_r_history:
-                    base_r_history[key].append(p.base_r)
-                else:
-                    base_r_history[key] = [p.base_r]
-
-        # Collect full-batch statistics
-        base_r_max = max(base_r)
-        base_r_best = max(base_r_max, base_r_best)
-        base_r_avg_full = np.mean(base_r)
-        r_max = max(r)
-        r_best = max(r_max, r_best)
-        r_avg_full = np.mean(r)
-        l_avg_full = np.mean(l)
-        a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-        n_unique_full = len(set(s))
-        n_novel_full = len(set(s).difference(s_history))
+        #
+        # if any(np.isnan(base_r)):
+        #     # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+        #     base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+        #     r[np.where(np.isnan(r))[0]] = min(r)
+        #
+        # if eval_all:
+        #     success = [p.evaluate.get("success") for p in programs]
+        #     # Check for success before risk-seeking, but don't break until after
+        #     if any(success):
+        #         p_final = programs[success.index(True)]
+        #
+        # # Update reward history
+        # if base_r_history is not None:
+        #     for p in programs:
+        #         key = p.str
+        #         if key in base_r_history:
+        #             base_r_history[key].append(p.base_r)
+        #         else:
+        #             base_r_history[key] = [p.base_r]
+        #
+        # # Collect full-batch statistics
+        # base_r_max = max(base_r)
+        # base_r_best = max(base_r_max, base_r_best)
+        # base_r_avg_full = np.mean(base_r)
+        # r_max = max(r)
+        # r_best = max(r_max, r_best)
+        # r_avg_full = np.mean(r)
+        # l_avg_full = np.mean(l)
+        # a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        # n_unique_full = len(set(s))
+        # n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
-        eq_w_const_full = np.mean(n_consts > 0)
+        # eq_w_const_full = np.mean(n_consts > 0)
         n_const_per_eq_full = np.mean(n_consts[n_consts > 0])
         nfev_avg_full = np.mean(nfev[nfev > 1])
+        #
+        # # Risk-seeking policy gradient: train on top epsilon fraction of samples
+        # if epsilon is not None and epsilon < 1.0:
+        #     if any(np.isinf(r)): # code added to remove infinite rewards that mess up the quantile calculation.
+        #         # ?? added by Jasper Hemmes
+        #         min_noinf = min(r[~np.isinf(r)])
+        #         r[np.isinf(r)] = min_noinf
+        #     quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
+        #     keep = base_r >= quantile
+        #
+        #     base_r = base_r[keep]
+        #     r_train = r = r[keep]
+        #     programs = list(compress(programs, keep))
+        #     l = l[keep]
+        #     s = list(compress(s, keep))
+        #     invalid = invalid[keep]
+        #
+        #     actions = actions[keep]
+        #     obs = [o[keep] for o in obs]
+        #     priors = priors[keep]
+        #     n_consts = n_consts[keep]
+        #     nfev = nfev[keep]
+        #
+        #
+        # # Clip bounds of rewards to prevent NaNs in gradient descent
+        # r = np.clip(r, -1e6, 1e6)
+        #
+        # # Compute baseline
+        # if baseline == "ewma_R":
+        #     ewma = np.mean(r) if ewma is None else alpha*np.mean(r) + (1 - alpha)*ewma
+        #     b_train = ewma
+        # elif baseline == "R_e": # Default
+        #     ewma = -1
+        #     b_train = quantile
 
-        # Risk-seeking policy gradient: train on top epsilon fraction of samples
-        if epsilon is not None and epsilon < 1.0:
-            if any(np.isinf(r)): # code added to remove infinite rewards that mess up the quantile calculation.
-                # ?? added by Jasper Hemmes
-                min_noinf = min(r[~np.isinf(r)])
-                r[np.isinf(r)] = min_noinf
-            quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
-            keep = base_r >= quantile
-
-            base_r = base_r[keep]
-            r_train = r = r[keep]
-            programs = list(compress(programs, keep))
-            l = l[keep]
-            s = list(compress(s, keep))
-            invalid = invalid[keep]
-
-            actions = actions[keep]
-            obs = [o[keep] for o in obs]
-            priors = priors[keep]
-            n_consts = n_consts[keep]
-            nfev = nfev[keep]
-
-
-        # Clip bounds of rewards to prevent NaNs in gradient descent
-        r = np.clip(r, -1e6, 1e6)
-
-        # Compute baseline
-        if baseline == "ewma_R":
-            ewma = np.mean(r) if ewma is None else alpha*np.mean(r) + (1 - alpha)*ewma
-            b_train = ewma
-        elif baseline == "R_e": # Default
-            ewma = -1
-            b_train = quantile
-
-        # Collect sub-batch statistics and write output
+        # # Collect sub-batch statistics and write output
         if output_file is not None:
-            base_r_avg_sub = np.mean(base_r)
-            r_avg_sub = np.mean(r)
-            l_avg_sub = np.mean(l)
-            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-            n_unique_sub = len(set(s))
-            n_novel_sub = len(set(s).difference(s_history))
-            invalid_avg_sub = np.mean(invalid)
-            eq_w_const_sub = np.mean(n_consts > 0)
-            n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
-            nfev_avg_sub = np.mean(nfev[nfev > 1])
+            # base_r_avg_sub = np.mean(base_r)
+            # r_avg_sub = np.mean(r)
+            # l_avg_sub = np.mean(l)
+            a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+            # n_unique_sub = len(set(s))
+            # n_novel_sub = len(set(s).difference(s_history))
+            # invalid_avg_sub = np.mean(invalid)
+            # eq_w_const_sub = np.mean(n_consts > 0)
+            # n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
+            # nfev_avg_sub = np.mean(nfev[nfev > 1])
             duration = time.time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
-            stats = [[
-                         base_r_best,
-                         base_r_max,
-                         base_r_avg_full,
-                         base_r_avg_sub,
-                         r_best,
-                         r_max,
-                         programs[np.argmax(r)].sympy_expr,
-                         r_avg_full,
-                         r_avg_sub,
-                         l_avg_full,
-                         l_avg_sub,
-                         ewma,
-                         n_unique_full,
-                         n_unique_sub,
-                         n_novel_full,
-                         n_novel_sub,
-                         a_ent_full,
-                         a_ent_sub,
-                         invalid_avg_full,
-                         invalid_avg_sub,
-                         sample_metric,
-                         nfev_avg_full,
-                         nfev_avg_sub,
-                         eq_w_const_full,
-                         eq_w_const_sub,
-                         n_const_per_eq_full,
-                         n_const_per_eq_sub,
-                         duration
-                         ]] # changed this array to a list, changed save routine to pandas to allow expression string
+            stats = [[a_ent_full,
+                      invalid_avg_full,
+                      nfev_avg_full,
+                      n_const_per_eq_full,
+                      duration
+                      ]] # changed this array to a list, changed save routine to pandas to allow expression string
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
 
@@ -429,7 +407,7 @@ def learn(sessions, controllers, pool,
         #         values = controller.sess.run(var_names)
         #         val_list.append(values)
 
-
+        b_train = 0  # ???
 
         for ii, controller in enumerate(controllers):
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
@@ -471,163 +449,171 @@ def learn(sessions, controllers, pool,
         # if summary:
         #     writer.add_summary(summaries, step)
         #     writer.flush()
+    for controller in controllers:
+        controller.save(f"./turbulence/transfer_learning/controller_{ii + 1}.ckpt")
+        print(f'Controller {ii+1} saved')
 
-        # Update new best expression
-        new_r_best = False
-        new_base_r_best = False
-
-        if prev_r_best is None or r_max > prev_r_best:
-            new_r_best = True
-            p_r_best = programs[np.argmax(r)]
-            
-        if prev_base_r_best is None or base_r_max > prev_base_r_best:
-            new_base_r_best = True
-            p_base_r_best = programs[np.argmax(base_r)]
-
-        prev_r_best = r_best
-        prev_base_r_best = base_r_best
-
-        # Print new best expression
-        if verbose:
-            if new_r_best and new_base_r_best:
-                if p_r_best == p_base_r_best:
-                    print("\nNew best overall")
-                    p_r_best.print_stats()
-                else:
-                    print("\nNew best reward")
-                    p_r_best.print_stats()
-                    print("...and new best base reward")
-                    p_base_r_best.print_stats()
-
-            elif new_r_best:
-                print("\nNew best reward")
-                p_r_best.print_stats()
-
-            elif new_base_r_best:
-                print("\nNew best base reward")
-                p_base_r_best.print_stats()
-
-        # Stop if early stopping criteria is met
-        # Stop if early stopping criteria is met
-        # if eval_all and any(success):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
-        # if early_stopping and p_base_r_best.evaluate.get("success"):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
-
-        if verbose and step > 0 and step % 10 == 0:
-            print("Completed {} steps".format(step))
-        #
-        # if debug >= 2:
-        #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
-        #     print_var_means()
-
-        if len(Program.cache) > 10000:
-            # if the cache contains more than x function, tidy cache.
-            Program.tidy_cache(hof)
+    result = {'nothing': "lol"}
     #
-    # if save_all_r:
-    #     with open(all_r_output_file, 'ab') as f:
-    #         np.save(f, all_r)
-
-    # Save the hall of fame
-    if hof is not None and hof > 0:
-        programs = list(Program.cache.values()) # All unique Programs found during training
-
-        base_r = [p.base_r for p in programs]
-        i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
-        hof = [programs[i] for i in i_hof]
-
-        if verbose:
-            print("Evaluating the hall of fame...")
-        if pool is not None:
-            results = pool.map(hof_work, hof)
-        else:
-            results = list(map(hof_work, hof))
-
-        eval_keys = list(results[0][-1].keys())
-        columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
-        hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
-        df = pd.DataFrame(hof_results, columns=columns)
-        if hof_output_file is not None:
-            print("Saving Hall of Fame to {}".format(hof_output_file))
-            df.to_csv(hof_output_file, header=True, index=False)
-        
-    # Print error statistics of the cache
-    # ?? Jasper Hemmes. Disabled this because when the cache is cleared it makes no sense to print these stats.
-    # Possibly make this available again, saving stats each time chache is cleared ??
-    # n_invalid = 0
-    # error_types = defaultdict(lambda : 0)
-    # error_nodes = defaultdict(lambda : 0)
-    # for p in Program.cache.values():
-    #     if p.invalid:
-    #         n_invalid += p.count
-    #         error_types[p.error_type] += p.count
-    #         error_nodes[p.error_node] += p.count
-    # if n_invalid > 0:
-    #     total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
-    #     print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
-    #     print("Error type counts:")
-    #     for error_type, count in error_types.items():
-    #         print("  {}: {} ({:.1%})".format( error_type, count, count/n_invalid))
-    #     print("Error node counts:")
-    #     for error_node, count in error_nodes.items():
-    #         print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
+    #     # Update new best expression
+    #     new_r_best = False
+    #     new_base_r_best = False
     #
-    # # Print the priority queue at the end of training
-    # if verbose and priority_queue is not None:
-    #     for i, item in enumerate(priority_queue.iter_in_order()):
-    #         print("\nPriority queue entry {}:".format(i))
-    #         p = Program.cache[item[0]]
-    #         p.print_stats()
+    #     if prev_r_best is None or r_max > prev_r_best:
+    #         new_r_best = True
+    #         p_r_best = programs[np.argmax(r)]
+    #
+    #     if prev_base_r_best is None or base_r_max > prev_base_r_best:
+    #         new_base_r_best = True
+    #         p_base_r_best = programs[np.argmax(base_r)]
+    #
+    #     prev_r_best = r_best
+    #     prev_base_r_best = base_r_best
+    #
+    #     # Print new best expression
+    #     if verbose:
+    #         if new_r_best and new_base_r_best:
+    #             if p_r_best == p_base_r_best:
+    #                 print("\nNew best overall")
+    #                 p_r_best.print_stats()
+    #             else:
+    #                 print("\nNew best reward")
+    #                 p_r_best.print_stats()
+    #                 print("...and new best base reward")
+    #                 p_base_r_best.print_stats()
+    #
+    #         elif new_r_best:
+    #             print("\nNew best reward")
+    #             p_r_best.print_stats()
+    #
+    #         elif new_base_r_best:
+    #             print("\nNew best base reward")
+    #             p_base_r_best.print_stats()
+    #
+    #     # Stop if early stopping criteria is met
+    #     # Stop if early stopping criteria is met
+    #     # if eval_all and any(success):
+    #     #     all_r = all_r[:(step + 1)]
+    #     #     print("Early stopping criteria met; breaking early.")
+    #     #     break
+    #     # if early_stopping and p_base_r_best.evaluate.get("success"):
+    #     #     all_r = all_r[:(step + 1)]
+    #     #     print("Early stopping criteria met; breaking early.")
+    #     #     break
+    #
+    #     if verbose and step > 0 and step % 10 == 0:
+    #         print("Completed {} steps".format(step))
+    #     #
+    #     # if debug >= 2:
+    #     #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
+    #     #     print_var_means()
+    #
+    #     if len(Program.cache) > 10000:
+    #         # if the cache contains more than x function, tidy cache.
+    #         Program.tidy_cache(hof)
+    # #
+    # # if save_all_r:
+    # #     with open(all_r_output_file, 'ab') as f:
+    # #         np.save(f, all_r)
+    #
+    # # Save the hall of fame
+    # if hof is not None and hof > 0:
+    #     programs = list(Program.cache.values()) # All unique Programs found during training
+    #
+    #     base_r = [p.base_r for p in programs]
+    #     i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
+    #     hof = [programs[i] for i in i_hof]
+    #
+    #     if verbose:
+    #         print("Evaluating the hall of fame...")
+    #     if pool is not None:
+    #         results = pool.map(hof_work, hof)
+    #     else:
+    #         results = list(map(hof_work, hof))
+    #
+    #     eval_keys = list(results[0][-1].keys())
+    #     columns = ["r", "base_r", "count", "expression", "traversal"] + eval_keys
+    #     hof_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
+    #     df = pd.DataFrame(hof_results, columns=columns)
+    #     if hof_output_file is not None:
+    #         print("Saving Hall of Fame to {}".format(hof_output_file))
+    #         df.to_csv(hof_output_file, header=True, index=False)
+    #
+    # # Print error statistics of the cache
+    # # ?? Jasper Hemmes. Disabled this because when the cache is cleared it makes no sense to print these stats.
+    # # Possibly make this available again, saving stats each time chache is cleared ??
+    # # n_invalid = 0
+    # # error_types = defaultdict(lambda : 0)
+    # # error_nodes = defaultdict(lambda : 0)
+    # # for p in Program.cache.values():
+    # #     if p.invalid:
+    # #         n_invalid += p.count
+    # #         error_types[p.error_type] += p.count
+    # #         error_nodes[p.error_node] += p.count
+    # # if n_invalid > 0:
+    # #     total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
+    # #     print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
+    # #     print("Error type counts:")
+    # #     for error_type, count in error_types.items():
+    # #         print("  {}: {} ({:.1%})".format( error_type, count, count/n_invalid))
+    # #     print("Error node counts:")
+    # #     for error_node, count in error_nodes.items():
+    # #         print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
+    # #
+    # # # Print the priority queue at the end of training
+    # # if verbose and priority_queue is not None:
+    # #     for i, item in enumerate(priority_queue.iter_in_order()):
+    # #         print("\nPriority queue entry {}:".format(i))
+    # #         p = Program.cache[item[0]]
+    # #         p.print_stats()
+    #
+    # # Compute the pareto front
+    # if pareto_front:
+    #     if verbose:
+    #         print("Evaluating the pareto front...")
+    #     all_programs = list(Program.cache.values())
+    #     costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
+    #     pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
+    #     pf = list(compress(all_programs, pareto_efficient_mask))
+    #     pf.sort(key=lambda p : p.complexity_eureqa) # Sort by complexity
+    #
+    #     if pool is not None:
+    #         results = pool.map(pf_work, pf)
+    #     else:
+    #         results = list(map(pf_work, pf))
+    #
+    #     eval_keys = list(results[0][-1].keys())
+    #     columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
+    #     pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
+    #     df = pd.DataFrame(pf_results, columns=columns)
+    #     if pf_output_file is not None:
+    #         print("Saving Pareto Front to {}".format(pf_output_file))
+    #         df.to_csv(pf_output_file, header=True, index=False)
+    #
+    #     # Look for a success=True case within the Pareto front
+    #     for p in pf:
+    #         if p.evaluate.get("success"):
+    #             p_final = p
+    #             break
+    #
+    # # Close the pool
+    # if pool is not None:
+    #     pool.close()
+    #
+    # # Return statistics of best Program
+    # p = p_final if p_final is not None else p_base_r_best
+    # result = {
+    #     "r" : p.r,
+    #     "base_r" : p.base_r,
+    # }
+    # result.update(p.evaluate)
+    # result.update({
+    #     "expression" : repr(p.sympy_expr),
+    #     "traversal" : repr(p),
+    #     "program" : p
+    # })
 
-    # Compute the pareto front
-    if pareto_front:
-        if verbose:
-            print("Evaluating the pareto front...")
-        all_programs = list(Program.cache.values())
-        costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
-        pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
-        pf = list(compress(all_programs, pareto_efficient_mask))
-        pf.sort(key=lambda p : p.complexity_eureqa) # Sort by complexity
 
-        if pool is not None:
-            results = pool.map(pf_work, pf)
-        else:
-            results = list(map(pf_work, pf))
 
-        eval_keys = list(results[0][-1].keys())
-        columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
-        pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
-        df = pd.DataFrame(pf_results, columns=columns)
-        if pf_output_file is not None:
-            print("Saving Pareto Front to {}".format(pf_output_file))
-            df.to_csv(pf_output_file, header=True, index=False)
-
-        # Look for a success=True case within the Pareto front
-        for p in pf:
-            if p.evaluate.get("success"):
-                p_final = p
-                break
-
-    # Close the pool
-    if pool is not None:
-        pool.close()
-
-    # Return statistics of best Program
-    p = p_final if p_final is not None else p_base_r_best
-    result = {
-        "r" : p.r,
-        "base_r" : p.base_r,
-    }
-    result.update(p.evaluate)
-    result.update({
-        "expression" : repr(p.sympy_expr),
-        "traversal" : repr(p),
-        "program" : p
-    })
 
     return result
