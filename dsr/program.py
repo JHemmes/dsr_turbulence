@@ -441,33 +441,38 @@ class Program(object):
             Array of optimized constants.
         """
 
-        def f(consts):
-            # set constants
+        def reverse_ad(consts):
             self.set_constants(consts, ad=True)
-            self.invalid = False
+            self.r, self.jac = self.task.ad_reverse(self)
+            return -self.r, -self.jac
 
-            # perform reverse ad, which sets r and jac attributes for program
-            self.ad_r, self.jac = self.task.ad_reverse(self)
-
-            obj = -self.ad_r  # const optimizer minimizes the objective function
-
-            # self.invalid = False
-            return obj
-
-        def f_jac(consts):
-            return -self.jac
-
-        # Create the objective function, which is a function of the constants being optimized
-        def f_old(consts):
-            self.set_constants(consts)
-            r = self.task.reward_function(self)
-            obj = -r # Constant optimizer minimizes the objective function
-
-            # Need to reset to False so that a single invalid call during
-            # constant optimization doesn't render the whole Program invalid.
-            self.invalid = False
-
-            return obj
+        # def f(consts):
+        #     # set constants
+        #     self.set_constants(consts, ad=True)
+        #     self.invalid = False
+        #
+        #     # perform reverse ad, which sets r and jac attributes for program
+        #     self.ad_r, self.jac = self.task.ad_reverse(self)
+        #
+        #     obj = -self.ad_r  # const optimizer minimizes the objective function
+        #
+        #     # self.invalid = False
+        #     return obj
+        #
+        # def f_jac(consts):
+        #     return -self.jac
+        #
+        # # Create the objective function, which is a function of the constants being optimized
+        # def f_old(consts):
+        #     self.set_constants(consts)
+        #     r = self.task.reward_function(self)
+        #     obj = -r # Constant optimizer minimizes the objective function
+        #
+        #     # Need to reset to False so that a single invalid call during
+        #     # constant optimization doesn't render the whole Program invalid.
+        #     self.invalid = False
+        #
+        #     return obj
 
         assert self.execute is not None, "set_execute needs to be called first"
 
@@ -479,7 +484,7 @@ class Program(object):
 
             x0 = np.ones(len(self.const_pos)) # Initial guess
             # optimized_constants, nfev = Program.const_optimizer(f_old, x0)
-            optimized_constants, nfev = Program.const_optimizer(f, x0, jac=f_jac)
+            optimized_constants, nfev = Program.const_optimizer(reverse_ad, x0, jac=True)
             self.nfev = nfev
 
             # some times minimize returns nan constants, rendering the program invalid.

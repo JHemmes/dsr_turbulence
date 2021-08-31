@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "20_consts",
+      "name" : "jac_is_true",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
