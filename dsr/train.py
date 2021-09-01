@@ -165,6 +165,8 @@ def learn(sessions, controllers, pool,
     else:
         all_r_output_file = hof_output_file = pf_output_file = None
 
+    full_actions_filename = f"{logdir}/{output_file.split('.')[0]}_actions.csv"
+
     # Set the complexity functions
     Program.set_complexity_penalty(complexity, complexity_weight)
 
@@ -287,6 +289,18 @@ def learn(sessions, controllers, pool,
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
             base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
             r[np.where(np.isnan(r))[0]] = min(r)
+
+        if max(r) > r_best:
+            stepcounter = 100*np.ones((1, actions.shape[1]))
+            stepcounter[0,0] = step
+            df_append = pd.DataFrame(np.vstack([stepcounter, actions]))
+            df_append.to_csv(full_actions_filename, mode='a', header=False, index=False)
+
+        if step%20 == 0:
+            stepcounter = 100*np.ones((1, actions.shape[1]))
+            stepcounter[0,0] = step
+            df_append = pd.DataFrame(np.vstack([stepcounter, actions]))
+            df_append.to_csv(full_actions_filename, mode='a', header=False, index=False)
 
         if eval_all:
             success = [p.evaluate.get("success") for p in programs]
