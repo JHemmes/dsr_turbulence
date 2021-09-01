@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "jac_is_true",
+      "name" : "Iterlim_test",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
