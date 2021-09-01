@@ -263,6 +263,7 @@ class Program(object):
         """
 
         self.nfev = 0
+        self.nit = 0
         self.ad_r = None
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
@@ -455,11 +456,12 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
-            x0 = np.ones(len(self.const_pos)) # Initial guess
+            x0 = np.ones(len(self.const_pos))  # Initial guess
 
-            optimized_constants, nfev = Program.const_optimizer(reverse_ad, x0, jac=True)
+            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True)
 
-            self.nfev = nfev
+            self.nfev += nfev
+            self.nit += nit
 
             # some times minimize returns nan constants, rendering the program invalid.
             if any(np.isnan(optimized_constants)):
@@ -468,8 +470,6 @@ class Program(object):
 
             # delete optimisation variables to save cache memory
             self.ad_traversal = self.ad_const_pos = self.jac = None
-
-
 
         else:
             # No need to optimize if there are no constants
@@ -509,7 +509,6 @@ class Program(object):
 
         cls.cache = {keys[ii]: values[ii] for ii in hof_idx}
 
-
     @classmethod
     def set_task(cls, task):
         """Sets the class' Task"""
@@ -517,7 +516,6 @@ class Program(object):
         Program.task = task
         Program.library = task.library
         Program.sec_library = task.sec_library
-        # Set dummy lib here
 
     @classmethod
     def set_const_optimizer(cls, name, **kwargs):

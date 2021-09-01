@@ -281,6 +281,7 @@ def learn(sessions, controllers, pool,
         # all_r[step] = base_r
         nfev = np.array([p.nfev for p in programs])
         n_consts = np.array([len(p.const_pos) for p in programs])
+        nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
 
         if any(np.isnan(base_r)):
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
@@ -364,6 +365,7 @@ def learn(sessions, controllers, pool,
             eq_w_const_sub = np.mean(n_consts > 0)
             n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
             nfev_avg_sub = np.mean(nfev[nfev > 1])
+            nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
             duration = time.time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
@@ -390,6 +392,8 @@ def learn(sessions, controllers, pool,
                          sample_metric,
                          nfev_avg_full,
                          nfev_avg_sub,
+                         nit_avg_full,
+                         nit_avg_sub,
                          eq_w_const_full,
                          eq_w_const_sub,
                          n_const_per_eq_full,

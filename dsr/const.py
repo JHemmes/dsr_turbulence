@@ -73,4 +73,5 @@ class ScipyMinimize(ConstOptimizer):
             opt_result = partial(minimize, **self.kwargs)(f, x0, options=options, jac=jac, method='BFGS')
         x = opt_result['x']
         nfev = opt_result['nfev']
-        return x, nfev
+        nit = opt_result['nit']
+        return x, nfev, nit
