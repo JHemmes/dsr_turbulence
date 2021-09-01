@@ -444,8 +444,8 @@ class Program(object):
         def reverse_ad(consts):
             self.set_constants(consts, ad=True)
             self.invalid = False
-            self.r, self.jac = self.task.ad_reverse(self)
-            return -self.r, -self.jac
+            self.ad_r, self.jac = self.task.ad_reverse(self)
+            return -self.ad_r, -self.jac
 
         # def f(consts):
         #     # set constants
@@ -485,7 +485,7 @@ class Program(object):
 
             x0 = np.ones(len(self.const_pos)) # Initial guess
             # optimized_constants, nfev = Program.const_optimizer(f_old, x0)
-            optimized_constants, nfev = Program.const_optimizer(reverse_ad, x0, jac=True)
+            optimized_constants, nfev = Program.const_optimizer(reverse_ad, x0, options={'maxiter': 5}, jac=True)
             self.nfev = nfev
 
             # some times minimize returns nan constants, rendering the program invalid.

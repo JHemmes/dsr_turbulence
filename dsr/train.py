@@ -219,7 +219,7 @@ def learn(sessions, controllers, pool,
     else:
         tensor_dsr = False
 
-    for step in range(200):
+    for step in range(1000):
         start_time = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
@@ -295,15 +295,35 @@ def learn(sessions, controllers, pool,
 
         # # Retrieve metrics
         # base_r = np.array([p.base_r for p in programs])
-        # r = np.array([p.r for p in programs])
+        r = np.array([p.r for p in programs]) # make sure to calculate r so that invalid count is proper.
+        nfev = np.array([p.nfev for p in programs])
+
         # l = np.array([len(p.traversal) for p in programs])
         # s = [p.str for p in programs] # Str representations of Programs
+
+        # reward for not being invalid
         invalid = np.array([p.invalid for p in programs], dtype=bool)
-        r = np.ones(invalid.shape)
-        r[invalid] = 0
-        # # all_r[step] = base_r
-        nfev = np.array([p.nfev for p in programs])
+        r_invalid = np.ones(invalid.shape) * 1
+        r_invalid[invalid] = 0
+
+        # reward for having 8? constants?
         n_consts = np.array([len(p.const_pos) for p in programs])
+        r_const = n_consts/8
+        r_const[r_const > 1] = 1
+
+        # reward for being 25 length
+        l = np.array([len(p.traversal) for p in programs])
+        r_length = l / 25
+        r_length[r_length > 1] = 1
+
+        # reward for 2.5 entropy?
+        entropies = np.array([empirical_entropy(p.tokens) for p in programs])
+        r_entropy = entropies/2.5
+        r_entropy[r_entropy > 1] = 1
+        # combine rewards
+
+        r = (r_invalid+r_const+r_length+r_entropy)/4
+
         #
         # if any(np.isnan(base_r)):
         #     # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
@@ -332,7 +352,7 @@ def learn(sessions, controllers, pool,
         # r_max = max(r)
         # r_best = max(r_max, r_best)
         # r_avg_full = np.mean(r)
-        # l_avg_full = np.mean(l)
+        l_avg_full = np.mean(l)
         # a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
         # n_unique_full = len(set(s))
         # n_novel_full = len(set(s).difference(s_history))
@@ -393,6 +413,7 @@ def learn(sessions, controllers, pool,
                       invalid_avg_full,
                       nfev_avg_full,
                       n_const_per_eq_full,
+                      l_avg_full,
                       duration
                       ]] # changed this array to a list, changed save routine to pandas to allow expression string
             df_append = pd.DataFrame(stats)

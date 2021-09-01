@@ -91,6 +91,7 @@ def setup_output_files(logdir, output_file):
                    "invalid_avg_full",
                    "nfev_avg_full",
                    "n_const_per_eq_full",
+                   "l_avg_full",
                    "duration"
                    ]
         f.write("{}\n".format(",".join(headers)))
