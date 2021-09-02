@@ -273,7 +273,7 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        programs = [from_tokens(a, optimize=30) for a in actions]
+        programs = [from_tokens(a, optimize=50) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
@@ -336,9 +336,9 @@ def learn(sessions, controllers, pool,
             l = l[keep]
             s = list(compress(s, keep))
 
-        # Redo the optimisation without limit
+        # Redo the optimisation with higher limit limit
         for p in programs:
-            p.optimize(1000)
+            p.optimize(2000)
 
         # Collect newly optimised sub batch statistics
         base_r = np.array([p.base_r for p in programs])
