@@ -124,8 +124,8 @@ def from_tokens(tokens, optimize, skip_cache=False):
         defines an expression's pre-order traversal. "Dangling" programs are
         completed with repeated "x1" until the expression completes.
 
-    optimize : bool
-        Whether to optimize the program before returning it.
+    optimize : int
+        Whether to optimize the program before returning it. The int is also the maximum number of iterations
 
     skip_cache : bool
         Whether to bypass the cache when creating the program.
@@ -277,7 +277,7 @@ class Program(object):
         self.str = tokens.tostring()
 
         if optimize:
-            _ = self.optimize()
+            _ = self.optimize(optimize)
 
         self.count = 1
 
@@ -425,7 +425,7 @@ class Program(object):
 
 
     # @property
-    def optimize(self):
+    def optimize(self, maxiter):
         """
         Optimizes the constant tokens against the training data and returns the
         optimized constants.
@@ -456,9 +456,15 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
-            x0 = np.ones(len(self.const_pos))  # Initial guess
+            if self.traversal[self.const_pos[0]].value:
+                # if this is the sub batch optimisation with no iter limit, set initial guess to be current constants
+                x0 = np.zeros(len(self.const_pos))
+                for ii in range(len(self.const_pos)):
+                    x0[ii] = self.traversal[self.const_pos[ii]].value
+            else:
+                x0 = np.ones(len(self.const_pos)) # Initial guess
 
-            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True)
+            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
 
             self.nfev += nfev
             self.nit += nit
