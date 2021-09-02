@@ -71,6 +71,12 @@ class DeepSymbolicOptimizer():
                                             self.prior,
                                             **self.config_controller)
                 new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
+
+                if self.config_training['transfer_learning']:
+                    saver = tf.train.Saver()
+                    saver.restore(sess=new_controller.sess,
+                                  save_path=f"./turbulence/transfer_learning/controller_1.ckpt")
+
                 self.controller.append(new_controller)
 
     def train(self, seed=0):

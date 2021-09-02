@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "jac_is_true_2M_test",
+      "name" : "transfer_learning_test",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
@@ -44,7 +44,8 @@
         "save_all_r": false,
         "early_stopping": true,
         "pareto_front": false,
-        "hof": 100
+        "hof": 100,
+        "transfer_learning": true
    },
    "controller": {
       "cell": "lstm",

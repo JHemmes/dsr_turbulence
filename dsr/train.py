@@ -45,17 +45,17 @@ def learn(sessions, controllers, pool,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
           b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
-          pareto_front=False, debug=0):
+          pareto_front=False, debug=0, transfer_learning=False):
     """
     Executes the main training loop.
 
     Parameters
     ----------
-    sess : tf.Session
-        TenorFlow Session object.
+    sessions : list of tf.Session
+        TenorFlow Session object. N depending on how many models used concurrently
 
-    controller : dsr.controller.Controller
-        Controller object used to generate Programs.
+    controllers : list of dsr.controller.Controller
+        Controller object used to generate Programs. N depending on how many models used concurrently
 
     pool : multiprocessing.Pool or None
         Pool to parallelize reward computation. For the control task, each
@@ -141,6 +141,9 @@ def learn(sessions, controllers, pool,
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
+
+    transfer_learning : bool, optional
+        Used to determine whether a fresh model is initialised or a pretrained model is loaded
 
     Returns
     -------
