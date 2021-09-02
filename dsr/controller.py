@@ -674,9 +674,4 @@ class Controller(object):
     def save(self, path):
         with self.sess as Sess:
             saver = tf.train.Saver()
-            save_path = saver.save(sess=Sess, save_path=path)
-
-    def load(self, path):
-        with self.sess as Sess:
-            saver = tf.train.Saver()
-            saver.restore(sess=Sess, save_path=path)
+            saver.save(sess=Sess, save_path=path)

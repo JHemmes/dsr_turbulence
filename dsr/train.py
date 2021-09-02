@@ -219,6 +219,14 @@ def learn(sessions, controllers, pool,
     else:
         tensor_dsr = False
 
+    # # Load controller session from learned models
+    # for ii, controller in enumerate(controllers):
+    #     controller.load(f"./turbulence/transfer_learning/controller_test.ckpt")
+    #     print(f'Controller {ii+1} session restored from file')
+
+
+
+
     for step in range(1000):
         start_time = time.time()
         # Set of str representations for all Programs ever seen
@@ -471,8 +479,8 @@ def learn(sessions, controllers, pool,
         #     writer.add_summary(summaries, step)
         #     writer.flush()
     for controller in controllers:
-        controller.save(f"./turbulence/transfer_learning/controller_{ii + 1}.ckpt")
-        print(f'Controller {ii+1} saved')
+        controller.save(f"./turbulence/transfer_learning/controller_test.ckpt")
+        print(f'Controller test saved')
 
     result = {'nothing': "lol"}
     #
