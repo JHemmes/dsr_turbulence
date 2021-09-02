@@ -219,15 +219,8 @@ def learn(sessions, controllers, pool,
     else:
         tensor_dsr = False
 
-    # # Load controller session from learned models
-    # for ii, controller in enumerate(controllers):
-    #     controller.load(f"./turbulence/transfer_learning/controller_test.ckpt")
-    #     print(f'Controller {ii+1} session restored from file')
 
-
-
-
-    for step in range(1000):
+    for step in range(500):
         start_time = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
@@ -306,31 +299,58 @@ def learn(sessions, controllers, pool,
         r = np.array([p.r for p in programs]) # make sure to calculate r so that invalid count is proper.
         nfev = np.array([p.nfev for p in programs])
 
-        # l = np.array([len(p.traversal) for p in programs])
-        # s = [p.str for p in programs] # Str representations of Programs
+        modeltype = 'tensor'
 
-        # reward for not being invalid
-        invalid = np.array([p.invalid for p in programs], dtype=bool)
-        r_invalid = np.ones(invalid.shape) * 1
-        r_invalid[invalid] = 0
+        if modeltype == 'scalar':
 
-        # reward for having 8? constants?
-        n_consts = np.array([len(p.const_pos) for p in programs])
-        r_const = n_consts/8
-        r_const[r_const > 1] = 1
+            # reward for not being invalid
+            invalid = np.array([p.invalid for p in programs], dtype=bool)
+            r_invalid = np.ones(invalid.shape) * 1
+            r_invalid[invalid] = 0
 
-        # reward for being 25 length
-        l = np.array([len(p.traversal) for p in programs])
-        r_length = l / 25
-        r_length[r_length > 1] = 1
+            # reward for having 8? constants?
+            n_consts = np.array([len(p.const_pos) for p in programs])
+            r_const = n_consts/8
+            r_const[r_const > 1] = 1
 
-        # reward for 2.5 entropy?
-        entropies = np.array([empirical_entropy(p.tokens) for p in programs])
-        r_entropy = entropies/2.5
-        r_entropy[r_entropy > 1] = 1
-        # combine rewards
+            # reward for being 25 length
+            l = np.array([len(p.traversal) for p in programs])
+            r_length = l / 25
+            r_length[r_length > 1] = 1
 
-        r = (r_invalid+r_const+r_length+r_entropy)/4
+            # reward for 2.5 entropy?
+            entropies = np.array([empirical_entropy(p.tokens) for p in programs])
+            r_entropy = entropies/2.5
+            r_entropy[r_entropy > 1] = 1
+            # combine rewards
+
+            r = (r_invalid+r_const+r_length+r_entropy)/4
+
+
+        if modeltype == 'tensor':
+            const_target = 4
+            len_target = 15
+
+            # reward for not being invalid
+            invalid = np.array([p.invalid for p in programs], dtype=bool)
+            r_invalid = np.ones(invalid.shape) * 1
+            r_invalid[invalid] = 0
+
+            # reward for having 8? constants?
+            n_consts = np.array([len(p.const_pos) for p in programs])
+            r_const = 1/(1 + abs(n_consts - const_target))
+
+            # reward for being 25 length
+            l = np.array([len(p.traversal) for p in programs])
+            r_length = 1/(1 + abs(l - len_target))
+
+            # reward for 2.5 entropy?
+            entropies = np.array([empirical_entropy(p.tokens) for p in programs])
+            r_entropy = entropies/2.5
+            r_entropy[r_entropy > 1] = 1
+            # combine rewards
+
+            r = (r_invalid+r_const+r_length+r_entropy)/4
 
         #
         # if any(np.isnan(base_r)):
@@ -479,7 +499,7 @@ def learn(sessions, controllers, pool,
         #     writer.add_summary(summaries, step)
         #     writer.flush()
     for controller in controllers:
-        controller.save(f"./turbulence/transfer_learning/controller_test.ckpt")
+        controller.save(f"./turbulence/transfer_learning/controller_tensor.ckpt")
         print(f'Controller test saved')
 
     result = {'nothing': "lol"}
