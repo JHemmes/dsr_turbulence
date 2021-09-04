@@ -358,7 +358,7 @@ def learn(sessions, controllers, pool,
         #     base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
         #     r[np.where(np.isnan(r))[0]] = min(r)
         #
-        # if eval_all:
+        # if eval_all:5
         #     success = [p.evaluate.get("success") for p in programs]
         #     # Check for success before risk-seeking, but don't break until after
         #     if any(success):
@@ -499,7 +499,7 @@ def learn(sessions, controllers, pool,
         #     writer.add_summary(summaries, step)
         #     writer.flush()
     for controller in controllers:
-        controller.save(f"./turbulence/transfer_learning/controller_tensor.ckpt")
+        controller.save(f"./turbulence/transfer_learning/controller_tensor500.ckpt")
         print(f'Controller test saved')
 
     result = {'nothing': "lol"}

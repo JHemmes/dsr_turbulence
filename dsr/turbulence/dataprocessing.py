@@ -179,6 +179,10 @@ def load_frozen_RANS_dataset(config_task):
         if input in ['inv1', 'inv2', 'inv3', 'inv4', 'inv5']:
             invar = True
 
+    ## CAUTION WHEN MERGING! this is only here to fool the code to flatten grad_u when training a network without the base tensors
+    if output == 'bDelta':
+        tens = True
+        flatten = True
 
     # calculate correct values
 

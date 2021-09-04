@@ -1,12 +1,12 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "sample_4_rnns_bDelta",
+      "name" : "train_transferlearning_tensor_500",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
          "noise": null,
-         "input": ["T1", "T2", "T3", "T4", "k", "grad_u", "inv1", "inv2", "inv3", "inv4", "inv5"],
+         "input": ["k", "grad_u", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "bDelta",
          "dataset_size_multiplier": 1.0
       },
@@ -18,7 +18,7 @@
    },
    "prior": {
       "length" : {"min_" : 3, "max_" : 30},
-      "repeat" : {"tokens" : "const", "max_" : 4},
+      "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},
       "const" : {}
@@ -27,7 +27,7 @@
       "logdir": "./log",
         "n_epochs": null,
         "n_samples": 2000000,
-        "batch_size": 200,
+        "batch_size": 1000,
         "complexity": "length",
         "complexity_weight": 0.0,
         "const_optimizer": "scipy",
