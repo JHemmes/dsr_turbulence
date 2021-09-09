@@ -344,13 +344,7 @@ def learn(sessions, controllers, pool,
             l = np.array([len(p.traversal) for p in programs])
             r_length = 1/(1 + abs(l - len_target))
 
-            # reward for 2.5 entropy?
-            entropies = np.array([empirical_entropy(p.tokens) for p in programs])
-            r_entropy = entropies/2.5
-            r_entropy[r_entropy > 1] = 1
-            # combine rewards
-
-            r = (r_invalid+r_const+r_length+r_entropy)/4
+            r = (r_invalid+r_const+r_length)/3
 
         #
         # if any(np.isnan(base_r)):
@@ -499,7 +493,7 @@ def learn(sessions, controllers, pool,
         #     writer.add_summary(summaries, step)
         #     writer.flush()
     for controller in controllers:
-        controller.save(f"./turbulence/transfer_learning/controller_tensor500.ckpt")
+        controller.save(f"./turbulence/transfer_learning/controller_tensor_no_entropy.ckpt")
         print(f'Controller test saved')
 
     result = {'nothing': "lol"}
