@@ -270,7 +270,7 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        programs = [from_tokens(a, optimize=True) for a in actions]
+        programs = [from_tokens(a, optimize=100) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
@@ -278,7 +278,6 @@ def learn(sessions, controllers, pool,
         l = np.array([len(p.traversal) for p in programs])
         s = [p.str for p in programs] # Str representations of Programs
         invalid = np.array([p.invalid for p in programs], dtype=bool)
-        # all_r[step] = base_r
         nfev = np.array([p.nfev for p in programs])
         n_consts = np.array([len(p.const_pos) for p in programs])
         nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
@@ -304,20 +303,17 @@ def learn(sessions, controllers, pool,
                     base_r_history[key] = [p.base_r]
 
         # Collect full-batch statistics
-        base_r_max = max(base_r)
-        base_r_best = max(base_r_max, base_r_best)
-        base_r_avg_full = np.mean(base_r)
-        r_max = max(r)
-        r_best = max(r_max, r_best)
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        base_r_avg_full = np.mean(base_r)
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
         eq_w_const_full = np.mean(n_consts > 0)
         n_const_per_eq_full = np.mean(n_consts[n_consts > 0])
         nfev_avg_full = np.mean(nfev[nfev > 1])
+        nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
 
         # Risk-seeking policy gradient: train on top epsilon fraction of samples
         if epsilon is not None and epsilon < 1.0:
@@ -328,19 +324,32 @@ def learn(sessions, controllers, pool,
             quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
 
-            base_r = base_r[keep]
-            r_train = r = r[keep]
             programs = list(compress(programs, keep))
-            l = l[keep]
-            s = list(compress(s, keep))
-            invalid = invalid[keep]
 
             actions = actions[keep]
             obs = [o[keep] for o in obs]
             priors = priors[keep]
             n_consts = n_consts[keep]
-            nfev = nfev[keep]
 
+            l = l[keep]
+            s = list(compress(s, keep))
+
+        # Redo the optimisation "without" limit
+        for p in programs:
+            p.optimize(2000)
+
+        # Collect newly optimised sub batch statistics
+        base_r = np.array([p.base_r for p in programs])
+        r = np.array([p.r for p in programs])
+        invalid = np.array([p.invalid for p in programs])
+        nfev = np.array([p.nfev for p in programs])
+        nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
+
+        # Check if there is a new best performer
+        base_r_max = max(base_r)
+        base_r_best = max(base_r_max, base_r_best)
+        r_max = max(r)
+        r_best = max(r_max, r_best)
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
