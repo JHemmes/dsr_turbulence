@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "transfer_learning_test",
+      "name" : "transfer_learning_test_4M",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
@@ -26,7 +26,7 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 2000000,
+        "n_samples": 4000000,
         "batch_size": 1000,
         "complexity": "length",
         "complexity_weight": 0.0,

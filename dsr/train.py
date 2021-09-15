@@ -273,7 +273,7 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        programs = [from_tokens(a, optimize=50) for a in actions]
+        programs = [from_tokens(a, optimize=100) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
