@@ -270,6 +270,9 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
+        # actions = [np.array([1,1,3,0,3,0,0,3,0,0,0], dtype='int32')]
+
+
         programs = [from_tokens(a, optimize=100) for a in actions]
 
         # Retrieve metrics
@@ -501,14 +504,14 @@ def learn(sessions, controllers, pool,
 
         # Stop if early stopping criteria is met
         # Stop if early stopping criteria is met
-        # if eval_all and any(success):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
-        # if early_stopping and p_base_r_best.evaluate.get("success"):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
+        if eval_all and any(success):
+            # all_r = all_r[:(step + 1)]
+            print("Early stopping criteria met; breaking early.")
+            break
+        if early_stopping and p_base_r_best.evaluate.get("success"):
+            # all_r = all_r[:(step + 1)]
+            print("Early stopping criteria met; breaking early.")
+            break
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))

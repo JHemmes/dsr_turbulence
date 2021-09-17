@@ -138,6 +138,10 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
             if p.evaluate.get("success"):
                 return max_reward
             y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
+        #
+        # if y_train.shape[1] == 1:
+        #     y_train = y_train[:,0]
+
 
         # Compute metric
         r = metric(y_train, y_hat)
@@ -223,20 +227,25 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
 
         return info
 
-    tokens = create_tokens(n_input_var=X_train.shape[1],
+    if len(X_train.shape) == 1:
+        n_input_var = 1
+    else:
+        n_input_var = X_train.shape[1]
+
+    tokens = create_tokens(n_input_var=n_input_var,
                            function_set=function_set,
                            protected=protected)
     library = Library(tokens)
 
     # create secondary library without the tensors to pass to the controllers
-    tens_idx = []
-    tens = []
-    for idx, val in enumerate(dataset_info['input']):
-        if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
-            tens.append(val)
-            tens_idx.append(idx)
+    # tens_idx = []
+    # tens = []
+    # for idx, val in enumerate(dataset_info['input']):
+    #     if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+    #         tens.append(val)
+    #         tens_idx.append(idx)
 
-    sec_tokens = create_tokens(n_input_var=X_train.shape[1]-len(tens),
+    sec_tokens = create_tokens(n_input_var=n_input_var,
                                function_set=function_set,
                                protected=protected)
     sec_library = Library(sec_tokens)

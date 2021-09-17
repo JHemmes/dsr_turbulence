@@ -47,7 +47,7 @@ def execute(np.ndarray X, int len_traversal, list traversal, int[:] is_input_var
     cdef int        arity
     cdef np.ndarray intermediate_result
     cdef list       stack_end
-    cdef object     stack_end_function
+    cdef object     stack_end_functio
     
     for i in range(len_traversal):
         

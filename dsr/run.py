@@ -68,7 +68,8 @@ def train_dsr(name_and_seed, config):
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
-    plot_results(result, config)
+    # disabled plotting results since that doesnt work with the bechmarks
+    # plot_results(result, config)
     result.pop("program")
 
     return result
@@ -144,13 +145,15 @@ def main_custom(config_template="config.json",
 
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
-    X, y = load_frozen_RANS_dataset(config_task)
+    # X, y = load_frozen_RANS_dataset(config_task)
 
     # Random data
-    # np.random.seed(0)
-    # X = np.random.random((10, 6))
-    # # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
-    # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0]
+    np.random.seed(0)
+    X = np.random.uniform(0, 2, (20, 1))  # np.random.random((10, 6))
+    # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
+    y = np.log(X + 1) + np.log(X**2 + 1)
+    # y = X**3 + X**2 + X
+    y = y[:, 0]
 
     config["task"]["dataset_info"] = config["task"]["dataset"] # save dataset information for later use
     config["task"]["dataset"] = (X, y)
@@ -199,9 +202,9 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=4)
+    main_custom(config_template="config.json", mc=1000, n_cores_task=6)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
-
+[True, True, False, True, False, False, False, False, False, False, False, False, False, True, False, False, False, False, False, True, True, False, False, False, False, False, False, False, False, True, False, False, False, False, True, False, True, False, False, True, False, False, False, False, False, True, True, True, False, False, True, True, False, False, False, False, False, False, False, False, False, True, False, False, False, True, False, False, True, True, False, False, True, True, False, False, False, True, True, False, False, False, False, False, False, False, False, False, False, True, True, True, False, False, False, False, True, False, False, False, False, False, True, False, True, True, True, False, True, True, False, False, False, False, True, False, False, True, False, False, True, True, True, False, False, False, False, False, True, False, True, False, False, True, True, False, True, False, True, False, False, True, False, False, False, False, True, False, False, False, True, False, True, True, False, False, False, True, False, False, False, False, False, False, False, True, False, False, False, False, False, False, True, False, True, False, True, True, False, True, False, False, False, True, True, True, False, False, False, False, True, False, False, False, False, True, True, False, True, True, False, False, True, False, True, True, False, True, True, True, True, False, False, True, True, False, False, True, False, True, False, False, False, False, False, False, False, False, True, True, True, False, True, False, True, False, False, True, True, False, True, False, False, False, False, False, False, False, False, False, False, True, False, False, True, False, False, False, True, False, False, False, False, False, False, False, False, True, False, True, False, False, False, False, True, False, False, True, False, False, False, False, False, False, False, False, True, True, False, False, False, True, False, True, True, False, False, False, False, True, False, False, False, False, True, False, False, True, False, False, False, False, False, False, True, False, False, True, False, False, True, True, False, False, False, True, False, False, True, False, True, False, False, False, True, False, False, False, False, True, True, True, True, False, True, True, False, False, True, True, True, True, False, False, True, True, False, False, False, True, False, True, True, True, True, False, False, False, False, False, True, False, True, False, False, False, False, True, False, False, False, False, False, False, True, False, False, False, False, True, False, False, False, True, False, False, False, False, False, False, False, True, False, False, True, True, True, True, True, False, False, False, True, True, False, True, True, False, False, True, False, False, True, True, False, True, False, True, False, True, True, False, True, False, False, False, False, True, False, True, False, False, False, False, True, False, False, True, False, False, False, False, False, False, False, True, True, False, False, True, True, False, False, False, False, False, True, False, False, False, True, False, True, False, False, True, False, False, False, True]

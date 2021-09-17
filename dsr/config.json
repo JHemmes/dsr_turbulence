@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "Nguyen-7",
+      "name" : "reproduce_results",
       "function_set": null,
       "dataset" : {
          "name" : null,
