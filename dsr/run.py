@@ -78,7 +78,8 @@ def main_custom(config_template="config.json",
                 mc=1,
                 output_filename=None,
                 n_cores_task=24,
-                seed_shift=1):
+                seed_shift=1,
+                benchmark='nguyen-1'):
     """Modified by Jasper Hemmes - 2021"""
     """Now loads custom dataset to run with dsr"""
 
@@ -88,6 +89,8 @@ def main_custom(config_template="config.json",
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
+    # overwrite task name with benchmark
+    config['task']['name'] = benchmark
 
     # set required configs
     config_task = config["task"]      # Task specification parameters
@@ -147,13 +150,44 @@ def main_custom(config_template="config.json",
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
     # X, y = load_frozen_RANS_dataset(config_task)
 
-    # Random data
     np.random.seed(0)
-    X = np.random.uniform(0, 2, (20, 1))  # np.random.random((10, 6))
-    # y = np.exp(X[:, 1]) + X[:, 2] ** 2 - 2.5 * X[:, 0] + X[:, 1] * X[:, 4] + X[:, 3]
-    y = np.log(X + 1) + np.log(X**2 + 1)
-    # y = X**3 + X**2 + X
-    y = y[:, 0]
+    # generate data dependent on config:
+    if benchmark == 'nguyen-1':
+        X = np.random.uniform(-1, 1, (20, 1))
+        y = X[:, 0]**3 + X[:, 0]**2 + X[:, 0]
+    elif benchmark == 'nguyen-2':
+        X = np.random.uniform(-1, 1, (20, 1))
+        y = X[:, 0]**4 + X[:, 0]**3 + X[:, 0]**2 + X[:, 0]
+    elif benchmark == 'nguyen-3':
+        X = np.random.uniform(-1, 1, (20, 1))
+        y = X[:, 0]**5 + X[:, 0]**4 + X[:, 0]**3 + X[:, 0]**2 + X[:, 0]
+    elif benchmark == 'nguyen-4':
+        X = np.random.uniform(-1, 1, (20, 1))
+        y = X[:, 0]**6 + X[:, 0]**5 + X[:, 0]**4 + X[:, 0]**3 + X[:, 0]**2 + X[:, 0]
+    elif benchmark == 'nguyen-5':
+        X = np.random.uniform(-1, 1, (20, 1))
+        y = np.sin(X[:, 0]**2) * np.cos(X[:, 0]) - 1
+    elif benchmark == 'nguyen-6':
+        X = np.random.uniform(-1, 1, (20, 1))
+        y = np.sin(X[:, 0]) + np.sin(X[:, 0] + X[:, 0]**2)
+    elif benchmark == 'nguyen-7':
+        X = np.random.uniform(0, 2, (20, 1))
+        y = np.log(X[:, 0] + 1) + np.log(X[:, 0]**2 + 1)
+    elif benchmark == 'nguyen-8':
+        X = np.random.uniform(0, 4, (20, 1))
+        y = np.sqrt(X[:, 0])
+    elif benchmark == 'nguyen-9':
+        X = np.random.uniform(0, 1, (20, 2))
+        y = np.sin(X[:, 0]) + np.sin(X[:, 1]**2)
+    elif benchmark == 'nguyen-10':
+        X = np.random.uniform(0, 1, (20, 2))
+        y = 2*np.sin(X[:, 0]) * np.cos(X[:, 1])
+    elif benchmark == 'nguyen-11':
+        X = np.random.uniform(0, 1, (20, 2))
+        y = X[:, 0]**X[:, 1]
+    elif benchmark == 'nguyen-12':
+        X = np.random.uniform(0, 1, (20, 2))
+        y = X[:, 0]**4 - X[:, 0]**3 + 0.5*X[:, 1]**2 - X[:, 1]
 
     config["task"]["dataset_info"] = config["task"]["dataset"] # save dataset information for later use
     config["task"]["dataset"] = (X, y)
@@ -202,9 +236,14 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    main_custom(config_template="config.json", mc=1000, n_cores_task=6)
+
+    benchmarks =     ['nguyen-1', 'nguyen-2', 'nguyen-3', 'nguyen-4',
+                      'nguyen-5', 'nguyen-6', 'nguyen-7', 'nguyen-8',
+                      'nguyen-9', 'nguyen-10', 'nguyen-11', 'nguyen-12']
+
+    for benchmark in benchmarks:
+        main_custom(config_template="config.json", mc=100, n_cores_task=2, benchmark=benchmark)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
 
-[True, True, False, True, False, False, False, False, False, False, False, False, False, True, False, False, False, False, False, True, True, False, False, False, False, False, False, False, False, True, False, False, False, False, True, False, True, False, False, True, False, False, False, False, False, True, True, True, False, False, True, True, False, False, False, False, False, False, False, False, False, True, False, False, False, True, False, False, True, True, False, False, True, True, False, False, False, True, True, False, False, False, False, False, False, False, False, False, False, True, True, True, False, False, False, False, True, False, False, False, False, False, True, False, True, True, True, False, True, True, False, False, False, False, True, False, False, True, False, False, True, True, True, False, False, False, False, False, True, False, True, False, False, True, True, False, True, False, True, False, False, True, False, False, False, False, True, False, False, False, True, False, True, True, False, False, False, True, False, False, False, False, False, False, False, True, False, False, False, False, False, False, True, False, True, False, True, True, False, True, False, False, False, True, True, True, False, False, False, False, True, False, False, False, False, True, True, False, True, True, False, False, True, False, True, True, False, True, True, True, True, False, False, True, True, False, False, True, False, True, False, False, False, False, False, False, False, False, True, True, True, False, True, False, True, False, False, True, True, False, True, False, False, False, False, False, False, False, False, False, False, True, False, False, True, False, False, False, True, False, False, False, False, False, False, False, False, True, False, True, False, False, False, False, True, False, False, True, False, False, False, False, False, False, False, False, True, True, False, False, False, True, False, True, True, False, False, False, False, True, False, False, False, False, True, False, False, True, False, False, False, False, False, False, True, False, False, True, False, False, True, True, False, False, False, True, False, False, True, False, True, False, False, False, True, False, False, False, False, True, True, True, True, False, True, True, False, False, True, True, True, True, False, False, True, True, False, False, False, True, False, True, True, True, True, False, False, False, False, False, True, False, True, False, False, False, False, True, False, False, False, False, False, False, True, False, False, False, False, True, False, False, False, True, False, False, False, False, False, False, False, True, False, False, True, True, True, True, True, False, False, False, True, True, False, True, True, False, False, True, False, False, True, True, False, True, False, True, False, True, True, False, True, False, False, False, False, True, False, True, False, False, False, False, True, False, False, True, False, False, False, False, False, False, False, True, True, False, False, True, True, False, False, False, False, False, True, False, False, False, True, False, True, False, False, True, False, False, False, True]

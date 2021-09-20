@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "reproduce_results",
+      "name" : "run_all_benchmarks",
       "function_set": null,
       "dataset" : {
          "name" : null,
@@ -16,7 +16,7 @@
    },
    "prior": {
       "length" : {"min_" : 4, "max_" : 30},
-      "repeat" : {"tokens" : "const", "max_" : 3},
+      "repeat" : {"tokens" : "const", "max_" : 5},
       "inverse" : {},
       "trig" : {},
       "const" : {}
