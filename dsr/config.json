@@ -1,8 +1,8 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "run_all_benchmarks",
-      "function_set": null,
+      "name" : "custom_benchmark",
+      "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : null,
          "noise": null,
