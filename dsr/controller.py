@@ -513,7 +513,8 @@ class Controller(object):
             top_quantile = self.sampled_batch_ph.top_quantile
 
             # Entropy loss
-            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
+            sub_entropy = tf.gather(entropy, top_quantile)
+            entropy_loss = -self.entropy_weight * tf.reduce_mean(sub_entropy, name="entropy_loss")
             loss = entropy_loss
 
             # PPO loss
