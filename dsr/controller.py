@@ -439,8 +439,11 @@ class Controller(object):
                              tf.placeholder(tf.int32, [None, max_length]),
                              tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
-                    "lengths" : tf.placeholder(tf.int32, [None,]),
-                    "rewards" : tf.placeholder(tf.float32, [None], name="r")
+                    "lengths" : tf.placeholder(tf.int32, [None, ]),
+                    "rewards" : tf.placeholder(tf.float32, [None], name="r"),
+                    "top_quantile": tf.placeholder(tf.int32, [None, ]),
+                    "valid": tf.placeholder(tf.int32, [None, ]),
+
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -507,6 +510,7 @@ class Controller(object):
 
             neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
             r = self.sampled_batch_ph.rewards
+            top_quantile = self.sampled_batch_ph.top_quantile
 
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
@@ -530,7 +534,14 @@ class Controller(object):
             # Policy gradient loss
             else:
                 if not pqt or (pqt and pqt_use_pg):
-                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")                    
+                    r_sub = tf.gather(r, top_quantile)
+                    neglogp_sub = tf.gather(neglogp, top_quantile)
+                    # pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile, name="pg_loss") / tf.reduce_mean(top_quantile)
+                    pg_loss = tf.reduce_mean((r_sub - self.baseline) * neglogp_sub, name="pg_loss")
+                    # self.rbefore = r
+                    # self.rafter = tf.gather(r, top_quantile)
+                    # self.neglogpafter = tf.gather(neglogp, top_quantile)
+                    self.pg_loss = pg_loss
                     loss += pg_loss
 
             # Priority queue training loss

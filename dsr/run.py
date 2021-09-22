@@ -4,6 +4,7 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 
 import os
 import sys
@@ -144,8 +145,22 @@ def main_custom(config_template="config.json",
 
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
-    X, y = load_frozen_RANS_dataset(config_task)
+    # X, y = load_frozen_RANS_dataset(config_task)
 
+    np.random.seed(0)
+    X = np.zeros((30, 7))
+    X[:, 0] = np.random.uniform(0, 7, 30)
+    X[:, 1] = np.random.uniform(0, 0.1, 30)
+    X[:, 2] = np.random.uniform(0, 0.05, 30)
+    X[:, 3] = np.random.uniform(-0.06, 0, 30)
+    X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)
+    X[3, 4] = 0  # make sure some values are zero
+    X[17, 4] = 0  # make sure some values are zero
+    X[:, 5] = np.random.uniform(-0.1, 0, 30)
+    X[:, 6] = np.random.uniform(-0.0001, 0.00002, 30)
+
+    y = 25*X[:, 1]**2 + np.log(1.7*X[:, 1] + 1/X[:, 0]) - 5.3*X[:, 5]*np.exp(X[:, 3])
+    # y = X[:,1]**2
     # Random data
     # np.random.seed(0)
     # X = np.random.random((10, 6))
@@ -199,7 +214,7 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=4)
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)

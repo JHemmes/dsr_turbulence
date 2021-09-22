@@ -264,6 +264,7 @@ class Program(object):
 
         self.nfev = 0
         self.nit = 0
+        self.top_quantile = 0
         self.ad_r = None
         self.traversal = [Program.library[t] for t in tokens]
         self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions

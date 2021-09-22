@@ -270,17 +270,11 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        programs = [from_tokens(a, optimize=100) for a in actions]
+        programs = [from_tokens(a, optimize=2) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
-        l = np.array([len(p.traversal) for p in programs])
-        s = [p.str for p in programs] # Str representations of Programs
-        invalid = np.array([p.invalid for p in programs], dtype=bool)
-        nfev = np.array([p.nfev for p in programs])
-        n_consts = np.array([len(p.const_pos) for p in programs])
-        nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
 
         if any(np.isnan(base_r)):
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
@@ -303,6 +297,12 @@ def learn(sessions, controllers, pool,
                     base_r_history[key] = [p.base_r]
 
         # Collect full-batch statistics
+        l = np.array([len(p.traversal) for p in programs])
+        s = [p.str for p in programs] # Str representations of Programs
+        invalid = np.array([p.invalid for p in programs], dtype=bool)
+        nfev = np.array([p.nfev for p in programs])
+        n_consts = np.array([len(p.const_pos) for p in programs])
+
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
@@ -311,7 +311,7 @@ def learn(sessions, controllers, pool,
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
         eq_w_const_full = np.mean(n_consts > 0)
-        n_const_per_eq_full = np.mean(n_consts[n_consts > 0])
+        n_const_per_eq_full = np.mean(n_consts)
         nfev_avg_full = np.mean(nfev[nfev > 1])
         nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
 
@@ -323,27 +323,38 @@ def learn(sessions, controllers, pool,
                 r[np.isinf(r)] = min_noinf
             quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
+            #
+            # programs = list(compress(programs, keep))
+            #
+            # actions = actions[keep]
+            # obs = [o[keep] for o in obs]
+            # priors = priors[keep]
+            # n_consts = n_consts[keep]
+            #
+            # l = l[keep]
+            # s = list(compress(s, keep))
 
-            programs = list(compress(programs, keep))
-
-            actions = actions[keep]
-            obs = [o[keep] for o in obs]
-            priors = priors[keep]
-            n_consts = n_consts[keep]
-
-            l = l[keep]
-            s = list(compress(s, keep))
-
-        # Redo the optimisation "without" limit
-        for p in programs:
+        # Redo the optimisation "without" limit only for programs in the top quantile
+        for p in list(compress(programs, keep)):
+            p.top_quantile = 1  # used in tensorflow to distinguish what programs are in the sub batch.
             p.optimize(2000)
 
-        # Collect newly optimised sub batch statistics
+        # update base_r and r after new optimisation
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
-        invalid = np.array([p.invalid for p in programs])
-        nfev = np.array([p.nfev for p in programs])
-        nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
+
+        # Collect newly optimised sub batch statistics
+        base_r_avg_sub = np.mean(base_r[keep])
+        r_avg_sub = np.mean(r[keep])
+        l_avg_sub = np.mean(l[keep])
+        a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions[keep]))
+        n_unique_sub = len(set(list(compress(s, keep))))
+        n_novel_sub = len(set(list(compress(s, keep))).difference(s_history))
+        invalid_avg_sub = np.mean(invalid[keep])
+        eq_w_const_sub = np.mean(n_consts[keep] > 0)
+        n_const_per_eq_sub = np.mean(n_consts[keep])
+        nfev_avg_sub = np.mean([p.nfev for p in programs if (p.nfev > 0) and (p.top_quantile == 1)])
+        nit_avg_sub = np.mean([p.nit for p in programs if (p.nit > 0) and (p.top_quantile == 1)])
 
         # Check if there is a new best performer
         base_r_max = max(base_r)
@@ -364,17 +375,6 @@ def learn(sessions, controllers, pool,
 
         # Collect sub-batch statistics and write output
         if output_file is not None:
-            base_r_avg_sub = np.mean(base_r)
-            r_avg_sub = np.mean(r)
-            l_avg_sub = np.mean(l)
-            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-            n_unique_sub = len(set(s))
-            n_novel_sub = len(set(s).difference(s_history))
-            invalid_avg_sub = np.mean(invalid)
-            eq_w_const_sub = np.mean(n_consts > 0)
-            n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
-            nfev_avg_sub = np.mean(nfev[nfev > 1])
-            nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
             duration = time.time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
@@ -421,6 +421,10 @@ def learn(sessions, controllers, pool,
         #         values = controller.sess.run(var_names)
         #         val_list.append(values)
 
+        # collect program information for training:
+        # top_quantile = np.array([p.top_quantile for p in programs])
+        top_quantile = np.array(list(range(1000)))[keep]
+        valid = 1 - invalid.astype(int)
 
 
         for ii, controller in enumerate(controllers):
@@ -446,7 +450,8 @@ def learn(sessions, controllers, pool,
 
                 # Create the Batch
                 sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                                      lengths=lengths, rewards=r)
+                                      lengths=lengths, rewards=r, top_quantile=top_quantile,
+                                      valid=valid)
 
             # Update and sample from the priority queue
             if priority_queue is not None:
@@ -500,15 +505,14 @@ def learn(sessions, controllers, pool,
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
-        # Stop if early stopping criteria is met
-        # if eval_all and any(success):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
-        # if early_stopping and p_base_r_best.evaluate.get("success"):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
+        if eval_all and any(success):
+            # all_r = all_r[:(step + 1)]  # all_r is no longer saved to reduce memory
+            print("Early stopping criteria met; breaking early.")
+            break
+        if early_stopping and p_base_r_best.evaluate.get("success"):
+            # all_r = all_r[:(step + 1)]  # all_r is no longer saved to reduce memory
+            print("Early stopping criteria met; breaking early.")
+            break
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
