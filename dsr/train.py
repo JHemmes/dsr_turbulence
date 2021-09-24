@@ -422,9 +422,9 @@ def learn(sessions, controllers, pool,
         #         val_list.append(values)
 
         # collect program information for training:
-        # top_quantile = np.array([p.top_quantile for p in programs])
-        top_quantile = np.array(list(range(1000)))[keep]
-        valid = 1 - invalid.astype(int)
+        top_quantile = np.array([p.top_quantile for p in programs])
+        # top_quantile = np.array(list(range(1000)))[keep]
+        valid = 1 - invalid.astype(float)
 
 
         for ii, controller in enumerate(controllers):
@@ -441,8 +441,8 @@ def learn(sessions, controllers, pool,
                                         for p in programs], dtype=np.int32)
 
                 # Create the Batch
-                sampled_batch = Batch(actions=actions[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
-                                      lengths=lengths, rewards=r)
+                sampled_batch = Batch(actions=actions[:, :, ii], obs=[ob[:, :, ii] for ob in obs], priors=priors[:, :, :, ii],
+                                      lengths=lengths, rewards=r, top_quantile=top_quantile, valid=valid)
 
             else:
                 lengths = np.array([min(len(p.traversal), controller.max_length)

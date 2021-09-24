@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "sample_4_rnns_bDelta",
+      "name" : "bDelta_test_valid_loss_one",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
@@ -59,6 +59,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
+      "valid_weight": 1,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

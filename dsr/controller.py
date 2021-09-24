@@ -97,7 +97,10 @@ class Controller(object):
 
     entropy_weight : float
         Coefficient for entropy bonus.
-        
+
+    valid_weight : float
+        Coefficient for percentage of valid expressions bonus.
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -149,6 +152,7 @@ class Controller(object):
                  observe_sibling=True,
                  # Loss hyperparameters
                  entropy_weight=0.0,
+                 valid_weight=0.0,
                  # PPO hyperparameters
                  ppo=False,
                  ppo_clip_ratio=0.2,
@@ -194,6 +198,7 @@ class Controller(object):
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.entropy_weight = entropy_weight
+        self.valid_weight = valid_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -201,7 +206,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = lib.L # ?? change this to reduce the possibilities
+        n_choices = lib.L
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -441,9 +446,8 @@ class Controller(object):
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
                     "lengths" : tf.placeholder(tf.int32, [None, ]),
                     "rewards" : tf.placeholder(tf.float32, [None], name="r"),
-                    "top_quantile": tf.placeholder(tf.int32, [None, ]),
-                    "valid": tf.placeholder(tf.int32, [None, ]),
-
+                    "top_quantile": tf.placeholder(tf.float32, [None, ]),
+                    "valid": tf.placeholder(tf.float32, [None, ])
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -511,10 +515,11 @@ class Controller(object):
             neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
             r = self.sampled_batch_ph.rewards
             top_quantile = self.sampled_batch_ph.top_quantile
+            valid = self.sampled_batch_ph.valid
 
             # Entropy loss
-            sub_entropy = tf.gather(entropy, top_quantile)
-            entropy_loss = -self.entropy_weight * tf.reduce_mean(sub_entropy, name="entropy_loss")
+            # sub_entropy = tf.gather(entropy, top_quantile)
+            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy * top_quantile / tf.reduce_mean(top_quantile), name="entropy_loss")
             loss = entropy_loss
 
             # PPO loss
@@ -535,10 +540,10 @@ class Controller(object):
             # Policy gradient loss
             else:
                 if not pqt or (pqt and pqt_use_pg):
-                    r_sub = tf.gather(r, top_quantile)
-                    neglogp_sub = tf.gather(neglogp, top_quantile)
-                    # pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile, name="pg_loss") / tf.reduce_mean(top_quantile)
-                    pg_loss = tf.reduce_mean((r_sub - self.baseline) * neglogp_sub, name="pg_loss")
+                    # r_sub = tf.gather(r, top_quantile)
+                    # neglogp_sub = tf.gather(neglogp, top_quantile)
+                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile / tf.reduce_mean(top_quantile), name="pg_loss")
+                    # pg_loss = tf.reduce_mean((r_sub - self.baseline) * neglogp_sub, name="pg_loss")
                     # self.rbefore = r
                     # self.rafter = tf.gather(r, top_quantile)
                     # self.neglogpafter = tf.gather(neglogp, top_quantile)
@@ -550,6 +555,11 @@ class Controller(object):
                 pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
                 pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
                 loss += pqt_loss
+
+            # Equation validity loss
+            valid_loss = tf.reduce_mean(self.valid_weight * valid * neglogp, name="valid_loss")
+            self.valid_loss = valid_loss
+            loss += valid_loss
 
             self.loss = loss
 
