@@ -108,6 +108,7 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
 
     # Define closures for metric
     metric, invalid_reward, max_reward, ad_metric_traversal = make_regression_metric(metric, y_train, *metric_params)
+    ad_metric_start_idx = len(ad_metric_traversal) - 1
     if extra_metric_test is not None:
         print("Setting extra test metric to {}.".format(extra_metric_test))
         metric_test, _, _ = make_regression_metric(extra_metric_test, y_test, *extra_metric_test_params) 
@@ -127,8 +128,13 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
         y_hat = p.execute(X_train)
 
         # For invalid expressions, return invalid_reward
-        if p.invalid:
+        p.invalid_tokens = [token.invalid for token in p.traversal]
+        p.invalid = np.sum(p.invalid_tokens)
+        if p.invalid > 0:
             return invalid_reward
+
+        # if p.invalid:
+        #     return invalid_reward
 
         ### Observation noise
         # For reward_noise_type == "y_hat", success must always be checked to 
@@ -172,7 +178,9 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
         base_r, jac = p.ad_reverse(X_train)
 
         # For invalid expressions, return invalid_reward
-        if p.invalid:
+        p.invalid_tokens = [token.invalid for token in p.ad_traversal[ad_metric_start_idx:-1]]
+        p.invalid = np.sum(p.invalid_tokens)
+        if p.invalid > 0:
             return invalid_reward, np.zeros(jac.shape)
 
 

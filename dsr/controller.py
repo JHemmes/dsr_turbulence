@@ -98,8 +98,8 @@ class Controller(object):
     entropy_weight : float
         Coefficient for entropy bonus.
 
-    valid_weight : float
-        Coefficient for percentage of valid expressions bonus.
+    invalid_weight : float
+        Coefficient for percentage of invalid expressions bonus.
 
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
@@ -152,7 +152,7 @@ class Controller(object):
                  observe_sibling=True,
                  # Loss hyperparameters
                  entropy_weight=0.0,
-                 valid_weight=0.0,
+                 invalid_weight=0.0,
                  # PPO hyperparameters
                  ppo=False,
                  ppo_clip_ratio=0.2,
@@ -198,7 +198,7 @@ class Controller(object):
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.entropy_weight = entropy_weight
-        self.valid_weight = valid_weight
+        self.invalid_weight = invalid_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -447,7 +447,7 @@ class Controller(object):
                     "lengths" : tf.placeholder(tf.int32, [None, ]),
                     "rewards" : tf.placeholder(tf.float32, [None], name="r"),
                     "top_quantile": tf.placeholder(tf.float32, [None, ]),
-                    "valid": tf.placeholder(tf.float32, [None, ])
+                    "invalid": tf.placeholder(tf.float32, [None, ])
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -515,7 +515,7 @@ class Controller(object):
             neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
             r = self.sampled_batch_ph.rewards
             top_quantile = self.sampled_batch_ph.top_quantile
-            valid = self.sampled_batch_ph.valid
+            invalid = self.sampled_batch_ph.invalid
 
             # Entropy loss
             # sub_entropy = tf.gather(entropy, top_quantile)
@@ -557,9 +557,9 @@ class Controller(object):
                 loss += pqt_loss
 
             # Equation validity loss
-            valid_loss = tf.reduce_mean(self.valid_weight * valid * neglogp, name="valid_loss")
-            self.valid_loss = valid_loss
-            loss += valid_loss
+            invalid_loss = tf.reduce_mean(-self.invalid_weight * invalid * neglogp, name="invalid_loss")
+            self.invalid_loss = invalid_loss
+            loss += invalid_loss
 
             self.loss = loss
 
@@ -619,18 +619,13 @@ class Controller(object):
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
-        # tf.get_variable_scope().reuse_variables() # i think this causes the issue. I dont want to reuse variables
-
-
-
     def sample(self, n):
         """Sample batch of n expressions"""
-        feed_dict = {self.batch_size : n}
+        feed_dict = {self.batch_size: n}
 
         actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
 
         return actions, obs, priors
-
 
     def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
@@ -645,7 +640,6 @@ class Controller(object):
             fetch = self.memory_probs
         probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
         return probs
-
 
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
@@ -680,7 +674,6 @@ class Controller(object):
 
         else:
             _ = self.sess.run([self.train_op], feed_dict=feed_dict)
-
 
         # ?? errors the second time a summary is called. Disabled for now since the writer in train.py is defective anyway
         # Return summaries

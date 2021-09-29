@@ -14,7 +14,8 @@ from dsr.functions import PlaceholderConstant, AD_PlaceholderConstant
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
-
+from dsr.library import Token
+from copy import deepcopy, copy
 
 def _finish_tokens(tokens):
     """
@@ -266,15 +267,18 @@ class Program(object):
         self.nit = 0
         self.top_quantile = 0
         self.ad_r = None
-        self.traversal = [Program.library[t] for t in tokens]
-        self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
+        self.traversal = [copy(Program.library[t]) for t in tokens]
+        # self.lowmemory_traversal = [Program.library[t] for t in tokens]
+        # self.traversal = [deepcopy(token) for token in self.lowmemory_traversal]
+        self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"]  # Just constant placeholder positions
         self.len_traversal = len(self.traversal)
         self.tokens = tokens
+        self.invalid_tokens = None
+        self.invalid = 0
 
         if self.have_cython and self.len_traversal > 1:
             self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])
 
-        self.invalid = False
         self.str = tokens.tostring()
 
         if optimize:
@@ -425,7 +429,6 @@ class Program(object):
         return r[0], np.array(jacobian)
 
 
-    # @property
     def optimize(self, maxiter):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -444,7 +447,8 @@ class Program(object):
         """
 
         def reverse_ad(consts):
-            self.invalid = False
+            if self.invalid > 0:
+                self.reset_tokens_valid()
             self.set_constants(consts, ad=True)
             self.ad_r, self.jac = self.task.ad_reverse(self)
             return -self.ad_r, -self.jac
@@ -484,6 +488,21 @@ class Program(object):
             optimized_constants = []
 
         return optimized_constants
+
+    def reset_tokens_valid(self):
+        for token in self.ad_traversal:
+            token.invalid = False
+
+    def replace_traversal(self):
+
+        traversal = [Program.library[t] for t in self.tokens]
+        if len(self.const_pos) > 0:
+            consts = []
+            for ii in self.const_pos:
+                traversal[ii] = self.traversal[ii]
+        self.traversal = traversal
+
+
 
     def set_constants(self, consts, ad=False):
         """Sets the program's constants to the given values"""
@@ -584,7 +603,7 @@ class Program(object):
                     self.error_node = None # E.g. 'exp', 'log', 'true_divide'
                     self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
 
-                def write(self, message):
+                def write(self, message, token):
                     """This is called by numpy when encountering a warning"""
 
                     if not self.new_entry: # Only record the first warning encounter
@@ -603,9 +622,11 @@ class Program(object):
                         p.error_node = self.error_node
                         self.new_entry = False
 
+            # token_class = Token()
 
-            invalid_log = InvalidLog()
-            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+            # invalid_log = InvalidLog()
+            # np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
+            # np.seterr(token_class.set_invalid())  # Tells numpy to call InvalidLog.write() when encountering a warning
 
             # Define closure for execute function
             def unsafe_execute(p, X):
@@ -616,7 +637,6 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = execute_function(p, X)
-                    invalid_log.update(p)
                     return y
 
             # Define closure for execute function
@@ -628,7 +648,6 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = ad_execute(p, X)
-                    invalid_log.update(p)
                     return y
 
             Program.execute = unsafe_execute

@@ -220,6 +220,11 @@ def learn(sessions, controllers, pool,
         tensor_dsr = False
 
     for step in range(n_epochs):
+
+        if step == 38:
+            if int(output_file.split('.')[0].split('_')[-1]) == 2:
+                print('pause here')
+
         start_time = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
@@ -270,7 +275,9 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        programs = [from_tokens(a, optimize=2) for a in actions]
+        # actions = [np.array([7, 7, 7, 9, 0, 3, 12, 4, 11, 10, 0,5,12,0])]
+
+        programs = [from_tokens(a, optimize=100) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
@@ -299,7 +306,7 @@ def learn(sessions, controllers, pool,
         # Collect full-batch statistics
         l = np.array([len(p.traversal) for p in programs])
         s = [p.str for p in programs] # Str representations of Programs
-        invalid = np.array([p.invalid for p in programs], dtype=bool)
+        invalid = np.array([p.invalid for p in programs])
         nfev = np.array([p.nfev for p in programs])
         n_consts = np.array([len(p.const_pos) for p in programs])
 
@@ -309,7 +316,7 @@ def learn(sessions, controllers, pool,
         base_r_avg_full = np.mean(base_r)
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
-        invalid_avg_full = np.mean(invalid)
+        invalid_avg_full = np.mean(invalid.clip(0,1))
         eq_w_const_full = np.mean(n_consts > 0)
         n_const_per_eq_full = np.mean(n_consts)
         nfev_avg_full = np.mean(nfev[nfev > 1])
@@ -339,6 +346,10 @@ def learn(sessions, controllers, pool,
             p.top_quantile = 1  # used in tensorflow to distinguish what programs are in the sub batch.
             p.optimize(2000)
 
+        # memory heavy traversal no longer needed, replace by lighter version
+        for p in programs:
+            p.replace_traversal()
+
         # update base_r and r after new optimisation
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
@@ -350,7 +361,7 @@ def learn(sessions, controllers, pool,
         a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions[keep]))
         n_unique_sub = len(set(list(compress(s, keep))))
         n_novel_sub = len(set(list(compress(s, keep))).difference(s_history))
-        invalid_avg_sub = np.mean(invalid[keep])
+        invalid_avg_sub = np.mean(invalid[keep].clip(0,1))
         eq_w_const_sub = np.mean(n_consts[keep] > 0)
         n_const_per_eq_sub = np.mean(n_consts[keep])
         nfev_avg_sub = np.mean([p.nfev for p in programs if (p.nfev > 0) and (p.top_quantile == 1)])
@@ -424,7 +435,7 @@ def learn(sessions, controllers, pool,
         # collect program information for training:
         top_quantile = np.array([p.top_quantile for p in programs])
         # top_quantile = np.array(list(range(1000)))[keep]
-        valid = 1 - invalid.astype(float)
+        invalid = invalid.astype(float)
 
 
         for ii, controller in enumerate(controllers):
@@ -435,14 +446,18 @@ def learn(sessions, controllers, pool,
                 if ii == 0:
                     lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
                                         for p in programs], dtype=np.int32)
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:]) for p in programs],
+                                       dtype=np.float32)
                 else:
                     lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:
                                                          np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
                                         for p in programs], dtype=np.int32)
-
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:
+                                                             np.where(p.tokens == ii-1)[0][0]]) for p in programs],
+                                                             dtype=np.float32)
                 # Create the Batch
                 sampled_batch = Batch(actions=actions[:, :, ii], obs=[ob[:, :, ii] for ob in obs], priors=priors[:, :, :, ii],
-                                      lengths=lengths, rewards=r, top_quantile=top_quantile, valid=valid)
+                                      lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
 
             else:
                 lengths = np.array([min(len(p.traversal), controller.max_length)
@@ -451,7 +466,7 @@ def learn(sessions, controllers, pool,
                 # Create the Batch
                 sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                                       lengths=lengths, rewards=r, top_quantile=top_quantile,
-                                      valid=valid)
+                                      invalid=invalid)
 
             # Update and sample from the priority queue
             if priority_queue is not None:
@@ -462,7 +477,6 @@ def learn(sessions, controllers, pool,
 
             # Train the controller
             summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
-
 
         # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
         # if summary:
