@@ -59,7 +59,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
-      "invalid_weight": 0.5,
+      "invalid_weight": 0.05,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

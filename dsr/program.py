@@ -149,7 +149,7 @@ def from_tokens(tokens, optimize, skip_cache=False):
         add_token = find_add_token()
         for ii in range(tokens.shape[1]):
             subtokens = _finish_tokens(tokens[:,ii])
-            subtokens += n_tensors # offset the integers by the number of tokens
+            subtokens += n_tensors  # offset the integers by the number of tokens
             if ii == 0:
                 subtokens = np.insert(subtokens, 0, [mul_token, ii])
                 final_tokens = subtokens

@@ -7,6 +7,7 @@ from itertools import combinations
 from datetime import datetime
 from collections import defaultdict
 import time
+from copy import copy
 
 import tensorflow as tf
 import pandas as pd
@@ -221,10 +222,6 @@ def learn(sessions, controllers, pool,
 
     for step in range(n_epochs):
 
-        if step == 38:
-            if int(output_file.split('.')[0].split('_')[-1]) == 2:
-                print('pause here')
-
         start_time = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
@@ -268,13 +265,14 @@ def learn(sessions, controllers, pool,
             # sample_metric = np.mean(all_means)
             sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
 
+            actions_original = copy(actions)
+
         else:
             actions = action
             obs = ob
             priors = prior
 
             sample_metric = 1  # Dummy value
-
         # actions = [np.array([7, 7, 7, 9, 0, 3, 12, 4, 11, 10, 0,5,12,0])]
 
         programs = [from_tokens(a, optimize=100) for a in actions]
@@ -384,7 +382,70 @@ def learn(sessions, controllers, pool,
             ewma = -1
             b_train = quantile
 
-        # Collect sub-batch statistics and write output
+        # val_list = []
+        # for controller in controllers:
+        #     with controller.sess.graph.as_default():
+        #         train_vars = tf.trainable_variables()
+        #         var_names = [v.name for v in train_vars]
+        #         values = controller.sess.run(var_names)
+        #         val_list.append(values)
+
+        # collect program information for training:
+        top_quantile = np.array([p.top_quantile for p in programs])
+        # top_quantile = np.array(list(range(1000)))[keep]
+        invalid = invalid.astype(float)
+
+        n_controllers = len(controllers)
+        loss_pg = np.zeros(n_controllers)
+        loss_ent = np.zeros(n_controllers)
+        loss_inv = np.zeros(n_controllers)
+        for ii, controller in enumerate(controllers):
+            # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
+
+            if tensor_dsr:
+                # find length of sub tokens:
+                if ii == 0:
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
+                                        for p in programs], dtype=np.int32)
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:]) for p in programs],
+                                       dtype=np.float32)
+                else:
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:
+                                                         np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
+                                        for p in programs], dtype=np.int32)
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:
+                                                             np.where(p.tokens == ii-1)[0][0]]) for p in programs],
+                                                             dtype=np.float32)
+                # Create the Batch
+                sampled_batch = Batch(actions=actions_original[:, :, ii], obs=[ob[:, :, ii] for ob in obs], priors=priors[:, :, :, ii],
+                                      lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
+
+            else:
+                lengths = np.array([min(len(p.traversal), controller.max_length)
+                                    for p in programs], dtype=np.int32)
+
+                # Create the Batch
+                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                                      lengths=lengths, rewards=r, top_quantile=top_quantile,
+                                      invalid=invalid)
+
+            # Update and sample from the priority queue
+            if priority_queue is not None:
+                priority_queue.push_best(sampled_batch, programs)
+                pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+            else:
+                pqt_batch = None
+
+            # Train the controller
+            summaries, entropy_loss, invalid_loss, pg_loss = controller.train_step(b_train, sampled_batch, pqt_batch)
+            loss_ent[ii] = entropy_loss
+            loss_pg[ii] = pg_loss
+            loss_inv[ii] = invalid_loss
+
+        # avg_ent_loss = np.mean(loss_ent)
+        # avg_inv_loss = np.mean(loss_inv)
+        # avg_pg_loss = np.mean(loss_pg)
+
         if output_file is not None:
             duration = time.time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
@@ -401,6 +462,9 @@ def learn(sessions, controllers, pool,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
+                         loss_pg[:],  # avg_pg_loss,
+                         loss_inv[:],  # avg_inv_loss,
+                         loss_ent[:],  # avg_ent_loss,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
@@ -423,60 +487,6 @@ def learn(sessions, controllers, pool,
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
 
-
-        # val_list = []
-        # for controller in controllers:
-        #     with controller.sess.graph.as_default():
-        #         train_vars = tf.trainable_variables()
-        #         var_names = [v.name for v in train_vars]
-        #         values = controller.sess.run(var_names)
-        #         val_list.append(values)
-
-        # collect program information for training:
-        top_quantile = np.array([p.top_quantile for p in programs])
-        # top_quantile = np.array(list(range(1000)))[keep]
-        invalid = invalid.astype(float)
-
-
-        for ii, controller in enumerate(controllers):
-            # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
-
-            if tensor_dsr:
-                # find length of sub tokens:
-                if ii == 0:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
-                                        for p in programs], dtype=np.int32)
-                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:]) for p in programs],
-                                       dtype=np.float32)
-                else:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:
-                                                         np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
-                                        for p in programs], dtype=np.int32)
-                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:
-                                                             np.where(p.tokens == ii-1)[0][0]]) for p in programs],
-                                                             dtype=np.float32)
-                # Create the Batch
-                sampled_batch = Batch(actions=actions[:, :, ii], obs=[ob[:, :, ii] for ob in obs], priors=priors[:, :, :, ii],
-                                      lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
-
-            else:
-                lengths = np.array([min(len(p.traversal), controller.max_length)
-                                    for p in programs], dtype=np.int32)
-
-                # Create the Batch
-                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                                      lengths=lengths, rewards=r, top_quantile=top_quantile,
-                                      invalid=invalid)
-
-            # Update and sample from the priority queue
-            if priority_queue is not None:
-                priority_queue.push_best(sampled_batch, programs)
-                pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
-            else:
-                pqt_batch = None
-
-            # Train the controller
-            summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
 
         # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
         # if summary:

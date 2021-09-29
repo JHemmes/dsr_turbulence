@@ -520,41 +520,37 @@ class Controller(object):
             # Entropy loss
             # sub_entropy = tf.gather(entropy, top_quantile)
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy * top_quantile / tf.reduce_mean(top_quantile), name="entropy_loss")
+            self.entropy_loss = entropy_loss
             loss = entropy_loss
 
-            # PPO loss
-            if ppo:
-                assert not pqt, "PPO is not compatible with PQT"
+            # # PPO loss
+            # if ppo:
+            #     assert not pqt, "PPO is not compatible with PQT"
+            #
+            #     self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
+            #     ratio = tf.exp(self.old_neglogp_ph - neglogp)
+            #     clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
+            #     ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (r - self.baseline), clipped_ratio * (r - self.baseline)))
+            #     loss += ppo_loss
+            #
+            #     # Define PPO diagnostics
+            #     clipped = tf.logical_or(ratio < (1. - ppo_clip_ratio), ratio > 1. + ppo_clip_ratio)
+            #     self.clip_fraction = tf.reduce_mean(tf.cast(clipped, tf.float32))
+            #     self.sample_kl = tf.reduce_mean(neglogp - self.old_neglogp_ph)
 
-                self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
-                ratio = tf.exp(self.old_neglogp_ph - neglogp)
-                clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
-                ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (r - self.baseline), clipped_ratio * (r - self.baseline)))
-                loss += ppo_loss
-
-                # Define PPO diagnostics
-                clipped = tf.logical_or(ratio < (1. - ppo_clip_ratio), ratio > 1. + ppo_clip_ratio)
-                self.clip_fraction = tf.reduce_mean(tf.cast(clipped, tf.float32))
-                self.sample_kl = tf.reduce_mean(neglogp - self.old_neglogp_ph)
-
+            # else:
+            #     if not pqt or (pqt and pqt_use_pg):
+                    # pg_loss was calculated here
             # Policy gradient loss
-            else:
-                if not pqt or (pqt and pqt_use_pg):
-                    # r_sub = tf.gather(r, top_quantile)
-                    # neglogp_sub = tf.gather(neglogp, top_quantile)
-                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile / tf.reduce_mean(top_quantile), name="pg_loss")
-                    # pg_loss = tf.reduce_mean((r_sub - self.baseline) * neglogp_sub, name="pg_loss")
-                    # self.rbefore = r
-                    # self.rafter = tf.gather(r, top_quantile)
-                    # self.neglogpafter = tf.gather(neglogp, top_quantile)
-                    self.pg_loss = pg_loss
-                    loss += pg_loss
+            pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile / tf.reduce_mean(top_quantile), name="pg_loss")
+            self.pg_loss = pg_loss
+            loss += pg_loss
 
-            # Priority queue training loss
-            if pqt:
-                pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
-                pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
-                loss += pqt_loss
+            # # Priority queue training loss
+            # if pqt:
+            #     pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
+            #     pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
+            #     loss += pqt_loss
 
             # Equation validity loss
             invalid_loss = tf.reduce_mean(-self.invalid_weight * invalid * neglogp, name="invalid_loss")
@@ -673,7 +669,7 @@ class Controller(object):
                     _ = self.sess.run([self.train_op], feed_dict=mb_feed_dict)
 
         else:
-            _ = self.sess.run([self.train_op], feed_dict=feed_dict)
+            _, entropy_loss, invalid_loss, pg_loss = self.sess.run([self.train_op, self.entropy_loss, self.invalid_loss, self.pg_loss], feed_dict=feed_dict)
 
         # ?? errors the second time a summary is called. Disabled for now since the writer in train.py is defective anyway
         # Return summaries
@@ -684,4 +680,4 @@ class Controller(object):
 
         summaries = None
 
-        return summaries
+        return summaries, entropy_loss, invalid_loss, pg_loss
