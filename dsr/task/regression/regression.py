@@ -128,9 +128,9 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
         y_hat = p.execute(X_train)
 
         # For invalid expressions, return invalid_reward
-        p.invalid_tokens = [token.invalid for token in p.traversal]
-        p.invalid = np.sum(p.invalid_tokens)
-        if p.invalid > 0:
+        # p.invalid_tokens = [token.invalid for token in p.traversal]
+        if p.invalid:
+            p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)  # overwrite "True" with the number of invalid tokens
             return invalid_reward
 
         # if p.invalid:
@@ -178,9 +178,10 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
         base_r, jac = p.ad_reverse(X_train)
 
         # For invalid expressions, return invalid_reward
-        p.invalid_tokens = [token.invalid for token in p.ad_traversal[ad_metric_start_idx:-1]]
-        p.invalid = np.sum(p.invalid_tokens)
-        if p.invalid > 0:
+        # p.invalid = np.sum(p.invalid_tokens[ad_metric_start_idx:-1], dtype=np.float32)
+        if p.invalid:
+            p.invalid_tokens = p.invalid_tokens[ad_metric_start_idx:-1]
+            p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)
             return invalid_reward, np.zeros(jac.shape)
 
 

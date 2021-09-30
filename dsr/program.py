@@ -329,9 +329,12 @@ class Program(object):
         #     return X[:, node]
 
         apply_stack = []
+        counter = 0
 
         for node in self.traversal:
 
+            node.index = counter
+            counter += 1
             apply_stack.append([node])
             # while length of last entry = the arity + 1 of the last entry
             while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
@@ -344,6 +347,7 @@ class Program(object):
                 if token.input_var is not None:
                     intermediate_result = X[:, token.input_var]
                 else:
+                    globals()['idx_counter'] = token.index
                     intermediate_result = token(*terminals)
                 if len(apply_stack) != 1:
                     apply_stack.pop()
@@ -379,12 +383,14 @@ class Program(object):
         #     return X[:, node]
 
         apply_stack = []
-        idx_counter = 0
+        counter = 0
 
         # FWD pass
         for node in self.ad_traversal:
-            # reset adjoint val to 0 for rwd pass
+
             node.adjoint_val = 0
+            node.index = counter
+            counter += 1
 
             apply_stack.append([node])
             # while length of last entry = the arity + 1 of the last entry
@@ -395,12 +401,11 @@ class Program(object):
 
                 if token.input_var is not None:
                     token.value = X[:, token.input_var]
-                    token.index = idx_counter
-                    idx_counter += 1
                 else:
+                    globals()['idx_counter'] = token.index
                     token.value = token(*terminals)
-                    token.index = idx_counter
-                    idx_counter += 1
+                    # token.index = globals()['idx_counter']
+                    # globals()['idx_counter'] += 1
                 if len(apply_stack) != 1:
                     apply_stack.pop()
                     apply_stack[-1].append(token)
@@ -583,7 +588,8 @@ class Program(object):
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            execute_function        = Program.cython_execute
+            # execute_function        = Program.cython_execute
+            execute_function        = Program.python_execute
             Program.have_cython     = True
             ad_execute              = Program.ad_python_execute
         else:
@@ -599,17 +605,20 @@ class Program(object):
                 """Log class to catch and record numpy warning messages"""
 
                 def __init__(self):
-                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
-                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
-                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+                    # self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    # self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False  # Flag for whether a warning has been encountered during a call to Program.execute()
+                    self.invalid_list = []
 
-                def write(self, message, token):
+                def write(self, message):
                     """This is called by numpy when encountering a warning"""
 
-                    if not self.new_entry: # Only record the first warning encounter
-                        message = message.strip().split(' ')
-                        self.error_type = message[1]
-                        self.error_node = message[-1]
+                    self.invalid_list.append(globals()['idx_counter'])  # idx_counter is declared globally so it can be used here
+
+                    # if not self.new_entry: # Only record the first warning encounter
+                    #     message = message.strip().split(' ')
+                    #     self.error_type = message[1]
+                    #     self.error_node = message[-1]
                     self.new_entry = True
 
                 def update(self, p):
@@ -617,15 +626,39 @@ class Program(object):
                     to True and record the error type and error node."""
 
                     if self.new_entry:
-                        p.invalid = True
-                        p.error_type = self.error_type
-                        p.error_node = self.error_node
+                        if len(p.const_pos) > 0:
+                            p.invalid_tokens = np.zeros(len(p.ad_traversal))
+                            # token_indices = np.array([token.index for token in p.ad_traversal])
+                        else:
+                            p.invalid_tokens = np.zeros(len(p.traversal))
+                            # token_indices = np.array([token.index for token in p.traversal])
+
+                        invalid_indices = np.unique(self.invalid_list)
+                        p.invalid_tokens[invalid_indices] = 1
+
+                        p.invalid = True  # set to true here, later change to number of invalids
+
+                        # try:
+                        #     p.invalid_tokens[np.array([list(token_indices).index(_) for _ in invalid_indices])] = 1
+                        # except:
+                        #     print('pause here')
+                        # reset invalid log
                         self.new_entry = False
+                        self.invalid_list = []
+
+
+
+                # def fetch_list(self):
+                #     return self.invalid_list
+
+                def set_counter(self, counter):
+                    self.counter = counter
 
             # token_class = Token()
 
-            # invalid_log = InvalidLog()
-            # np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
+            invalid_log = InvalidLog()
+            np.seterrcall(invalid_log)
+            # globals()['invalid_log_global'] = invalid_log  # Tells numpy to call InvalidLog.write() when encountering a warning
             # np.seterr(token_class.set_invalid())  # Tells numpy to call InvalidLog.write() when encountering a warning
 
             # Define closure for execute function
@@ -637,6 +670,7 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = execute_function(p, X)
+                    invalid_log.update(p)
                     return y
 
             # Define closure for execute function
@@ -648,6 +682,7 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = ad_execute(p, X)
+                    invalid_log.update(p)
                     return y
 
             Program.execute = unsafe_execute

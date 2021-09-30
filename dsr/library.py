@@ -47,12 +47,12 @@ class Token():
     def __call__(self, *args):
         assert self.function is not None, \
             "Token {} is not callable.".format(self.name)
-        np.seterrcall(self)
+        # np.seterrcall(self)
 
         return self.function(*args)
-
-    def write(self, message):
-        self.invalid = True
+    #
+    # def write(self, message):
+    #     self.invalid = True
 
     def __repr__(self):
         return self.name
@@ -122,7 +122,7 @@ class AD_Token():
         else:
             return self.function(*args)
 
-        np.seterrcall(self)
+        # np.seterrcall(self)
 
         self.value = self.function(*args)
 
@@ -131,17 +131,8 @@ class AD_Token():
     def __repr__(self):
         return self.name
 
-    # def fwd_pass_call(self, *args):
-    #     # set children, calculate value of node using children. Children will be passed as args*
-    #     assert self.function is not None, \
-    #         "Token {} is not callable.".format(self.name)
-    #
-    #     self.value = self.function(*args)
-    #
-    #     return self.value
-
-    def write(self, message):
-        self.invalid = True
+    # def write(self, message):
+    #     self.invalid = True
 
 class PlaceholderConstant(Token):
     """
