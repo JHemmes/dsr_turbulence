@@ -359,6 +359,11 @@ def learn(sessions, controllers, pool,
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
 
+        if any(np.isnan(base_r)):
+            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+            r[np.where(np.isnan(r))[0]] = min(r)
+
         # Collect newly optimised sub batch statistics
         base_r_avg_sub = np.mean(base_r[keep])
         r_avg_sub = np.mean(r[keep])

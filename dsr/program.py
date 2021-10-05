@@ -466,16 +466,20 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
+            gtol = 1e-15
 
             if self.traversal[self.const_pos[0]].value:
                 # if this is the sub batch optimisation with no iter limit, set initial guess to be current constants
+                gtol = 1e-5
                 x0 = np.zeros(len(self.const_pos))
                 for ii in range(len(self.const_pos)):
                     x0[ii] = self.traversal[self.const_pos[ii]].value
             else:
                 x0 = np.ones(len(self.const_pos))  # Initial guess
 
-            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
+            # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
+            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
+                                                                                                        'gtol' : gtol})
 
             self.nfev += nfev
             self.nit += nit
@@ -625,41 +629,27 @@ class Program(object):
                     """If a floating-point error was encountered, set Program.invalid
                     to True and record the error type and error node."""
 
-                    if self.new_entry:
-                        if len(p.const_pos) > 0:
-                            p.invalid_tokens = np.zeros(len(p.ad_traversal))
-                            # token_indices = np.array([token.index for token in p.ad_traversal])
-                        else:
-                            p.invalid_tokens = np.zeros(len(p.traversal))
-                            # token_indices = np.array([token.index for token in p.traversal])
+                    # set invalid tokens for each program
+                    if len(p.const_pos) > 0:
+                        p.invalid_tokens = np.zeros(len(p.ad_traversal))
+                        # token_indices = np.array([token.index for token in p.ad_traversal])
+                    else:
+                        p.invalid_tokens = np.zeros(len(p.traversal))
+                        # token_indices = np.array([token.index for token in p.traversal])
 
+                    if self.new_entry:
+                        # if invalid token is logged, update which tokens are invalid.
                         invalid_indices = np.unique(self.invalid_list)
                         p.invalid_tokens[invalid_indices] = 1
 
                         p.invalid = True  # set to true here, later change to number of invalids
 
-                        # try:
-                        #     p.invalid_tokens[np.array([list(token_indices).index(_) for _ in invalid_indices])] = 1
-                        # except:
-                        #     print('pause here')
                         # reset invalid log
                         self.new_entry = False
                         self.invalid_list = []
 
-
-
-                # def fetch_list(self):
-                #     return self.invalid_list
-
-                def set_counter(self, counter):
-                    self.counter = counter
-
-            # token_class = Token()
-
             invalid_log = InvalidLog()
-            np.seterrcall(invalid_log)
-            # globals()['invalid_log_global'] = invalid_log  # Tells numpy to call InvalidLog.write() when encountering a warning
-            # np.seterr(token_class.set_invalid())  # Tells numpy to call InvalidLog.write() when encountering a warning
+            np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
 
             # Define closure for execute function
             def unsafe_execute(p, X):
