@@ -6,6 +6,7 @@ from itertools import compress
 from itertools import combinations
 from datetime import datetime
 from collections import defaultdict
+from copy import copy
 import time
 
 import tensorflow as tf
@@ -257,6 +258,8 @@ def learn(sessions, controllers, pool,
             obs = np.stack(obs, axis=-1)
             priors = np.stack(priors, axis=-1)
 
+            actions_original = copy(actions)
+
             # all_means = []
             # for a, b in combinations(raw_actions, 2):
             #     all_means.append(np.mean(a==b))
@@ -421,7 +424,7 @@ def learn(sessions, controllers, pool,
         #         values = controller.sess.run(var_names)
         #         val_list.append(values)
 
-
+        actions_original = actions_original[keep]
 
         for ii, controller in enumerate(controllers):
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
@@ -437,7 +440,7 @@ def learn(sessions, controllers, pool,
                                         for p in programs], dtype=np.int32)
 
                 # Create the Batch
-                sampled_batch = Batch(actions=actions[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
+                sampled_batch = Batch(actions=actions_original[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
                                       lengths=lengths, rewards=r)
 
             else:
@@ -517,7 +520,7 @@ def learn(sessions, controllers, pool,
         #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
         #     print_var_means()
 
-        if len(Program.cache) > 10000:
+        if len(Program.cache) > 5000:
             # if the cache contains more than x function, tidy cache.
             Program.tidy_cache(hof)
     #
