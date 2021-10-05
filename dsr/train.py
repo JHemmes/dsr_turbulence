@@ -7,6 +7,7 @@ from itertools import combinations
 from datetime import datetime
 from collections import defaultdict
 import time
+from copy import copy
 
 import tensorflow as tf
 import pandas as pd
@@ -266,6 +267,8 @@ def learn(sessions, controllers, pool,
             # sample_metric = np.mean(all_means)
             sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
 
+            actions_original = copy(actions)
+
         else:
             actions = action
             obs = ob
@@ -309,6 +312,7 @@ def learn(sessions, controllers, pool,
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
+        base_r_avg_full = np.mean(base_r)
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
         invalid_avg_full = np.mean(invalid)
@@ -349,7 +353,6 @@ def learn(sessions, controllers, pool,
         # Check if there is a new best performer
         base_r_max = max(base_r)
         base_r_best = max(base_r_max, base_r_best)
-        base_r_avg_full = np.mean(base_r)
         r_max = max(r)
         r_best = max(r_max, r_best)
 
@@ -439,7 +442,7 @@ def learn(sessions, controllers, pool,
                                         for p in programs], dtype=np.int32)
 
                 # Create the Batch
-                sampled_batch = Batch(actions=actions[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
+                sampled_batch = Batch(actions=actions_original[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
                                       lengths=lengths, rewards=r)
 
             else:

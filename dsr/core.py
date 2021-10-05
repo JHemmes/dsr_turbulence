@@ -75,7 +75,7 @@ class DeepSymbolicOptimizer():
                 if self.config_training['transfer_learning']:
                     saver = tf.train.Saver()
                     saver.restore(sess=new_controller.sess,
-                                  save_path=f"./turbulence/transfer_learning/controller_1.ckpt")
+                                  save_path=f"./turbulence/transfer_learning/controller_tensor1000.ckpt")
 
                 self.controller.append(new_controller)
 
