@@ -632,10 +632,8 @@ class Program(object):
                     # set invalid tokens for each program
                     if len(p.const_pos) > 0:
                         p.invalid_tokens = np.zeros(len(p.ad_traversal))
-                        # token_indices = np.array([token.index for token in p.ad_traversal])
                     else:
                         p.invalid_tokens = np.zeros(len(p.traversal))
-                        # token_indices = np.array([token.index for token in p.traversal])
 
                     if self.new_entry:
                         # if invalid token is logged, update which tokens are invalid.
@@ -712,7 +710,9 @@ class Program(object):
         """Evaluates and returns the evaluation metrics of the program."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
+
+            self.ad_traversal = np.array([0,0])  # set dummy ad_traversal so that invalid_log.update doesnt error.
+
             return self.task.evaluate(self)
     
     @cached_property
