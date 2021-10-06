@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "kDeficit_profile_global_index",
+      "name" : "custom_benchmark_test_nonoise_0_inv_weight",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
@@ -59,7 +59,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
-      "invalid_weight": 0.01,
+      "invalid_weight": 0,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

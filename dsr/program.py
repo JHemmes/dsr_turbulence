@@ -466,20 +466,21 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
-            gtol = 1e-15
+            # gtol = 1e-15
+            # gtol = 1e-5
 
             if self.traversal[self.const_pos[0]].value:
                 # if this is the sub batch optimisation with no iter limit, set initial guess to be current constants
-                gtol = 1e-5
+                # gtol = 1e-5
                 x0 = np.zeros(len(self.const_pos))
                 for ii in range(len(self.const_pos)):
                     x0[ii] = self.traversal[self.const_pos[ii]].value
             else:
                 x0 = np.ones(len(self.const_pos))  # Initial guess
 
-            # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
-            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
-                                                                                                        'gtol' : gtol})
+            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
+            # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
+            #                                                                                             'gtol' : gtol})
 
             self.nfev += nfev
             self.nit += nit

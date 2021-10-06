@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "bDelta_01_inv_weight_gtol15",
+      "name" : "find_sparta_nrmse",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",
