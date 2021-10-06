@@ -221,7 +221,7 @@ def learn(sessions, controllers, pool,
         tensor_dsr = False
 
     for step in range(n_epochs):
-        start_time = time.time()
+        start_time = time.process_time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
@@ -378,7 +378,7 @@ def learn(sessions, controllers, pool,
             n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
             nfev_avg_sub = np.mean(nfev[nfev > 1])
             nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
-            duration = time.time() - start_time
+            duration = time.process_time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
