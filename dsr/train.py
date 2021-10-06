@@ -424,7 +424,8 @@ def learn(sessions, controllers, pool,
         #         values = controller.sess.run(var_names)
         #         val_list.append(values)
 
-        actions_original = actions_original[keep]
+        if tensor_dsr:
+            actions_original = actions_original[keep]
 
         for ii, controller in enumerate(controllers):
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
