@@ -47,7 +47,7 @@ def is_pareto_efficient(costs):
     return is_efficient_mask
 
 
-def setup_output_files(logdir, output_file):
+def setup_output_files(logdir, output_file, token_names):
     """
     Writes the main output file header and returns the reward, hall of fame, and Pareto front config filenames.
 
@@ -59,6 +59,9 @@ def setup_output_files(logdir, output_file):
 
     output_file : string
         Name of output file.
+
+    token_names : list
+        Names of tokens in library, used to add to end of output file to correctly name tokens in output file.
 
     Returns:
     --------
@@ -119,8 +122,13 @@ def setup_output_files(logdir, output_file):
                    "eq_w_const_sub",
                    "n_const_per_eq_full",
                    "n_const_per_eq_sub",
+                   "n_unq_tokens_avg_full",
+                   "n_unq_tokens_avg_sub",
                    "duration"
                    ]
+        headers += [token_name + '_full' for token_name in token_names]
+        headers += [token_name + '_sub' for token_name in token_names]
+
         f.write("{}\n".format(",".join(headers)))
 
     return all_r_output_file, hof_output_file, pf_output_file

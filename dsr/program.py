@@ -17,6 +17,7 @@ import dsr.utils as U
 from dsr.library import Token
 from copy import deepcopy, copy
 
+
 def _finish_tokens(tokens):
     """
     Complete the pre-order traversal. using secondary library!
@@ -232,6 +233,12 @@ class Program(object):
         The base reward (reward without penalty) of the program on the training
         data.
 
+    token_occurences : list
+        List containing the number of occurences of each token.
+
+    n_unique_tokens : float
+        The number of unique tokens in the program
+
     complexity : float
         The (lazily calcualted) complexity of the program.
 
@@ -275,6 +282,8 @@ class Program(object):
         self.tokens = tokens
         self.invalid_tokens = None
         self.invalid = 0
+        self.n_unique_tokens = len(np.unique(tokens))
+        self.token_occurences = [np.sum(tokens == ii) for ii in range(self.library.L)]
 
         if self.have_cython and self.len_traversal > 1:
             self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])

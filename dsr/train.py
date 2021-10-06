@@ -160,9 +160,14 @@ def learn(sessions, controllers, pool,
     #     for sess in sessions: # doenst work properly for multiple sessions
     #         writer = tf.summary.FileWriter(summary_dir, sess.graph)
 
+    #Create dummy program to find names of tokens in library
+    tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
+    token_names = tmp_program.library.names
+    del tmp_program
+
     # Create log file
     if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file)
+        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file, token_names)
     else:
         all_r_output_file = hof_output_file = pf_output_file = None
 
@@ -222,7 +227,7 @@ def learn(sessions, controllers, pool,
 
     for step in range(n_epochs):
 
-        start_time = time.time()
+        start_time = time.process_time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
@@ -310,6 +315,8 @@ def learn(sessions, controllers, pool,
         invalid = np.array([p.invalid for p in programs])
         nfev = np.array([p.nfev for p in programs])
         n_consts = np.array([len(p.const_pos) for p in programs])
+        token_occur = np.array([p.token_occurences for p in programs])
+        n_unq_tokens = np.array([p.n_unique_tokens for p in programs])
 
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
@@ -322,6 +329,8 @@ def learn(sessions, controllers, pool,
         n_const_per_eq_full = np.mean(n_consts)
         nfev_avg_full = np.mean(nfev[nfev > 1])
         nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
+        token_occur_avg_full = np.mean(token_occur, axis=0)
+        n_unq_tokens_avg_full = np.mean(n_unq_tokens)
 
         # Risk-seeking policy gradient: train on top epsilon fraction of samples
         if epsilon is not None and epsilon < 1.0:
@@ -372,6 +381,11 @@ def learn(sessions, controllers, pool,
         n_const_per_eq_sub = np.mean(n_consts[keep])
         nfev_avg_sub = np.mean([p.nfev for p in programs if (p.nfev > 0) and (p.top_quantile == 1)])
         nit_avg_sub = np.mean([p.nit for p in programs if (p.nit > 0) and (p.top_quantile == 1)])
+        token_occur_avg_sub = np.mean(token_occur[keep], axis=0)
+        n_unq_tokens_avg_sub = np.mean(n_unq_tokens[keep])
+
+
+
 
         # Check if there is a new best performer
         base_r_max = max(base_r)
@@ -455,7 +469,7 @@ def learn(sessions, controllers, pool,
         # avg_pg_loss = np.mean(loss_pg)
 
         if output_file is not None:
-            duration = time.time() - start_time
+            duration = time.process_time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
@@ -477,21 +491,25 @@ def learn(sessions, controllers, pool,
                          n_unique_sub,
                          n_novel_full,
                          n_novel_sub,
-                         a_ent_full,
-                         a_ent_sub,
+                         np.round(a_ent_full, 2),
+                         np.round(a_ent_sub, 2),
                          invalid_avg_full,
                          invalid_avg_sub,
                          sample_metric,
-                         nfev_avg_full,
-                         nfev_avg_sub,
-                         nit_avg_full,
-                         nit_avg_sub,
-                         eq_w_const_full,
-                         eq_w_const_sub,
-                         n_const_per_eq_full,
-                         n_const_per_eq_sub,
-                         duration
-                         ]] # changed this array to a list, changed save routine to pandas to allow expression string
+                         np.round(nfev_avg_full, 3),
+                         np.round(nfev_avg_sub, 3),
+                         np.round(nit_avg_full, 3),
+                         np.round(nit_avg_sub, 3),
+                         np.round(eq_w_const_full, 3),
+                         np.round(eq_w_const_sub, 3),
+                         np.round(n_const_per_eq_full, 3),
+                         np.round(n_const_per_eq_sub, 3),
+                         np.round(n_unq_tokens_avg_full, 3),
+                         np.round(n_unq_tokens_avg_sub, 3),
+                         np.round(duration, 2)
+                         ]]  # changed this array to a list, changed save routine to pandas to allow expression string
+            stats[0] += list(np.round(token_occur_avg_full, 2))
+            stats[0] += list(np.round(token_occur_avg_sub, 2))
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
 
