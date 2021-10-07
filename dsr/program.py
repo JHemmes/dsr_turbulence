@@ -461,8 +461,9 @@ class Program(object):
         """
 
         def reverse_ad(consts):
-            if self.invalid > 0:
-                self.reset_tokens_valid()
+            # if self.invalid > 0:
+            #     self.reset_tokens_valid()
+            self.invalid = False
             self.set_constants(consts, ad=True)
             self.ad_r, self.jac = self.task.ad_reverse(self)
             return -self.ad_r, -self.jac
@@ -590,7 +591,7 @@ class Program(object):
             Program.complexity_penalty = lambda p : weight * all_functions[name](p)
 
     @classmethod
-    def set_execute(cls, protected):
+    def set_execute(cls, protected, invalid_weight):
         """Sets which execute method to use"""
 
         """
@@ -602,8 +603,12 @@ class Program(object):
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            # execute_function        = Program.cython_execute
-            execute_function        = Program.python_execute
+            if invalid_weight > 0:
+                execute_function = Program.python_execute
+            else:
+                # if invalid tokens are not logged, use cython and set dummy ixd_counter
+                execute_function = Program.cython_execute
+                globals()['idx_counter'] = 1
             Program.have_cython     = True
             ad_execute              = Program.ad_python_execute
         else:
@@ -627,34 +632,44 @@ class Program(object):
                 def write(self, message):
                     """This is called by numpy when encountering a warning"""
 
-                    self.invalid_list.append(globals()['idx_counter'])  # idx_counter is declared globally so it can be used here
-
-                    # if not self.new_entry: # Only record the first warning encounter
-                    #     message = message.strip().split(' ')
-                    #     self.error_type = message[1]
-                    #     self.error_node = message[-1]
+                    # idx_counter is declared globally so it can be used here
+                    self.invalid_list.append(globals()['idx_counter'])
                     self.new_entry = True
 
-                def update(self, p):
-                    """If a floating-point error was encountered, set Program.invalid
-                    to True and record the error type and error node."""
+                if invalid_weight > 0:
+                    # choose update function dependent of
+                    def update(self, p):
+                        """If a floating-point error was encountered, set Program.invalid
+                        to True and record the error type and error node."""
 
-                    # set invalid tokens for each program
-                    if len(p.const_pos) > 0:
-                        p.invalid_tokens = np.zeros(len(p.ad_traversal))
-                    else:
-                        p.invalid_tokens = np.zeros(len(p.traversal))
+                        # set invalid tokens for each program
+                        if len(p.const_pos) > 0:
+                            p.invalid_tokens = np.zeros(len(p.ad_traversal))
+                        else:
+                            p.invalid_tokens = np.zeros(len(p.traversal))
 
-                    if self.new_entry:
-                        # if invalid token is logged, update which tokens are invalid.
-                        invalid_indices = np.unique(self.invalid_list)
-                        p.invalid_tokens[invalid_indices] = 1
+                        if self.new_entry:
+                            # if invalid token is logged, update which tokens are invalid.
+                            invalid_indices = np.unique(self.invalid_list)
+                            p.invalid_tokens[invalid_indices] = 1
 
-                        p.invalid = True  # set to true here, later change to number of invalids
+                            p.invalid = True  # set to true here, later change to number of invalids
 
-                        # reset invalid log
-                        self.new_entry = False
-                        self.invalid_list = []
+                            # reset invalid log
+                            self.new_entry = False
+                            self.invalid_list = []
+                else:
+                    def update(self, p):
+                        """If a floating-point error was encountered, set Program.invalid
+                        to True and record the error type and error node."""
+
+                        if self.new_entry:
+                            p.invalid = True
+                            p.invalid_tokens = np.array([1, 0])
+
+                            # reset invalid log (reset list to avoid large cache)
+                            self.new_entry = False
+                            self.invalid_list = []
 
             invalid_log = InvalidLog()
             np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning

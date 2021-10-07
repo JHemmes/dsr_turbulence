@@ -133,7 +133,7 @@ class DeepSymbolicOptimizer():
                         initargs=(self.config_task,))
 
         # Set the Task for the parent process
-        set_task(self.config_task)
+        set_task(self.config)
 
         return pool
 

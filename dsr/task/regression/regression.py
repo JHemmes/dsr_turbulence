@@ -178,10 +178,13 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
         base_r, jac = p.ad_reverse(X_train)
 
         # For invalid expressions, return invalid_reward
-        # p.invalid = np.sum(p.invalid_tokens[ad_metric_start_idx:-1], dtype=np.float32)
         if p.invalid:
-            p.invalid_tokens = p.invalid_tokens[ad_metric_start_idx:-1]
-            p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)
+            if len(p.invalid_tokens) == 2:
+                # if invalid weight = 0, p.invalid_tokens will be a dummy array of len == 2
+                p.invalid = 1
+            else:
+                p.invalid_tokens = p.invalid_tokens[ad_metric_start_idx:-1]
+                p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)
             return invalid_reward, np.zeros(jac.shape)
 
 

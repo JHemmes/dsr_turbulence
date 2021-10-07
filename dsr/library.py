@@ -38,7 +38,6 @@ class Token():
         self.arity = arity
         self.complexity = complexity
         self.input_var = input_var
-        self.invalid = False
 
         if input_var is not None:
             assert function is None, "Input variables should not have functions."
@@ -98,7 +97,6 @@ class AD_Token():
         self.adjoint_val = 0
         self.index = None
         self.parent_of_const = False
-        self.invalid = False
 
         if input_var is not None:
             assert function is None, "Input variables should not have functions."
