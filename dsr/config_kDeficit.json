@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "profile_0_inv_weight_speed_test",
+      "name" : "adding_fixed_actions_test",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "dataset" : {
          "name" : "PH10595",

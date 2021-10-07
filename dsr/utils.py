@@ -3,7 +3,8 @@
 import os
 import functools
 import numpy as np
-
+import pandas as pd
+import time
 
 def is_float(s):
     """Determine whether str can be cast to float."""
@@ -174,3 +175,72 @@ def empirical_entropy(labels):
         ent -= i * np.log(i)
 
     return ent
+
+
+def test_fixed_actions(logdir, from_tokens):
+
+    from numpy import genfromtxt
+
+    actions_file = './log/test_log/dsr_20_consts_saving_actions_1_full.csv'
+
+    full_actions = genfromtxt(actions_file, delimiter=',', dtype='int32')
+
+    # Separate batches
+    full_batches_idx = np.where(full_actions[:, 1] == 100)[0]
+
+    filtered_batches_idx = []
+
+    # choose to filter batches or not:
+    prev_step = -1
+    for ii in range(len(full_batches_idx)):
+        if full_actions[full_batches_idx[ii], 0] % 20 == 0:
+            if full_actions[full_batches_idx[ii], 0] != prev_step:
+                prev_step = full_actions[full_batches_idx[ii], 0]
+            else:
+                filtered_batches_idx.append(full_batches_idx[ii])
+        else:
+            filtered_batches_idx.append(full_batches_idx[ii])
+
+    results_filename = f'{logdir}/results_fixed_actions.csv'
+
+    df_save = pd.DataFrame(columns=['batch', 'duration_proc', 'invalid_avg', 'r', 'nit_avg'])
+    df_save.to_csv(results_filename, index=False)
+
+    full_batches_idx = np.array(filtered_batches_idx)
+
+    batches_match_percentage = []
+    batches_best_performers = []
+
+    # df_expressions_full = pd.DataFrame()
+    # df_expressions_sub = pd.DataFrame()
+    for ii in range(len(full_batches_idx)):
+        # for ii in range(1):
+        # calculate statistics for each batch
+        print(f"{ii + 1} of {len(full_batches_idx)}")
+
+        full_batch = full_actions[full_batches_idx[ii] + 1:full_batches_idx[ii] + 1001, :]
+
+        # create programs
+        start_proc = time.process_time()
+        programs = [from_tokens(a, optimize=2000) for a in full_batch]
+
+        r = np.array([p.r for p in programs])
+        duration_proc = time.process_time() - start_proc
+
+        invalid_avg = np.mean([p.invalid for p in programs])
+        nit_avg = np.mean([p.nit for p in programs])
+
+        if any(np.isnan(r)):
+            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+            r[np.where(np.isnan(r))[0]] = min(r)
+
+        df_save = pd.DataFrame(
+            columns=['batch', 'duration_proc', 'invalid_avg', 'r', 'nit_avg'])
+        df_save['batch'] = [full_actions[full_batches_idx[ii], 0]]
+        df_save['duration_proc'] = [duration_proc]
+        df_save['invalid_avg'] = [invalid_avg]
+        df_save['r'] = [max(r)]
+        df_save['nit_avg'] = nit_avg
+
+        df_save.to_csv(results_filename, mode='a', header=False, index=False)
+

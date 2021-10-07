@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, test_fixed_actions
 from dsr.memory import Batch, make_queue
 
 # Ignore TensorFlow warnings
@@ -37,7 +37,6 @@ def hof_work(p):
 
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
-
 
 def learn(sessions, controllers, pool,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -226,6 +225,11 @@ def learn(sessions, controllers, pool,
         tensor_dsr = False
 
     for step in range(n_epochs):
+
+        # if output_file
+        # this can be used to test performance on fixed set of actions:
+        if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
+            test_fixed_actions(logdir, from_tokens)
 
         start_time = time.process_time()
         # Set of str representations for all Programs ever seen
