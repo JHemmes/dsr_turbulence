@@ -3,6 +3,7 @@
       "task_type" : "regression",
       "name" : "adding_fixed_actions_test",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
+      "enforce_sum" : false,
       "dataset" : {
          "name" : "PH10595",
          "noise": null,

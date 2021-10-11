@@ -7,7 +7,7 @@ from dsr.functions import create_tokens, create_ad_tokens, create_metric_ad_toke
 from dsr.task.regression.dataset import BenchmarkDataset
 
 
-def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_nrmse",
+def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info, metric="inv_nrmse",
     metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
     reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
     normalize_variance=False, protected=False):
@@ -241,12 +241,13 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
     library = Library(tokens)
 
     # create secondary library without the tensors to pass to the controllers
-    tens_idx = []
     tens = []
-    for idx, val in enumerate(dataset_info['input']):
-        if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
-            tens.append(val)
-            tens_idx.append(idx)
+    if enforce_sum:
+        tens_idx = []
+        for idx, val in enumerate(dataset_info['input']):
+            if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                tens.append(val)
+                tens_idx.append(idx)
 
     sec_tokens = create_tokens(n_input_var=X_train.shape[1]-len(tens),
                                function_set=function_set,

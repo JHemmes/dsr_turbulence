@@ -228,8 +228,9 @@ def learn(sessions, controllers, pool,
 
         # if output_file
         # this can be used to test performance on fixed set of actions:
-        if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
-            test_fixed_actions(logdir, from_tokens)
+        # if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
+        #     test_fixed_actions(logdir, from_tokens)
+
 
         start_time = time.process_time()
         # Set of str representations for all Programs ever seen
