@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "tensor_dsr_one_network",
+      "name" : "saving_pickles_tensor_one_network",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -45,7 +45,10 @@
         "save_all_r": false,
         "early_stopping": true,
         "pareto_front": false,
-        "hof": 100
+        "hof": 100,
+        "save_batch": true
+
+
    },
    "controller": {
       "cell": "lstm",

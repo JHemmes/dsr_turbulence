@@ -44,7 +44,7 @@ def learn(sessions, controllers, pool,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
+          b_jumpstart=True, early_stopping=False, hof=10, save_batch=False, eval_all=False,
           pareto_front=False, debug=0):
     """
     Executes the main training loop.
@@ -130,6 +130,9 @@ def learn(sessions, controllers, pool,
     hof : int or None, optional
         If not None, number of top Programs to evaluate after training.
 
+    save_batch : bool, optional
+        Determines whether the batches that provided a new best are saved to a pickle file
+
     eval_all : bool, optional
         If True, evaluate all Programs. While expensive, this is useful for
         noisy data when you can't be certain of success solely based on reward.
@@ -176,6 +179,16 @@ def learn(sessions, controllers, pool,
     # Set the constant optimizer
     const_params = const_params if const_params is not None else {}
     Program.set_const_optimizer(const_optimizer, **const_params)
+
+    if save_batch:
+        # if batches are saved import pickle, set up output folder and define save_pickle function
+        import pickle
+        pickle_dir = os.path.join(logdir, 'pickled_batches')
+        os.mkdir(pickle_dir)
+        def save_pickle(path, data):
+            # function saves data
+            with open(path, 'wb') as f:
+                pickle.dump(data, f)
 
     # ?? disabled when changed to multiple sessions
     # if debug:
@@ -462,6 +475,12 @@ def learn(sessions, controllers, pool,
                 pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
             else:
                 pqt_batch = None
+
+            if save_batch:
+                if prev_r_best is None or r_max > prev_r_best:
+                    batch_filename = f"{output_file.split('.')[0]}_step_{step}_controller_{ii}.p"
+                    save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
+
 
             # Train the controller
             summaries, entropy_loss, invalid_loss, pg_loss = controller.train_step(b_train, sampled_batch, pqt_batch)
