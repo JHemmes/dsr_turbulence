@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, test_fixed_actions
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, test_fixed_actions, plot_prob_dists
 from dsr.memory import Batch, make_queue
 
 # Ignore TensorFlow warnings
@@ -30,10 +30,8 @@ def work(p):
     optimized_constants = p.optimize
     return optimized_constants, p.base_r
 
-
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
-
 
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
@@ -239,6 +237,9 @@ def learn(sessions, controllers, pool,
 
     for step in range(n_epochs):
 
+        if step%100 == 0:
+            plot_prob_dists(controllers, step, token_names)
+
         # if output_file
         # this can be used to test performance on fixed set of actions:
         # if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
@@ -297,9 +298,18 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
-        # actions = [np.array([11, 13,  3, 13, 15,  6,  7, 11, 13,  2, 13, 11, 11, 17, 16,  4, 16,
-        #        13,  6, 11,  4, 11,  6, 10, 10, 11, 13,  1, 15, 12,  9, 17, 13,  0,
-        #        12,  6, 10], dtype=np.int32)]
+        # import pickle
+        # def load_pickle(path):
+        #     # function loads saved charge points
+        #     with open(path, 'rb') as f:
+        #         data = pickle.load(f)
+        #     return data
+        #
+        # actions = [np.array([ 9,  1,  9,  9,  7,  9,  0,  2,  9, 12,  9,  0, 11,  3,  9,  9,  0,
+        #         7,  8, 11, 10, 13, 12,  0,  1, 13, 13, 13, 13,  0], dtype=np.int32)]
+        #
+        # actions = [np.array([ 9,  1,  9,  9,  7,  9,  0,  2,  9, 12,  9,  0, 11,  3,  9,  9,  0,
+        #         7,  8, 11, 10, 13, 12,  1,  1, 13, 13, 13, 13,  0], dtype=np.int32)]
 
         programs = [from_tokens(a, optimize=100) for a in actions]
 
@@ -404,7 +414,6 @@ def learn(sessions, controllers, pool,
 
 
 
-
         # Check if there is a new best performer
         base_r_max = max(base_r)
         base_r_best = max(base_r_max, base_r_best)
@@ -435,6 +444,20 @@ def learn(sessions, controllers, pool,
         # top_quantile = np.array(list(range(1000)))[keep]
         invalid = invalid.astype(float)
 
+        if tensor_dsr:
+            # set up invalid array for training seperate networks
+            invalid = np.zeros((actions.shape[0], actions.shape[2]))
+            if all(v is None for v in [p.invalid_tokens for p in programs]):
+                # if all program.invalid_tokens are None, invalid weight is zero, set p.invalid_tokens to array of zero
+                for p in programs:
+                    p.invalid_tokens = np.zeros(len(p.traversal))
+            else:
+                for p in programs:
+                    invalid_indices = p.invalid_tokens
+                    p.invalid_tokens = np.zeros(len(p.traversal), dtype=np.int32)
+                    if invalid_indices is not None:
+                        p.invalid_tokens[invalid_indices] = 1
+
         n_controllers = len(controllers)
         loss_pg = np.zeros(n_controllers)
         loss_ent = np.zeros(n_controllers)
@@ -445,20 +468,21 @@ def learn(sessions, controllers, pool,
             if tensor_dsr:
                 # find length of sub tokens:
                 if ii == 0:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]+1:]), controller.max_length)
                                         for p in programs], dtype=np.int32)
-                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:]) for p in programs],
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]+1:]) for p in programs],
                                        dtype=np.float32)
                 else:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:
-                                                         np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
-                                        for p in programs], dtype=np.int32)
-                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]:
-                                                             np.where(p.tokens == ii-1)[0][0]]) for p in programs],
-                                                             dtype=np.float32)
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0] + 1:
+                                                         np.where(p.tokens == ii - 1)[0][0] - min(ii, 2)]),
+                                            controller.max_length) for p in programs], dtype=np.int32)
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0] + 1:
+                                                             np.where(p.tokens == ii - 1)[0][0] - min(ii, 2)])
+                                        for p in programs], dtype=np.float32)
                 # Create the Batch
-                sampled_batch = Batch(actions=actions_original[:, :, ii], obs=[ob[:, :, ii] for ob in obs], priors=priors[:, :, :, ii],
-                                      lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
+                sampled_batch = Batch(actions=actions_original[:, :, ii], obs=[ob[:, :, ii] for ob in obs],
+                                      priors=priors[:, :, :, ii], lengths=lengths, rewards=r, top_quantile=top_quantile,
+                                      invalid=invalid)
 
             else:
                 lengths = np.array([min(len(p.traversal), controller.max_length)

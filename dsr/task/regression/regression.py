@@ -125,16 +125,18 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
     def reward(p):
 
         # Compute estimated values
-        y_hat = p.execute(X_train)
+        y_hat, invalid_indices = p.execute(X_train)
 
+        p.invalid_tokens = invalid_indices
         # For invalid expressions, return invalid_reward
         # p.invalid_tokens = [token.invalid for token in p.traversal]
         if p.invalid:
-            p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)  # overwrite "True" with the number of invalid tokens
+            if invalid_indices is None:
+                p.invalid = 1
+            else:
+                p.invalid = invalid_indices.shape[0]
+            # p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)  # overwrite "True" with the number of invalid tokens
             return invalid_reward
-
-        # if p.invalid:
-        #     return invalid_reward
 
         ### Observation noise
         # For reward_noise_type == "y_hat", success must always be checked to 
@@ -175,16 +177,25 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
         # on each evaluation reset the adjoint tokens to 0, except the first to 1.
 
         # Compute estimated values
-        base_r, jac = p.ad_reverse(X_train)
+        (base_r, jac), invalid_indices = p.ad_reverse(X_train)
 
         # For invalid expressions, return invalid_reward
         if p.invalid:
-            if len(p.invalid_tokens) == 2:
-                # if invalid weight = 0, p.invalid_tokens will be a dummy array of len == 2
+            if invalid_indices is None:
+                p.invalid_tokens = invalid_indices
+                # if the program is invalid but invalid indices is None the tokens are not logged, set invalid to 1
                 p.invalid = 1
             else:
-                p.invalid_tokens = p.invalid_tokens[ad_metric_start_idx:-1]
-                p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)
+                # if invalid weight = 0, p.invalid_tokens will be a dummy array of len == 2
+
+                # Adjust invalid_indices from AD_traversal
+                invalid_indices -= ad_metric_start_idx
+                invalid_indices = invalid_indices[invalid_indices >= 0]
+                p.invalid = invalid_indices.shape[0]
+                p.invalid_tokens = invalid_indices
+                # p.invalid_tokens = p.invalid_tokens[ad_metric_start_idx:-1]
+                # p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)
+                # p.invalid = np.sum(p.invalid_tokens[ad_metric_start_idx:-1], dtype=np.float32)
             return invalid_reward, np.zeros(jac.shape)
 
 
@@ -196,8 +207,8 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
     def evaluate(p):
 
         # Compute predictions on test data
-        y_hat = p.execute(X_test)
-        if p.invalid:
+        y_hat, invalid_indices = p.execute(X_test)
+        if invalid_indices is not None:
             nmse_test = None
             nmse_test_noiseless = None
             success = False

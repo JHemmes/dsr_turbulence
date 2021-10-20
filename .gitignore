@@ -12,3 +12,4 @@ dsr/dsr/summary*
 **/__pycache__/*
 *.idea/*
 **/transfer_learning/*
+**/test/data/

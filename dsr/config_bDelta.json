@@ -18,7 +18,7 @@
       "reward_noise" : 0.0
    },
    "prior": {
-      "length" : {"min_" : 3, "max_" : 60},
+      "length" : {"min_" : 3, "max_" : 30},
       "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},
@@ -46,7 +46,7 @@
         "early_stopping": true,
         "pareto_front": false,
         "hof": 100,
-        "save_batch": true
+        "save_batch": false
 
 
    },
@@ -63,7 +63,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
-      "invalid_weight": 0.01,
+      "invalid_weight": 0.1  ,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

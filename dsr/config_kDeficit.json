@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "saving_pickles_kDeficit",
+      "name" : "making_plots_test",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -46,7 +46,7 @@
         "early_stopping": true,
         "pareto_front": false,
         "hof": 100,
-        "save_batch": true
+        "save_batch": false
    },
    "controller": {
       "cell": "lstm",
@@ -61,7 +61,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
-      "invalid_weight": 0,
+      "invalid_weight": 0.01,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

@@ -5,6 +5,7 @@ import functools
 import numpy as np
 import pandas as pd
 import time
+import pickle
 
 def is_float(s):
     """Determine whether str can be cast to float."""
@@ -15,8 +16,13 @@ def is_float(s):
     except ValueError:
         return False
 
+def load_pickle(path):
+    # function loads saved charge points
+    with open(path, 'rb') as f:
+        data = pickle.load(f)
+    return data
 
-# Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
+    # Adapted from: https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
 def is_pareto_efficient(costs):
     """
     Find the pareto-efficient points given an array of costs.
@@ -176,12 +182,18 @@ def empirical_entropy(labels):
 
     return ent
 
+def plot_prob_dists(controllers, step, token_names):
+    # Not implemented yet.
+
+    # test_batch = load_pickle('./log/log_2021-10-12-132147_stop/pickled_batches/dsr_saving_pickles_kDeficit_1_step_96_controller_0.p')
+
+    pass
 
 def test_fixed_actions(logdir, from_tokens):
 
     from numpy import genfromtxt
 
-    actions_file = './log/test_log/dsr_20_consts_saving_actions_1_full.csv'
+    actions_file = './test/data/dsr_20_consts_saving_actions_1_full.csv'
 
     full_actions = genfromtxt(actions_file, delimiter=',', dtype='int32')
 

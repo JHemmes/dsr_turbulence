@@ -366,8 +366,8 @@ class Program(object):
 
         # We should never get here
         assert False, "Function should never get here!"
-        return None    
-    
+        return None
+
 
     def ad_python_execute(self, X):
         """Executes the program according to X using Python.
@@ -500,9 +500,9 @@ class Program(object):
                 self.invalid = True
             self.set_constants(optimized_constants)
 
-            # delete optimisation variables to save cache memory
-            self.ad_traversal = self.ad_const_pos = self.jac = None
-
+            # # delete optimisation variables to save cache memory
+            self.ad_const_pos = self.jac = None
+            self.ad_traversal = np.array([0, 0])  # set dummy array to not cause an error with invalid_log. update in self.evaluate()
         else:
             # No need to optimize if there are no constants
             optimized_constants = []
@@ -599,7 +599,7 @@ class Program(object):
         given different names, so it's not reliable for testing if cython ran.
         """
         cpath = os.path.join(os.path.dirname(__file__),'cyfunc.c')
-        
+
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
@@ -642,22 +642,25 @@ class Program(object):
                         """If a floating-point error was encountered, set Program.invalid
                         to True and record the error type and error node."""
 
-                        # set invalid tokens for each program
-                        if len(p.const_pos) > 0:
-                            p.invalid_tokens = np.zeros(len(p.ad_traversal))
-                        else:
-                            p.invalid_tokens = np.zeros(len(p.traversal))
+                        # # set invalid tokens for each program
+                        # if len(p.const_pos) > 0:
+                        #     p.invalid_tokens = np.zeros(len(p.ad_traversal))
+                        # else:
+                        #     p.invalid_tokens = np.zeros(len(p.traversal))
 
                         if self.new_entry:
                             # if invalid token is logged, update which tokens are invalid.
                             invalid_indices = np.unique(self.invalid_list)
-                            p.invalid_tokens[invalid_indices] = 1
-
+                            # p.invalid_tokens[invalid_indices] = 1
+                            #
                             p.invalid = True  # set to true here, later change to number of invalids
 
                             # reset invalid log
                             self.new_entry = False
                             self.invalid_list = []
+                            return invalid_indices
+
+                        return None
                 else:
                     def update(self, p):
                         """If a floating-point error was encountered, set Program.invalid
@@ -665,11 +668,12 @@ class Program(object):
 
                         if self.new_entry:
                             p.invalid = True
-                            p.invalid_tokens = np.array([1, 0])
 
                             # reset invalid log (reset list to avoid large cache)
                             self.new_entry = False
                             self.invalid_list = []
+
+                        return None
 
             invalid_log = InvalidLog()
             np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
@@ -683,8 +687,8 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = execute_function(p, X)
-                    invalid_log.update(p)
-                    return y
+                    invalid_indices = invalid_log.update(p)
+                    return y, invalid_indices
 
             # Define closure for execute function
             def unsafe_ad_reverse(p, X):
@@ -695,8 +699,8 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = ad_execute(p, X)
-                    invalid_log.update(p)
-                    return y
+                    invalid_indices = invalid_log.update(p)
+                    return y, invalid_indices
 
             Program.execute = unsafe_execute
             Program.ad_reverse = unsafe_ad_reverse
@@ -715,7 +719,7 @@ class Program(object):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            if not self.ad_r == None:
+            if not self.ad_r is None:
                 return self.ad_r
             else:
                 return self.task.reward_function(self)
@@ -726,7 +730,7 @@ class Program(object):
         set"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
+
             return self.base_r - self.complexity
 
 
@@ -735,11 +739,11 @@ class Program(object):
         """Evaluates and returns the evaluation metrics of the program."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-
-            self.ad_traversal = np.array([0,0])  # set dummy ad_traversal so that invalid_log.update doesnt error.
+            # if self.ad_traversal is None:
+            #     self.ad_traversal = np.array([0,0])  # set dummy ad_traversal so that invalid_log.update doesnt error.
 
             return self.task.evaluate(self)
-    
+
     @cached_property
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
@@ -764,7 +768,7 @@ class Program(object):
             expr = parse_expr(tree.__repr__()) # SymPy expression
         except:
             expr = "N/A"
-            
+
         return expr
 
 
@@ -854,22 +858,22 @@ def convert_to_sympy(node):
     elif node.val == "neg":
         node.val = Node("Mul")
         node.children.append(Node("-1"))
-        
+
     elif node.val == "n2":
         node.val = "Pow"
         node.children.append(Node("2"))
-        
+
     elif node.val == "n3":
         node.val = "Pow"
         node.children.append(Node("3"))
-        
+
     elif node.val == "n4":
         node.val = "Pow"
         node.children.append(Node("4"))
-        
+
     for child in node.children:
         convert_to_sympy(child)
-        
 
-        
+
+
     return node
