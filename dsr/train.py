@@ -230,15 +230,205 @@ def learn(sessions, controllers, pool,
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     # all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
 
+
+
+
     if len(controllers) > 1:
         tensor_dsr = True
     else:
         tensor_dsr = False
 
+    import pickle
+
+    def load_pickle(path):
+        # function loads saved charge points
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+        return data
+
+    batch = load_pickle(
+        './log/log_2021-10-12-132147_stop/pickled_batches/dsr_saving_pickles_kDeficit_1_step_96_controller_0.p')
+    actions = batch.actions
+    priors = batch.priors
+    obs = batch.obs
+
+    # binary operators = [0,1,2,3] # for parent obs
+    # possible siblings = []
+    combinations = []
+    combinations.append([14, 6, 14])  # no observations
+    combinations.append([14, 4, 14])  # exp parent
+    combinations.append([14, 5, 14])  # log parent
+    # after the above three you can have all binary parents as operators, with all tokens as possible children
+    for parent in range(4):
+        for sibling in range(15):
+            combinations.append([14, parent, sibling])
+
+    repeats = len(combinations)
+
+    action = actions[773]
+    prior = priors[773]
+    ob = [item[773] for item in obs]
+
+    p = from_tokens(action, optimize=1000)
+
+    sampled_actions = np.repeat(action[np.newaxis, :], repeats, axis=0)
+    sampled_priors = np.repeat(prior[np.newaxis, :, :], repeats, axis=0)
+    sampled_obs = [np.repeat(item[np.newaxis, :], repeats, axis=0) for item in ob]
+
+    sampled_r = []
+    sampled_top_quantile = []
+    sampled_lengths = []
+    sampled_invalid = []
+
+    from math import inf
+    for ii in range(repeats):
+        parent = combinations[ii][1]
+        sibling = combinations[ii][2]
+        sampled_obs[1][ii, 21] = parent
+        sampled_obs[2][ii, 21] = sibling
+
+        # certain conbinations need adjusted priors.
+        if parent == 4:  # if parent is exp, new token cannot be const or log
+            sampled_priors[ii, 21, 13] = -inf  # const
+            sampled_priors[ii, 21, 12] = -inf  # log
+
+        if parent == 5:  # if parent is log, new token cannot be const or exp
+            sampled_priors[ii, 21, 13] = -inf  # const
+            sampled_priors[ii, 21, 11] = -inf  # exp
+
+        if sibling == 13:  # if sibling is const, new token cannot be const
+            sampled_priors[ii, 21, 13] = -inf  # const
+
+        if parent == 6:  # if there is no parent, no unary tokens can be selected
+            sampled_priors[0, 23, [0, 1, 2, 3, 4, 5, 6, 13]] = -inf
+
+        sampled_r.append(p.r)
+        sampled_top_quantile.append(0)
+        sampled_lengths.append(p.len_traversal)
+        sampled_invalid.append(0)
+
+    sampled_batch_original = Batch(actions=sampled_actions, obs=sampled_obs, priors=sampled_priors,
+                                   lengths=np.array(sampled_lengths), rewards=np.array(sampled_r),
+                                   top_quantile=np.array(sampled_top_quantile),
+                                   invalid=np.array(sampled_invalid))
+
+    column_strings = [f'p={item[1]}, s={item[2]}' for item in combinations]
+
+    import matplotlib.pyplot as plt
+
+    import seaborn as sn
+    heatmap_dir = os.path.join(logdir, 'heatmaps')
+    os.makedirs(heatmap_dir, exist_ok=True)
+
+
+
+    alt_actions = np.array([9, 13, 7, 12, 0, 9, 10, 1, 8, 3, 1, 13])
+    alt_obs0 = np.array([9, 9, 13, 7, 12, 0, 9, 10, 1, 8, 3, 1])
+    alt_obs1 = np.array([2, 2, 2, 0, 5, 0, 2, 3, 3, 1, 1, 2])
+    alt_obs2 = np.array([14, 14, 13, 14, 14, 12, 14, 14, 1, 14, 3, 10])
+
+    sampled_actions[:, 7:19] = np.repeat(alt_actions[np.newaxis, :], repeats, axis=0)
+    sampled_obs[0][:, 7:19] = np.repeat(alt_obs0[np.newaxis, :], repeats, axis=0)
+    sampled_obs[1][:, 7:19] = np.repeat(alt_obs1[np.newaxis, :], repeats, axis=0)
+    sampled_obs[2][:, 7:19] = np.repeat(alt_obs2[np.newaxis, :], repeats, axis=0)
+
+    # reset priors
+    sampled_priors[:, 7:19, :] = 0
+
+    # set sibling constant prior
+    sampled_priors[:, 9, 13] = -inf
+
+    # set parent log prior
+    sampled_priors[:, 11, [11, 13]] = -inf
+
+    sampled_batch_edited = Batch(actions=sampled_actions, obs=sampled_obs, priors=sampled_priors,
+                                 lengths=np.array(sampled_lengths), rewards=np.array(sampled_r),
+                                 top_quantile=np.array(sampled_top_quantile),
+                                 invalid=np.array(sampled_invalid))
+
+    # try random obs
+    obs0 = np.random.randint(15, size=sampled_obs[0].shape)
+    obs1 = np.random.randint(7, size=sampled_obs[0].shape)
+    obs2 = np.random.randint(15, size=sampled_obs[0].shape)
+
+    sampled_obs = [obs0, obs1, obs2]
+
+    # set obs for heatmap
+    for ii in range(repeats):
+        parent = combinations[ii][1]
+        sibling = combinations[ii][2]
+        sampled_obs[1][ii, 21] = parent
+        sampled_obs[2][ii, 21] = sibling
+
+        # certain combinations need adjusted priors.
+        if parent == 4:  # if parent is exp, new token cannot be const or log
+            sampled_priors[ii, 21, 13] = -inf  # const
+            sampled_priors[ii, 21, 12] = -inf  # log
+
+        if parent == 5:  # if parent is log, new token cannot be const or exp
+            sampled_priors[ii, 21, 13] = -inf  # const
+            sampled_priors[ii, 21, 11] = -inf  # exp
+
+        if sibling == 13:  # if sibling is const, new token cannot be const
+            sampled_priors[ii, 21, 13] = -inf  # const
+
+        if parent == 6:  # if there is no parent, no unary tokens can be selected
+            sampled_priors[0, 23, [0, 1, 2, 3, 4, 5, 6, 13]] = -inf
+
+    sampled_batch_random = Batch(actions=sampled_actions, obs=sampled_obs, priors=sampled_priors,
+                                 lengths=np.array(sampled_lengths), rewards=np.array(sampled_r),
+                                 top_quantile=np.array(sampled_top_quantile),
+                                 invalid=np.array(sampled_invalid))
+
     for step in range(n_epochs):
 
-        if step%100 == 0:
+        if step%10 == 0:
             plot_prob_dists(controllers, step, token_names)
+
+            probs = controllers[0].compute_probs_tokens(sampled_batch_original)
+            df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
+
+            plt.figure(figsize=(20, 5))
+            sn.heatmap(df_plot,
+                       square=True,
+                       annot=True,
+                       annot_kws={"size": 5},
+                       cmap="YlGnBu",
+                       linewidths=.5,
+                       cbar=False)
+            # plt.show()
+            plt.tight_layout()
+            plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_original.png'), dpi=250)
+
+            probs = controllers[0].compute_probs_tokens(sampled_batch_edited)
+            df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
+
+            plt.figure(figsize=(20, 5))
+            sn.heatmap(df_plot,
+                       square=True,
+                       annot=True,
+                       annot_kws={"size": 5},
+                       cmap="YlGnBu",
+                       linewidths=.5,
+                       cbar=False)
+            # plt.show()
+            plt.tight_layout()
+            plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_edited.png'), dpi=250)
+
+            probs = controllers[0].compute_probs_tokens(sampled_batch_random)
+            df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
+
+            plt.figure(figsize=(20, 5))
+            sn.heatmap(df_plot,
+                       square=True,
+                       annot=True,
+                       annot_kws={"size": 5},
+                       cmap="YlGnBu",
+                       linewidths=.5,
+                       cbar=False)
+            # plt.show()
+            plt.tight_layout()
+            plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_random_obs.png'), dpi=250)
 
         # if output_file
         # this can be used to test performance on fixed set of actions:

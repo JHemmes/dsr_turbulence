@@ -468,6 +468,8 @@ class Controller(object):
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
+            self.probs = probs
+            # self.logprobs = logprobs
             # Generate mask from sequence lengths
             # NOTE: Using this mask for neglogp and entropy actually does NOT
             # affect training because gradients are zero outside the lengths.
@@ -623,11 +625,11 @@ class Controller(object):
 
         return actions, obs, priors
 
-    def compute_probs(self, memory_batch, log=False):
-        """Compute the probabilities of a Batch."""
+    def compute_probs_expression(self, memory_batch, log=False):
+        """Compute the probabilities of all expressions in a Batch."""
 
         feed_dict = {
-            self.memory_batch_ph : memory_batch
+            self.sampled_batch_ph : memory_batch
         }
 
         if log:
@@ -635,6 +637,15 @@ class Controller(object):
         else:
             fetch = self.memory_probs
         probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
+        return probs
+
+    def compute_probs_tokens(self, sampled_batch):
+        """Compute the probabilities of selecting each token for each sample-step for each expression in a Batch."""
+
+        feed_dict = {
+            self.sampled_batch_ph : sampled_batch
+        }
+        probs = self.sess.run([self.probs], feed_dict=feed_dict)[0]
         return probs
 
     def train_step(self, b, sampled_batch, pqt_batch):

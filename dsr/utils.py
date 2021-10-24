@@ -185,8 +185,10 @@ def empirical_entropy(labels):
 def plot_prob_dists(controllers, step, token_names):
     # Not implemented yet.
 
-    # test_batch = load_pickle('./log/log_2021-10-12-132147_stop/pickled_batches/dsr_saving_pickles_kDeficit_1_step_96_controller_0.p')
-
+    # batch = load_pickle('./log/log_2021-10-12-132147_stop/pickled_batches/dsr_saving_pickles_kDeficit_1_step_96_controller_0.p')
+    # batch = load_pickle('./log/log_2021-10-12-132147_stop/pickled_batches/dsr_saving_pickles_kDeficit_1_step_368_controller_0.p')
+    # actions = batch.actions
+    # priors = batch.priors
     pass
 
 def test_fixed_actions(logdir, from_tokens):
