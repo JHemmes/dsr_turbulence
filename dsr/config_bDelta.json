@@ -1,8 +1,9 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "bDelta_with_masterbranch",
+      "name" : "Merge_test",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
+      "enforce_sum" : false,
       "dataset" : {
          "name" : "PH10595",
          "noise": null,
@@ -44,7 +45,8 @@
         "save_all_r": false,
         "early_stopping": true,
         "pareto_front": false,
-        "hof": 100
+        "hof": 100,
+        "save_batch": false
    },
    "controller": {
       "cell": "lstm",
@@ -59,6 +61,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
+      "invalid_weight": 0.1,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

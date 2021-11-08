@@ -4,6 +4,7 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 
 import os
 import sys
@@ -144,19 +145,19 @@ def main_custom(config_template="config.json",
 
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
-    # X, y = load_frozen_RANS_dataset(config_task)
-
-    np.random.seed(0)
-    X = np.zeros((30, 7))
-    X[:, 0] = np.random.uniform(0, 7, 30)  # use this
-    X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
-    X[:, 2] = np.random.uniform(0, 1, 30)  # use this
-    X[:, 3] = np.random.uniform(-1, 0, 30)  # use this
-    X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)  # use this
-    X[:, 5] = np.random.uniform(0, 2, 30)
-    X[:, 6] = np.random.uniform(-1, 1, 30)
-
-    y = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0]) - 1000 * X[:, 4]
+    X, y = load_frozen_RANS_dataset(config_task)
+    #
+    # np.random.seed(0)
+    # X = np.zeros((30, 7))
+    # X[:, 0] = np.random.uniform(0, 7, 30)    # use this
+    # X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
+    # X[:, 2] = np.random.uniform(0, 1, 30)    # use this
+    # X[:, 3] = np.random.uniform(-1, 0, 30)   # use this
+    # X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)   # use this
+    # X[:, 5] = np.random.uniform(0, 2, 30)
+    # X[:, 6] = np.random.uniform(-1, 1, 30)
+    #
+    # y = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0]) - 1000 * X[:, 4]
     # term1 = 4.5 * np.exp(X[:, 2]) * X[:, 1]
     # term2 = X[:, 3] ** 2
     # term3 = 0.5* np.log(1.7 * X[:, 1] + 1 / X[:, 0])
@@ -209,9 +210,7 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=4)
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=3)
-
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=8)
+    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
 

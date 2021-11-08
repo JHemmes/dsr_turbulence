@@ -7,7 +7,7 @@ from dsr.functions import create_tokens, create_ad_tokens, create_metric_ad_toke
 from dsr.task.regression.dataset import BenchmarkDataset
 
 
-def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_nrmse",
+def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info, metric="inv_nrmse",
     metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
     reward_noise=0.0, reward_noise_type="r", threshold=1e-12,
     normalize_variance=False, protected=False):
@@ -108,6 +108,7 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
 
     # Define closures for metric
     metric, invalid_reward, max_reward, ad_metric_traversal = make_regression_metric(metric, y_train, *metric_params)
+    ad_metric_start_idx = len(ad_metric_traversal) - 1
     if extra_metric_test is not None:
         print("Setting extra test metric to {}.".format(extra_metric_test))
         metric_test, _, _ = make_regression_metric(extra_metric_test, y_test, *extra_metric_test_params) 
@@ -124,10 +125,17 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
     def reward(p):
 
         # Compute estimated values
-        y_hat = p.execute(X_train)
+        y_hat, invalid_indices = p.execute(X_train)
 
+        p.invalid_tokens = invalid_indices
         # For invalid expressions, return invalid_reward
+        # p.invalid_tokens = [token.invalid for token in p.traversal]
         if p.invalid:
+            if invalid_indices is None:
+                p.invalid = 1
+            else:
+                p.invalid = invalid_indices.shape[0]
+            # p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)  # overwrite "True" with the number of invalid tokens
             return invalid_reward
 
         ### Observation noise
@@ -169,10 +177,25 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
         # on each evaluation reset the adjoint tokens to 0, except the first to 1.
 
         # Compute estimated values
-        base_r, jac = p.ad_reverse(X_train)
+        (base_r, jac), invalid_indices = p.ad_reverse(X_train)
 
         # For invalid expressions, return invalid_reward
         if p.invalid:
+            if invalid_indices is None:
+                p.invalid_tokens = invalid_indices
+                # if the program is invalid but invalid indices is None the tokens are not logged, set invalid to 1
+                p.invalid = 1
+            else:
+                # if invalid weight = 0, p.invalid_tokens will be a dummy array of len == 2
+
+                # Adjust invalid_indices from AD_traversal
+                invalid_indices -= ad_metric_start_idx
+                invalid_indices = invalid_indices[invalid_indices >= 0]
+                p.invalid = invalid_indices.shape[0]
+                p.invalid_tokens = invalid_indices
+                # p.invalid_tokens = p.invalid_tokens[ad_metric_start_idx:-1]
+                # p.invalid = np.sum(p.invalid_tokens, dtype=np.float32)
+                # p.invalid = np.sum(p.invalid_tokens[ad_metric_start_idx:-1], dtype=np.float32)
             return invalid_reward, np.zeros(jac.shape)
 
 
@@ -184,8 +207,8 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
     def evaluate(p):
 
         # Compute predictions on test data
-        y_hat = p.execute(X_test)
-        if p.invalid:
+        y_hat, invalid_indices = p.execute(X_test)
+        if invalid_indices is not None:
             nmse_test = None
             nmse_test_noiseless = None
             success = False
@@ -229,12 +252,13 @@ def make_regression_task(name, function_set, dataset, dataset_info, metric="inv_
     library = Library(tokens)
 
     # create secondary library without the tensors to pass to the controllers
-    tens_idx = []
     tens = []
-    for idx, val in enumerate(dataset_info['input']):
-        if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
-            tens.append(val)
-            tens_idx.append(idx)
+    if enforce_sum:
+        tens_idx = []
+        for idx, val in enumerate(dataset_info['input']):
+            if val in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                tens.append(val)
+                tens_idx.append(idx)
 
     sec_tokens = create_tokens(n_input_var=X_train.shape[1]-len(tens),
                                function_set=function_set,

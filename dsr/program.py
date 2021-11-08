@@ -14,6 +14,8 @@ from dsr.functions import PlaceholderConstant, AD_PlaceholderConstant
 from dsr.const import make_const_optimizer
 from dsr.utils import cached_property
 import dsr.utils as U
+from dsr.library import Token
+from copy import deepcopy, copy
 
 
 def _finish_tokens(tokens):
@@ -148,7 +150,7 @@ def from_tokens(tokens, optimize, skip_cache=False):
         add_token = find_add_token()
         for ii in range(tokens.shape[1]):
             subtokens = _finish_tokens(tokens[:,ii])
-            subtokens += n_tensors # offset the integers by the number of tokens
+            subtokens += n_tensors  # offset the integers by the number of tokens
             if ii == 0:
                 subtokens = np.insert(subtokens, 0, [mul_token, ii])
                 final_tokens = subtokens
@@ -231,6 +233,12 @@ class Program(object):
         The base reward (reward without penalty) of the program on the training
         data.
 
+    token_occurences : list
+        List containing the number of occurences of each token.
+
+    n_unique_tokens : float
+        The number of unique tokens in the program
+
     complexity : float
         The (lazily calcualted) complexity of the program.
 
@@ -264,16 +272,22 @@ class Program(object):
 
         self.nfev = 0
         self.nit = 0
+        self.top_quantile = 0
         self.ad_r = None
-        self.traversal = [Program.library[t] for t in tokens]
-        self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"] # Just constant placeholder positions
+        self.traversal = [copy(Program.library[t]) for t in tokens]
+        # self.lowmemory_traversal = [Program.library[t] for t in tokens]
+        # self.traversal = [deepcopy(token) for token in self.lowmemory_traversal]
+        self.const_pos = [i for i, t in enumerate(tokens) if Program.library[t].name == "const"]  # Just constant placeholder positions
         self.len_traversal = len(self.traversal)
         self.tokens = tokens
+        self.invalid_tokens = None
+        self.invalid = 0
+        self.n_unique_tokens = len(np.unique(tokens))
+        self.token_occurences = [np.sum(tokens == ii) for ii in range(self.library.L)]
 
         if self.have_cython and self.len_traversal > 1:
             self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])
 
-        self.invalid = False
         self.str = tokens.tostring()
 
         if optimize:
@@ -324,9 +338,12 @@ class Program(object):
         #     return X[:, node]
 
         apply_stack = []
+        counter = 0
 
         for node in self.traversal:
 
+            node.index = counter
+            counter += 1
             apply_stack.append([node])
             # while length of last entry = the arity + 1 of the last entry
             while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
@@ -339,6 +356,7 @@ class Program(object):
                 if token.input_var is not None:
                     intermediate_result = X[:, token.input_var]
                 else:
+                    globals()['idx_counter'] = token.index
                     intermediate_result = token(*terminals)
                 if len(apply_stack) != 1:
                     apply_stack.pop()
@@ -348,8 +366,8 @@ class Program(object):
 
         # We should never get here
         assert False, "Function should never get here!"
-        return None    
-    
+        return None
+
 
     def ad_python_execute(self, X):
         """Executes the program according to X using Python.
@@ -374,12 +392,14 @@ class Program(object):
         #     return X[:, node]
 
         apply_stack = []
-        idx_counter = 0
+        counter = 0
 
         # FWD pass
         for node in self.ad_traversal:
-            # reset adjoint val to 0 for rwd pass
+
             node.adjoint_val = 0
+            node.index = counter
+            counter += 1
 
             apply_stack.append([node])
             # while length of last entry = the arity + 1 of the last entry
@@ -390,12 +410,11 @@ class Program(object):
 
                 if token.input_var is not None:
                     token.value = X[:, token.input_var]
-                    token.index = idx_counter
-                    idx_counter += 1
                 else:
+                    globals()['idx_counter'] = token.index
                     token.value = token(*terminals)
-                    token.index = idx_counter
-                    idx_counter += 1
+                    # token.index = globals()['idx_counter']
+                    # globals()['idx_counter'] += 1
                 if len(apply_stack) != 1:
                     apply_stack.pop()
                     apply_stack[-1].append(token)
@@ -424,7 +443,6 @@ class Program(object):
         return r[0], np.array(jacobian)
 
 
-    # @property
     def optimize(self, maxiter):
         """
         Optimizes the constant tokens against the training data and returns the
@@ -443,6 +461,8 @@ class Program(object):
         """
 
         def reverse_ad(consts):
+            # if self.invalid > 0:
+            #     self.reset_tokens_valid()
             self.invalid = False
             self.set_constants(consts, ad=True)
             self.ad_r, self.jac = self.task.ad_reverse(self)
@@ -456,9 +476,12 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
+            # gtol = 1e-15
+            # gtol = 1e-5
 
             if self.traversal[self.const_pos[0]].value:
                 # if this is the sub batch optimisation with no iter limit, set initial guess to be current constants
+                # gtol = 1e-5
                 x0 = np.zeros(len(self.const_pos))
                 for ii in range(len(self.const_pos)):
                     x0[ii] = self.traversal[self.const_pos[ii]].value
@@ -466,6 +489,8 @@ class Program(object):
                 x0 = np.ones(len(self.const_pos))  # Initial guess
 
             optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
+            # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
+            #                                                                                             'gtol' : gtol})
 
             self.nfev += nfev
             self.nit += nit
@@ -475,14 +500,29 @@ class Program(object):
                 self.invalid = True
             self.set_constants(optimized_constants)
 
-            # delete optimisation variables to save cache memory
-            self.ad_traversal = self.ad_const_pos = self.jac = None
-
+            # # delete optimisation variables to save cache memory
+            self.ad_const_pos = self.jac = None
+            self.ad_traversal = np.array([0, 0])  # set dummy array to not cause an error with invalid_log. update in self.evaluate()
         else:
             # No need to optimize if there are no constants
             optimized_constants = []
 
         return optimized_constants
+
+    def reset_tokens_valid(self):
+        for token in self.ad_traversal:
+            token.invalid = False
+
+    def replace_traversal(self):
+
+        traversal = [Program.library[t] for t in self.tokens]
+        if len(self.const_pos) > 0:
+            consts = []
+            for ii in self.const_pos:
+                traversal[ii] = self.traversal[ii]
+        self.traversal = traversal
+
+
 
     def set_constants(self, consts, ad=False):
         """Sets the program's constants to the given values"""
@@ -551,7 +591,7 @@ class Program(object):
             Program.complexity_penalty = lambda p : weight * all_functions[name](p)
 
     @classmethod
-    def set_execute(cls, protected):
+    def set_execute(cls, protected, invalid_weight):
         """Sets which execute method to use"""
 
         """
@@ -559,11 +599,16 @@ class Program(object):
         given different names, so it's not reliable for testing if cython ran.
         """
         cpath = os.path.join(os.path.dirname(__file__),'cyfunc.c')
-        
+
         if os.path.isfile(cpath):
             from .                  import cyfunc
             Program.cyfunc          = cyfunc
-            execute_function        = Program.cython_execute
+            if invalid_weight > 0:
+                execute_function = Program.python_execute
+            else:
+                # if invalid tokens are not logged, use cython and set dummy ixd_counter
+                execute_function = Program.cython_execute
+                globals()['idx_counter'] = 1
             Program.have_cython     = True
             ad_execute              = Program.ad_python_execute
         else:
@@ -579,32 +624,59 @@ class Program(object):
                 """Log class to catch and record numpy warning messages"""
 
                 def __init__(self):
-                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
-                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
-                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+                    # self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    # self.error_node = None # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False  # Flag for whether a warning has been encountered during a call to Program.execute()
+                    self.invalid_list = []
 
                 def write(self, message):
                     """This is called by numpy when encountering a warning"""
 
-                    if not self.new_entry: # Only record the first warning encounter
-                        message = message.strip().split(' ')
-                        self.error_type = message[1]
-                        self.error_node = message[-1]
+                    # idx_counter is declared globally so it can be used here
+                    self.invalid_list.append(globals()['idx_counter'])
                     self.new_entry = True
 
-                def update(self, p):
-                    """If a floating-point error was encountered, set Program.invalid
-                    to True and record the error type and error node."""
+                if invalid_weight > 0:
+                    # choose update function dependent of
+                    def update(self, p):
+                        """If a floating-point error was encountered, set Program.invalid
+                        to True and record the error type and error node."""
 
-                    if self.new_entry:
-                        p.invalid = True
-                        p.error_type = self.error_type
-                        p.error_node = self.error_node
-                        self.new_entry = False
+                        # # set invalid tokens for each program
+                        # if len(p.const_pos) > 0:
+                        #     p.invalid_tokens = np.zeros(len(p.ad_traversal))
+                        # else:
+                        #     p.invalid_tokens = np.zeros(len(p.traversal))
 
+                        if self.new_entry:
+                            # if invalid token is logged, update which tokens are invalid.
+                            invalid_indices = np.unique(self.invalid_list)
+                            # p.invalid_tokens[invalid_indices] = 1
+                            #
+                            p.invalid = True  # set to true here, later change to number of invalids
+
+                            # reset invalid log
+                            self.new_entry = False
+                            self.invalid_list = []
+                            return invalid_indices
+
+                        return None
+                else:
+                    def update(self, p):
+                        """If a floating-point error was encountered, set Program.invalid
+                        to True and record the error type and error node."""
+
+                        if self.new_entry:
+                            p.invalid = True
+
+                            # reset invalid log (reset list to avoid large cache)
+                            self.new_entry = False
+                            self.invalid_list = []
+
+                        return None
 
             invalid_log = InvalidLog()
-            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+            np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
 
             # Define closure for execute function
             def unsafe_execute(p, X):
@@ -615,8 +687,8 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = execute_function(p, X)
-                    invalid_log.update(p)
-                    return y
+                    invalid_indices = invalid_log.update(p)
+                    return y, invalid_indices
 
             # Define closure for execute function
             def unsafe_ad_reverse(p, X):
@@ -627,8 +699,8 @@ class Program(object):
 
                 with np.errstate(all='log'):
                     y = ad_execute(p, X)
-                    invalid_log.update(p)
-                    return y
+                    invalid_indices = invalid_log.update(p)
+                    return y, invalid_indices
 
             Program.execute = unsafe_execute
             Program.ad_reverse = unsafe_ad_reverse
@@ -647,7 +719,7 @@ class Program(object):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            if not self.ad_r == None:
+            if not self.ad_r is None:
                 return self.ad_r
             else:
                 return self.task.reward_function(self)
@@ -658,7 +730,7 @@ class Program(object):
         set"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
+
             return self.base_r - self.complexity
 
 
@@ -667,9 +739,11 @@ class Program(object):
         """Evaluates and returns the evaluation metrics of the program."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
+            # if self.ad_traversal is None:
+            #     self.ad_traversal = np.array([0,0])  # set dummy ad_traversal so that invalid_log.update doesnt error.
+
             return self.task.evaluate(self)
-    
+
     @cached_property
     def complexity_eureqa(self):
         """Computes sum of token complexity based on Eureqa complexity measures."""
@@ -694,7 +768,7 @@ class Program(object):
             expr = parse_expr(tree.__repr__()) # SymPy expression
         except:
             expr = "N/A"
-            
+
         return expr
 
 
@@ -784,22 +858,22 @@ def convert_to_sympy(node):
     elif node.val == "neg":
         node.val = Node("Mul")
         node.children.append(Node("-1"))
-        
+
     elif node.val == "n2":
         node.val = "Pow"
         node.children.append(Node("2"))
-        
+
     elif node.val == "n3":
         node.val = "Pow"
         node.children.append(Node("3"))
-        
+
     elif node.val == "n4":
         node.val = "Pow"
         node.children.append(Node("4"))
-        
+
     for child in node.children:
         convert_to_sympy(child)
-        
 
-        
+
+
     return node

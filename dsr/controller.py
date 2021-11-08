@@ -97,7 +97,10 @@ class Controller(object):
 
     entropy_weight : float
         Coefficient for entropy bonus.
-        
+
+    invalid_weight : float
+        Coefficient for percentage of invalid expressions bonus.
+
     ppo : bool
         Use proximal policy optimization (instead of vanilla policy gradient)?
 
@@ -149,6 +152,7 @@ class Controller(object):
                  observe_sibling=True,
                  # Loss hyperparameters
                  entropy_weight=0.0,
+                 invalid_weight=0.0,
                  # PPO hyperparameters
                  ppo=False,
                  ppo_clip_ratio=0.2,
@@ -194,6 +198,7 @@ class Controller(object):
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.entropy_weight = entropy_weight
+        self.invalid_weight = invalid_weight
         self.ppo = ppo
         self.ppo_n_iters = ppo_n_iters
         self.ppo_n_mb = ppo_n_mb
@@ -201,7 +206,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = lib.L # ?? change this to reduce the possibilities
+        n_choices = lib.L
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -439,8 +444,10 @@ class Controller(object):
                              tf.placeholder(tf.int32, [None, max_length]),
                              tf.placeholder(tf.int32, [None, max_length])),
                     "priors" : tf.placeholder(tf.float32, [None, max_length, n_choices]),
-                    "lengths" : tf.placeholder(tf.int32, [None,]),
-                    "rewards" : tf.placeholder(tf.float32, [None], name="r")
+                    "lengths" : tf.placeholder(tf.int32, [None, ]),
+                    "rewards" : tf.placeholder(tf.float32, [None], name="r"),
+                    "top_quantile": tf.placeholder(tf.float32, [None, ]),
+                    "invalid": tf.placeholder(tf.float32, [None, ])
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -507,37 +514,48 @@ class Controller(object):
 
             neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
             r = self.sampled_batch_ph.rewards
+            top_quantile = self.sampled_batch_ph.top_quantile
+            invalid = self.sampled_batch_ph.invalid
 
             # Entropy loss
-            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
+            # sub_entropy = tf.gather(entropy, top_quantile)
+            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy * top_quantile / tf.reduce_mean(top_quantile), name="entropy_loss")
+            self.entropy_loss = entropy_loss
             loss = entropy_loss
 
-            # PPO loss
-            if ppo:
-                assert not pqt, "PPO is not compatible with PQT"
+            # # PPO loss
+            # if ppo:
+            #     assert not pqt, "PPO is not compatible with PQT"
+            #
+            #     self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
+            #     ratio = tf.exp(self.old_neglogp_ph - neglogp)
+            #     clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
+            #     ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (r - self.baseline), clipped_ratio * (r - self.baseline)))
+            #     loss += ppo_loss
+            #
+            #     # Define PPO diagnostics
+            #     clipped = tf.logical_or(ratio < (1. - ppo_clip_ratio), ratio > 1. + ppo_clip_ratio)
+            #     self.clip_fraction = tf.reduce_mean(tf.cast(clipped, tf.float32))
+            #     self.sample_kl = tf.reduce_mean(neglogp - self.old_neglogp_ph)
 
-                self.old_neglogp_ph = tf.placeholder(dtype=tf.float32, shape=(None,), name="old_neglogp")
-                ratio = tf.exp(self.old_neglogp_ph - neglogp)
-                clipped_ratio = tf.clip_by_value(ratio, 1. - ppo_clip_ratio, 1. + ppo_clip_ratio)
-                ppo_loss = -tf.reduce_mean(tf.minimum(ratio * (r - self.baseline), clipped_ratio * (r - self.baseline)))
-                loss += ppo_loss
-
-                # Define PPO diagnostics
-                clipped = tf.logical_or(ratio < (1. - ppo_clip_ratio), ratio > 1. + ppo_clip_ratio)
-                self.clip_fraction = tf.reduce_mean(tf.cast(clipped, tf.float32))
-                self.sample_kl = tf.reduce_mean(neglogp - self.old_neglogp_ph)
-
+            # else:
+            #     if not pqt or (pqt and pqt_use_pg):
+                    # pg_loss was calculated here
             # Policy gradient loss
-            else:
-                if not pqt or (pqt and pqt_use_pg):
-                    pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")                    
-                    loss += pg_loss
+            pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile / tf.reduce_mean(top_quantile), name="pg_loss")
+            self.pg_loss = pg_loss
+            loss += pg_loss
 
-            # Priority queue training loss
-            if pqt:
-                pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
-                pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
-                loss += pqt_loss
+            # # Priority queue training loss
+            # if pqt:
+            #     pqt_neglogp, _ = make_neglogp_and_entropy(self.pqt_batch_ph)
+            #     pqt_loss = pqt_weight * tf.reduce_mean(pqt_neglogp, name="pqt_loss")
+            #     loss += pqt_loss
+
+            # Equation validity loss
+            invalid_loss = tf.reduce_mean(-self.invalid_weight * invalid * neglogp, name="invalid_loss")
+            self.invalid_loss = invalid_loss
+            loss += invalid_loss
 
             self.loss = loss
 
@@ -597,18 +615,13 @@ class Controller(object):
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
-        # tf.get_variable_scope().reuse_variables() # i think this causes the issue. I dont want to reuse variables
-
-
-
     def sample(self, n):
         """Sample batch of n expressions"""
-        feed_dict = {self.batch_size : n}
+        feed_dict = {self.batch_size: n}
 
         actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
 
         return actions, obs, priors
-
 
     def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
@@ -623,7 +636,6 @@ class Controller(object):
             fetch = self.memory_probs
         probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
         return probs
-
 
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
@@ -657,8 +669,7 @@ class Controller(object):
                     _ = self.sess.run([self.train_op], feed_dict=mb_feed_dict)
 
         else:
-            _ = self.sess.run([self.train_op], feed_dict=feed_dict)
-
+            _, entropy_loss, invalid_loss, pg_loss = self.sess.run([self.train_op, self.entropy_loss, self.invalid_loss, self.pg_loss], feed_dict=feed_dict)
 
         # ?? errors the second time a summary is called. Disabled for now since the writer in train.py is defective anyway
         # Return summaries
@@ -669,4 +680,4 @@ class Controller(object):
 
         summaries = None
 
-        return summaries
+        return summaries, entropy_loss, invalid_loss, pg_loss

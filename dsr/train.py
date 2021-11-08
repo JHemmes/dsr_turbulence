@@ -8,13 +8,14 @@ from datetime import datetime
 from collections import defaultdict
 from copy import copy
 import time
+from copy import copy
 
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files
+from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, test_fixed_actions, plot_prob_dists
 from dsr.memory import Batch, make_queue
 
 # Ignore TensorFlow warnings
@@ -30,14 +31,11 @@ def work(p):
     optimized_constants = p.optimize
     return optimized_constants, p.base_r
 
-
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
-
 
 def learn(sessions, controllers, pool,
           logdir="./log", n_epochs=None, n_samples=1e6,
@@ -45,7 +43,7 @@ def learn(sessions, controllers, pool,
           const_optimizer="minimize", const_params=None, alpha=0.1,
           epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
           output_file=None, save_all_r=False, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, hof=10, eval_all=False,
+          b_jumpstart=True, early_stopping=False, hof=10, save_batch=False, eval_all=False,
           pareto_front=False, debug=0):
     """
     Executes the main training loop.
@@ -131,6 +129,9 @@ def learn(sessions, controllers, pool,
     hof : int or None, optional
         If not None, number of top Programs to evaluate after training.
 
+    save_batch : bool, optional
+        Determines whether the batches that provided a new best are saved to a pickle file
+
     eval_all : bool, optional
         If True, evaluate all Programs. While expensive, this is useful for
         noisy data when you can't be certain of success solely based on reward.
@@ -160,9 +161,14 @@ def learn(sessions, controllers, pool,
     #     for sess in sessions: # doenst work properly for multiple sessions
     #         writer = tf.summary.FileWriter(summary_dir, sess.graph)
 
+    #Create dummy program to find names of tokens in library
+    tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
+    token_names = tmp_program.library.names
+    del tmp_program
+
     # Create log file
     if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file)
+        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file, token_names)
     else:
         all_r_output_file = hof_output_file = pf_output_file = None
 
@@ -172,6 +178,16 @@ def learn(sessions, controllers, pool,
     # Set the constant optimizer
     const_params = const_params if const_params is not None else {}
     Program.set_const_optimizer(const_optimizer, **const_params)
+
+    if save_batch:
+        # if batches are saved import pickle, set up output folder and define save_pickle function
+        import pickle
+        pickle_dir = os.path.join(logdir, 'pickled_batches')
+        os.mkdir(pickle_dir)
+        def save_pickle(path, data):
+            # function saves data
+            with open(path, 'wb') as f:
+                pickle.dump(data, f)
 
     # ?? disabled when changed to multiple sessions
     # if debug:
@@ -221,6 +237,15 @@ def learn(sessions, controllers, pool,
         tensor_dsr = False
 
     for step in range(n_epochs):
+        #
+        # if step%100 == 0:
+        #     plot_prob_dists(controllers, step, token_names)
+
+        # if output_file
+        # this can be used to test performance on fixed set of actions:
+        # if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
+        #     test_fixed_actions(logdir, from_tokens)
+
         start_time = time.process_time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
@@ -266,6 +291,8 @@ def learn(sessions, controllers, pool,
             # sample_metric = np.mean(all_means)
             sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
 
+            actions_original = copy(actions)
+
         else:
             actions = action
             obs = ob
@@ -273,17 +300,24 @@ def learn(sessions, controllers, pool,
 
             sample_metric = 1  # Dummy value
 
+        # import pickle
+        # def load_pickle(path):
+        #     # function loads saved charge points
+        #     with open(path, 'rb') as f:
+        #         data = pickle.load(f)
+        #     return data
+        #
+        # actions = [np.array([ 9,  1,  9,  9,  7,  9,  0,  2,  9, 12,  9,  0, 11,  3,  9,  9,  0,
+        #         7,  8, 11, 10, 13, 12,  0,  1, 13, 13, 13, 13,  0], dtype=np.int32)]
+        #
+        # actions = [np.array([ 9,  1,  9,  9,  7,  9,  0,  2,  9, 12,  9,  0, 11,  3,  9,  9,  0,
+        #         7,  8, 11, 10, 13, 12,  1,  1, 13, 13, 13, 13,  0], dtype=np.int32)]
+
         programs = [from_tokens(a, optimize=100) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
-        l = np.array([len(p.traversal) for p in programs])
-        s = [p.str for p in programs] # Str representations of Programs
-        invalid = np.array([p.invalid for p in programs], dtype=bool)
-        nfev = np.array([p.nfev for p in programs])
-        n_consts = np.array([len(p.const_pos) for p in programs])
-        nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
 
         if any(np.isnan(base_r)):
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
@@ -306,17 +340,27 @@ def learn(sessions, controllers, pool,
                     base_r_history[key] = [p.base_r]
 
         # Collect full-batch statistics
+        l = np.array([len(p.traversal) for p in programs])
+        s = [p.str for p in programs] # Str representations of Programs
+        invalid = np.array([p.invalid for p in programs])
+        nfev = np.array([p.nfev for p in programs])
+        n_consts = np.array([len(p.const_pos) for p in programs])
+        token_occur = np.array([p.token_occurences for p in programs])
+        n_unq_tokens = np.array([p.n_unique_tokens for p in programs])
+
         r_avg_full = np.mean(r)
         l_avg_full = np.mean(l)
         a_ent_full = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
         base_r_avg_full = np.mean(base_r)
         n_unique_full = len(set(s))
         n_novel_full = len(set(s).difference(s_history))
-        invalid_avg_full = np.mean(invalid)
+        invalid_avg_full = np.mean(invalid.clip(0,1))
         eq_w_const_full = np.mean(n_consts > 0)
-        n_const_per_eq_full = np.mean(n_consts[n_consts > 0])
+        n_const_per_eq_full = np.mean(n_consts)
         nfev_avg_full = np.mean(nfev[nfev > 1])
         nit_avg_full = np.mean([p.nit for p in programs if p.nit > 0])
+        token_occur_avg_full = np.mean(token_occur, axis=0)
+        n_unq_tokens_avg_full = np.mean(n_unq_tokens)
 
         # Risk-seeking policy gradient: train on top epsilon fraction of samples
         if epsilon is not None and epsilon < 1.0:
@@ -326,27 +370,51 @@ def learn(sessions, controllers, pool,
                 r[np.isinf(r)] = min_noinf
             quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
+            #
+            # programs = list(compress(programs, keep))
+            #
+            # actions = actions[keep]
+            # obs = [o[keep] for o in obs]
+            # priors = priors[keep]
+            # n_consts = n_consts[keep]
+            #
+            # l = l[keep]
+            # s = list(compress(s, keep))
 
-            programs = list(compress(programs, keep))
-
-            actions = actions[keep]
-            obs = [o[keep] for o in obs]
-            priors = priors[keep]
-            n_consts = n_consts[keep]
-
-            l = l[keep]
-            s = list(compress(s, keep))
-
-        # Redo the optimisation "without" limit
-        for p in programs:
+        # Redo the optimisation "without" limit only for programs in the top quantile
+        for p in list(compress(programs, keep)):
+            p.top_quantile = 1  # used in tensorflow to distinguish what programs are in the sub batch.
             p.optimize(2000)
 
-        # Collect newly optimised sub batch statistics
+        # memory heavy traversal no longer needed, replace by lighter version
+        for p in programs:
+            p.replace_traversal()
+
+        # update base_r and r after new optimisation
         base_r = np.array([p.base_r for p in programs])
         r = np.array([p.r for p in programs])
-        invalid = np.array([p.invalid for p in programs])
-        nfev = np.array([p.nfev for p in programs])
-        nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
+
+        if any(np.isnan(base_r)):
+            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+            r[np.where(np.isnan(r))[0]] = min(r)
+
+        # Collect newly optimised sub batch statistics
+        base_r_avg_sub = np.mean(base_r[keep])
+        r_avg_sub = np.mean(r[keep])
+        l_avg_sub = np.mean(l[keep])
+        a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions[keep]))
+        n_unique_sub = len(set(list(compress(s, keep))))
+        n_novel_sub = len(set(list(compress(s, keep))).difference(s_history))
+        invalid_avg_sub = np.mean(invalid[keep].clip(0,1))
+        eq_w_const_sub = np.mean(n_consts[keep] > 0)
+        n_const_per_eq_sub = np.mean(n_consts[keep])
+        nfev_avg_sub = np.mean([p.nfev for p in programs if (p.nfev > 0) and (p.top_quantile == 1)])
+        nit_avg_sub = np.mean([p.nit for p in programs if (p.nit > 0) and (p.top_quantile == 1)])
+        token_occur_avg_sub = np.mean(token_occur[keep], axis=0)
+        n_unq_tokens_avg_sub = np.mean(n_unq_tokens[keep])
+
+
 
         # Check if there is a new best performer
         base_r_max = max(base_r)
@@ -365,19 +433,93 @@ def learn(sessions, controllers, pool,
             ewma = -1
             b_train = quantile
 
-        # Collect sub-batch statistics and write output
+        # val_list = []
+        # for controller in controllers:
+        #     with controller.sess.graph.as_default():
+        #         train_vars = tf.trainable_variables()
+        #         var_names = [v.name for v in train_vars]
+        #         values = controller.sess.run(var_names)
+        #         val_list.append(values)
+
+
+        # collect program information for training:
+        top_quantile = np.array([p.top_quantile for p in programs])
+        # top_quantile = np.array(list(range(1000)))[keep]
+        invalid = invalid.astype(float)
+
+        if tensor_dsr:
+            # set up invalid array for training seperate networks
+            invalid = np.zeros((actions.shape[0], actions.shape[2]))
+            if all(v is None for v in [p.invalid_tokens for p in programs]):
+                # if all program.invalid_tokens are None, invalid weight is zero, set p.invalid_tokens to array of zero
+                for p in programs:
+                    p.invalid_tokens = np.zeros(len(p.traversal))
+            else:
+                for p in programs:
+                    invalid_indices = p.invalid_tokens
+                    p.invalid_tokens = np.zeros(len(p.traversal), dtype=np.int32)
+                    if invalid_indices is not None:
+                        p.invalid_tokens[invalid_indices] = 1
+
+        n_controllers = len(controllers)
+        loss_pg = np.zeros(n_controllers)
+        loss_ent = np.zeros(n_controllers)
+        loss_inv = np.zeros(n_controllers)
+        for ii, controller in enumerate(controllers):
+            # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
+
+            if tensor_dsr:
+                # find length of sub tokens:
+                if ii == 0:
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]+1:]), controller.max_length)
+                                        for p in programs], dtype=np.int32)
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]+1:]) for p in programs],
+                                       dtype=np.float32)
+                else:
+                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0] + 1:
+                                                         np.where(p.tokens == ii - 1)[0][0] - min(ii, 2)]),
+                                            controller.max_length) for p in programs], dtype=np.int32)
+                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0] + 1:
+                                                             np.where(p.tokens == ii - 1)[0][0] - min(ii, 2)])
+                                        for p in programs], dtype=np.float32)
+                # Create the Batch
+                sampled_batch = Batch(actions=actions_original[:, :, ii], obs=[ob[:, :, ii] for ob in obs],
+                                      priors=priors[:, :, :, ii], lengths=lengths, rewards=r, top_quantile=top_quantile,
+                                      invalid=invalid)
+
+            else:
+                lengths = np.array([min(len(p.traversal), controller.max_length)
+                                    for p in programs], dtype=np.int32)
+
+                # Create the Batch
+                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                                      lengths=lengths, rewards=r, top_quantile=top_quantile,
+                                      invalid=invalid)
+
+            # Update and sample from the priority queue
+            if priority_queue is not None:
+                priority_queue.push_best(sampled_batch, programs)
+                pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+            else:
+                pqt_batch = None
+
+            if save_batch:
+                if prev_r_best is None or r_max > prev_r_best:
+                    batch_filename = f"{output_file.split('.')[0]}_step_{step}_controller_{ii}.p"
+                    save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
+
+
+            # Train the controller
+            summaries, entropy_loss, invalid_loss, pg_loss = controller.train_step(b_train, sampled_batch, pqt_batch)
+            loss_ent[ii] = entropy_loss
+            loss_pg[ii] = pg_loss
+            loss_inv[ii] = invalid_loss
+
+        # avg_ent_loss = np.mean(loss_ent)
+        # avg_inv_loss = np.mean(loss_inv)
+        # avg_pg_loss = np.mean(loss_pg)
+
         if output_file is not None:
-            base_r_avg_sub = np.mean(base_r)
-            r_avg_sub = np.mean(r)
-            l_avg_sub = np.mean(l)
-            a_ent_sub = np.mean(np.apply_along_axis(empirical_entropy, 0, actions))
-            n_unique_sub = len(set(s))
-            n_novel_sub = len(set(s).difference(s_history))
-            invalid_avg_sub = np.mean(invalid)
-            eq_w_const_sub = np.mean(n_consts > 0)
-            n_const_per_eq_sub = np.mean(n_consts[n_consts > 0])
-            nfev_avg_sub = np.mean(nfev[nfev > 1])
-            nit_avg_sub = np.mean([p.nit for p in programs if p.nit > 0])
             duration = time.process_time() - start_time
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
@@ -393,74 +535,34 @@ def learn(sessions, controllers, pool,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
+                         loss_pg[:],  # avg_pg_loss,
+                         loss_inv[:],  # avg_inv_loss,
+                         loss_ent[:],  # avg_ent_loss,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
                          n_novel_sub,
-                         a_ent_full,
-                         a_ent_sub,
+                         np.round(a_ent_full, 2),
+                         np.round(a_ent_sub, 2),
                          invalid_avg_full,
                          invalid_avg_sub,
                          sample_metric,
-                         nfev_avg_full,
-                         nfev_avg_sub,
-                         nit_avg_full,
-                         nit_avg_sub,
-                         eq_w_const_full,
-                         eq_w_const_sub,
-                         n_const_per_eq_full,
-                         n_const_per_eq_sub,
-                         duration
-                         ]] # changed this array to a list, changed save routine to pandas to allow expression string
+                         np.round(nfev_avg_full, 3),
+                         np.round(nfev_avg_sub, 3),
+                         np.round(nit_avg_full, 3),
+                         np.round(nit_avg_sub, 3),
+                         np.round(eq_w_const_full, 3),
+                         np.round(eq_w_const_sub, 3),
+                         np.round(n_const_per_eq_full, 3),
+                         np.round(n_const_per_eq_sub, 3),
+                         np.round(n_unq_tokens_avg_full, 3),
+                         np.round(n_unq_tokens_avg_sub, 3),
+                         np.round(duration, 2)
+                         ]]  # changed this array to a list, changed save routine to pandas to allow expression string
+            stats[0] += list(np.round(token_occur_avg_full, 2))
+            stats[0] += list(np.round(token_occur_avg_sub, 2))
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
-
-
-        # val_list = []
-        # for controller in controllers:
-        #     with controller.sess.graph.as_default():
-        #         train_vars = tf.trainable_variables()
-        #         var_names = [v.name for v in train_vars]
-        #         values = controller.sess.run(var_names)
-        #         val_list.append(values)
-
-        if tensor_dsr:
-            actions_original = actions_original[keep]
-
-        for ii, controller in enumerate(controllers):
-            # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
-
-            if tensor_dsr:
-                # find length of sub tokens:
-                if ii == 0:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:]), controller.max_length)
-                                        for p in programs], dtype=np.int32)
-                else:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]:
-                                                         np.where(p.tokens == ii-1)[0][0]]), controller.max_length)
-                                        for p in programs], dtype=np.int32)
-
-                # Create the Batch
-                sampled_batch = Batch(actions=actions_original[:,:,ii], obs=[ob[:,:,ii] for ob in obs], priors=priors[:,:,:,ii],
-                                      lengths=lengths, rewards=r)
-
-            else:
-                lengths = np.array([min(len(p.traversal), controller.max_length)
-                                    for p in programs], dtype=np.int32)
-
-                # Create the Batch
-                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                                      lengths=lengths, rewards=r)
-
-            # Update and sample from the priority queue
-            if priority_queue is not None:
-                priority_queue.push_best(sampled_batch, programs)
-                pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
-            else:
-                pqt_batch = None
-
-            # Train the controller
-            summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
 
 
         # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
@@ -504,15 +606,14 @@ def learn(sessions, controllers, pool,
                 p_base_r_best.print_stats()
 
         # Stop if early stopping criteria is met
-        # Stop if early stopping criteria is met
-        # if eval_all and any(success):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
-        # if early_stopping and p_base_r_best.evaluate.get("success"):
-        #     all_r = all_r[:(step + 1)]
-        #     print("Early stopping criteria met; breaking early.")
-        #     break
+        if eval_all and any(success):
+            # all_r = all_r[:(step + 1)]  # all_r is no longer saved to reduce memory
+            print("Early stopping criteria met; breaking early.")
+            break
+        if early_stopping and p_base_r_best.evaluate.get("success"):
+            # all_r = all_r[:(step + 1)]  # all_r is no longer saved to reduce memory
+            print("Early stopping criteria met; breaking early.")
+            break
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))

@@ -77,13 +77,13 @@ def make_task(task_type, **config_task):
     return task
 
 
-def set_task(config_task):
+def set_task(config):
     """Helper function to make set the Program class Task and execute function
     from task config."""
 
     # Use of protected functions is the same for all tasks, so it's handled separately
-    protected = config_task["protected"] if "protected" in config_task else False
+    protected = config['task']["protected"] if "protected" in config['task'] else False
 
-    Program.set_execute(protected)
-    task = make_task(**config_task)
+    Program.set_execute(protected, config['controller']['invalid_weight'])
+    task = make_task(**config['task'])
     Program.set_task(task)
