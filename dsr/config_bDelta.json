@@ -1,9 +1,9 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "Merge_test",
+      "name" : "tensor_testing",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
-      "enforce_sum" : false,
+      "enforce_sum" : true,
       "dataset" : {
          "name" : "PH10595",
          "noise": null,
@@ -61,7 +61,7 @@
       "observe_parent": true,
       "observe_sibling": true,
       "entropy_weight": 0.005,
-      "invalid_weight": 0.1,
+      "invalid_weight": 0,
       "ppo": false,
       "ppo_clip_ratio": 0.2,
       "ppo_n_iters": 10,

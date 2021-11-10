@@ -58,20 +58,18 @@ class DeepSymbolicOptimizer():
         else:
             n_tensors = 1
 
-        self.sess = []
-        self.controller = []
-
-        for ii in range(n_tensors):
-            graph = tf.Graph()
-            with graph.as_default():
-                self.seed(seed+ii)
-                new_sess = tf.Session()
-                self.sess.append(new_sess)
-                new_controller = Controller(new_sess,
-                                            self.prior,
-                                            **self.config_controller)
-                new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
-                self.controller.append(new_controller)
+        # for ii in range(n_tensors):
+        graph = tf.Graph()
+        with graph.as_default():
+            self.seed(seed)
+            new_sess = tf.Session()
+            self.sess = new_sess
+            new_controller = Controller(new_sess,
+                                        self.prior,
+                                        n_tensors,
+                                        **self.config_controller)
+            new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
+            self.controller = new_controller
 
     def train(self, seed=0):
 
@@ -82,6 +80,7 @@ class DeepSymbolicOptimizer():
         result = learn(self.sess,
                        self.controller,
                        self.pool,
+                       self.config_task['enforce_sum'],
                        **self.config_training)
         return result
 

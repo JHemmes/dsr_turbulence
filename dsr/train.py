@@ -37,7 +37,7 @@ def hof_work(p):
 def pf_work(p):
     return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-def learn(sessions, controllers, pool,
+def learn(session, controller, pool, tensor_dsr,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None, alpha=0.1,
@@ -231,11 +231,6 @@ def learn(sessions, controllers, pool,
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     # all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
 
-    if len(controllers) > 1:
-        tensor_dsr = True
-    else:
-        tensor_dsr = False
-
     for step in range(n_epochs):
         #
         # if step%100 == 0:
@@ -256,47 +251,40 @@ def learn(sessions, controllers, pool,
         # Shape of priors: (batch_size, max_length, n_choices)
 
         # raw_actions = []
-        actions = []
-        obs = []
-        priors = []
-        for controller in controllers:
-            action, ob, prior = controller.sample(batch_size)
 
-            # disabled for now since initialised with different seeds:
+        actions, obs, priors = controller.sample(batch_size)
 
-            # raw_actions.append(action)
-            # if tensor_dsr:
-            #     # for tensor_dsr actions need to be shuffled if controllers are initialised with the same seed.
-            #     shuffler = np.random.permutation(batch_size)
-            #     action = action[shuffler]
-            #     ob = [item[shuffler] for item in ob]
-            #     prior = prior[shuffler]
+        # disabled for now since initialised with different seeds:
 
-            actions.append(action)
-            obs.append(ob)
-            priors.append(prior)
+        # raw_actions.append(action)
+        # if tensor_dsr:
+        #     # for tensor_dsr actions need to be shuffled if controllers are initialised with the same seed.
+        #     shuffler = np.random.permutation(batch_size)
+        #     action = action[shuffler]
+        #     ob = [item[shuffler] for item in ob]
+        #     prior = prior[shuffler]
 
         # Choose to stack actions or not, if there is one controller they should not be stacked
         # Also calculate percentage of how much the sampled actions differ if there are multiple RNNs:
         if tensor_dsr:
+            all_means = []
+            for a, b in combinations(actions, 2):
+                all_means.append(np.mean(a==b))
+            sample_metric = np.mean(all_means)
+
             actions = np.stack(actions, axis=-1)
-            obs = np.stack(obs, axis=-1)
-            priors = np.stack(priors, axis=-1)
+            # obs = np.stack(obs, axis=-1)
+            # priors = np.stack(priors, axis=-1)
 
-            actions_original = copy(actions)
 
-            # all_means = []
-            # for a, b in combinations(raw_actions, 2):
-            #     all_means.append(np.mean(a==b))
-            # sample_metric = np.mean(all_means)
-            sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
+            # sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
 
             actions_original = copy(actions)
 
         else:
-            actions = action
-            obs = ob
-            priors = prior
+            actions = actions
+            obs = obs
+            priors = priors
 
             sample_metric = 1  # Dummy value
 
@@ -447,77 +435,92 @@ def learn(sessions, controllers, pool,
         # top_quantile = np.array(list(range(1000)))[keep]
         invalid = invalid.astype(float)
 
+        # if tensor_dsr:
+        #     # set up invalid array for training seperate networks
+        #     invalid = np.zeros((actions.shape[0], actions.shape[2]))
+        #     if all(v is None for v in [p.invalid_tokens for p in programs]):
+        #         # if all program.invalid_tokens are None, invalid weight is zero, set p.invalid_tokens to array of zero
+        #         for p in programs:
+        #             p.invalid_tokens = np.zeros(len(p.traversal))
+        #     else:
+        #         for p in programs:
+        #             invalid_indices = p.invalid_tokens
+        #             p.invalid_tokens = np.zeros(len(p.traversal), dtype=np.int32)
+        #             if invalid_indices is not None:
+        #                 p.invalid_tokens[invalid_indices] = 1
+
+
         if tensor_dsr:
-            # set up invalid array for training seperate networks
-            invalid = np.zeros((actions.shape[0], actions.shape[2]))
-            if all(v is None for v in [p.invalid_tokens for p in programs]):
-                # if all program.invalid_tokens are None, invalid weight is zero, set p.invalid_tokens to array of zero
-                for p in programs:
-                    p.invalid_tokens = np.zeros(len(p.traversal))
-            else:
-                for p in programs:
-                    invalid_indices = p.invalid_tokens
-                    p.invalid_tokens = np.zeros(len(p.traversal), dtype=np.int32)
-                    if invalid_indices is not None:
-                        p.invalid_tokens[invalid_indices] = 1
-
-        n_controllers = len(controllers)
-        loss_pg = np.zeros(n_controllers)
-        loss_ent = np.zeros(n_controllers)
-        loss_inv = np.zeros(n_controllers)
-        for ii, controller in enumerate(controllers):
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
+            #
+            # batch_ph = {
+            #     "actions": (tf.placeholder(tf.int32, [None, max_length]),
+            #                 tf.placeholder(tf.int32, [None, max_length]),
+            #                 tf.placeholder(tf.int32, [None, max_length]),
+            #                 tf.placeholder(tf.int32, [None, max_length])),
+            #     "obs": ((tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length])),
+            #             (tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length])),
+            #             (tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length])),
+            #             (tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length]),
+            #              tf.placeholder(tf.int32, [None, max_length]))),
+            #     "priors": tf.placeholder(tf.float32, [None, max_length, n_choices * n_tensors]),
+            #     "lengths": (tf.placeholder(tf.int32, [None, ]),
+            #                 tf.placeholder(tf.int32, [None, ]),
+            #                 tf.placeholder(tf.int32, [None, ]),
+            #                 tf.placeholder(tf.int32, [None, ]),
+            #                 tf.placeholder(tf.int32, [None, ])),
+            #     "rewards": tf.placeholder(tf.float32, [None], name="r"),
+            #     "top_quantile": tf.placeholder(tf.float32, [None, ]),
+            #     "invalid": tf.placeholder(tf.float32, [None, ])
+            # }
 
-            if tensor_dsr:
-                # find length of sub tokens:
+            # Set up lists as expected by controller
+            actions_lst = [actions_original[:, :, ii] for ii in range(actions.shape[-1])]
+            lengths_lst = []
+            for ii in range(actions.shape[-1]):
                 if ii == 0:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0]+1:]), controller.max_length)
-                                        for p in programs], dtype=np.int32)
-                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0]+1:]) for p in programs],
-                                       dtype=np.float32)
+                    lengths_lst.append(np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0] + 1:]),
+                                                     controller.max_length) for p in programs], dtype=np.int32))
                 else:
-                    lengths = np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0] + 1:
+                    lengths_lst.append(np.array([min(len(p.tokens[np.where(p.tokens == ii)[0][0] + 1:
                                                          np.where(p.tokens == ii - 1)[0][0] - min(ii, 2)]),
-                                            controller.max_length) for p in programs], dtype=np.int32)
-                    invalid = np.array([sum(p.invalid_tokens[np.where(p.tokens == ii)[0][0] + 1:
-                                                             np.where(p.tokens == ii - 1)[0][0] - min(ii, 2)])
-                                        for p in programs], dtype=np.float32)
-                # Create the Batch
-                sampled_batch = Batch(actions=actions_original[:, :, ii], obs=[ob[:, :, ii] for ob in obs],
-                                      priors=priors[:, :, :, ii], lengths=lengths, rewards=r, top_quantile=top_quantile,
-                                      invalid=invalid)
+                                                     controller.max_length) for p in programs], dtype=np.int32))
 
-            else:
-                lengths = np.array([min(len(p.traversal), controller.max_length)
-                                    for p in programs], dtype=np.int32)
+            lengths_lst.append(np.amax(np.stack(lengths_lst, axis=-1), axis=1))
 
-                # Create the Batch
-                sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                                      lengths=lengths, rewards=r, top_quantile=top_quantile,
-                                      invalid=invalid)
+            # Create the Batch
+            sampled_batch = Batch(actions=actions_lst, obs=obs, priors=priors,
+                                  lengths=lengths_lst, rewards=r, top_quantile=top_quantile, invalid=invalid)
 
-            # Update and sample from the priority queue
-            if priority_queue is not None:
-                priority_queue.push_best(sampled_batch, programs)
-                pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
-            else:
-                pqt_batch = None
+        else:
+            lengths = np.array([min(len(p.traversal), controller.max_length)
+                                for p in programs], dtype=np.int32)
 
-            if save_batch:
-                if prev_r_best is None or r_max > prev_r_best:
-                    batch_filename = f"{output_file.split('.')[0]}_step_{step}_controller_{ii}.p"
-                    save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
+            # Create the Batch
+            sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+                                  lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
 
+        # Update and sample from the priority queue
+        if priority_queue is not None:
+            priority_queue.push_best(sampled_batch, programs)
+            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+        else:
+            pqt_batch = None
 
-            # Train the controller
-            summaries, entropy_loss, invalid_loss, pg_loss = controller.train_step(b_train, sampled_batch, pqt_batch)
-            loss_ent[ii] = entropy_loss
-            loss_pg[ii] = pg_loss
-            loss_inv[ii] = invalid_loss
+        if save_batch:
+            if prev_r_best is None or r_max > prev_r_best:
+                batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
+                save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
 
-        # avg_ent_loss = np.mean(loss_ent)
-        # avg_inv_loss = np.mean(loss_inv)
-        # avg_pg_loss = np.mean(loss_pg)
+        # Train the controller
+        summaries, loss_ent, loss_inv, loss_pg = controller.train_step(b_train, sampled_batch, pqt_batch)
 
         if output_file is not None:
             duration = time.process_time() - start_time
@@ -535,9 +538,9 @@ def learn(sessions, controllers, pool,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
-                         loss_pg[:],  # avg_pg_loss,
-                         loss_inv[:],  # avg_inv_loss,
-                         loss_ent[:],  # avg_ent_loss,
+                         loss_pg,  # avg_pg_loss,
+                         loss_inv,  # avg_inv_loss,
+                         loss_ent,  # avg_ent_loss,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
@@ -546,7 +549,7 @@ def learn(sessions, controllers, pool,
                          np.round(a_ent_sub, 2),
                          invalid_avg_full,
                          invalid_avg_sub,
-                         sample_metric,
+                         np.round(sample_metric, 3),
                          np.round(nfev_avg_full, 3),
                          np.round(nfev_avg_sub, 3),
                          np.round(nit_avg_full, 3),
