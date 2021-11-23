@@ -435,21 +435,6 @@ def learn(session, controller, pool, tensor_dsr,
         # top_quantile = np.array(list(range(1000)))[keep]
         invalid = invalid.astype(float)
 
-        # if tensor_dsr:
-        #     # set up invalid array for training seperate networks
-        #     invalid = np.zeros((actions.shape[0], actions.shape[2]))
-        #     if all(v is None for v in [p.invalid_tokens for p in programs]):
-        #         # if all program.invalid_tokens are None, invalid weight is zero, set p.invalid_tokens to array of zero
-        #         for p in programs:
-        #             p.invalid_tokens = np.zeros(len(p.traversal))
-        #     else:
-        #         for p in programs:
-        #             invalid_indices = p.invalid_tokens
-        #             p.invalid_tokens = np.zeros(len(p.traversal), dtype=np.int32)
-        #             if invalid_indices is not None:
-        #                 p.invalid_tokens[invalid_indices] = 1
-
-
         if tensor_dsr:
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
             #
@@ -518,8 +503,12 @@ def learn(session, controller, pool, tensor_dsr,
             if prev_r_best is None or r_max > prev_r_best:
                 batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
                 save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
+            if step%50 == 0:
+                batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
+                save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
 
         # Train the controller
+        b_train = 0.5
         summaries, loss_ent, loss_inv, loss_pg = controller.train_step(b_train, sampled_batch, pqt_batch)
 
         if output_file is not None:

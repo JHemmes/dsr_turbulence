@@ -476,7 +476,7 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
-            # gtol = 1e-15
+            gtol = 1e-10
             # gtol = 1e-5
 
             if self.traversal[self.const_pos[0]].value:
@@ -488,9 +488,9 @@ class Program(object):
             else:
                 x0 = np.ones(len(self.const_pos))  # Initial guess
 
-            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
-            # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
-            #                                                                                             'gtol' : gtol})
+            # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
+            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
+                                                                                                        'gtol' : gtol})
 
             self.nfev += nfev
             self.nit += nit
