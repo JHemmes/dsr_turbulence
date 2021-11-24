@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 
 from dsr.program import Program, from_tokens
-from dsr.utils import empirical_entropy, is_pareto_efficient, setup_output_files, test_fixed_actions, plot_prob_dists
+from dsr.utils import empirical_entropy, setup_output_files, test_fixed_actions, plot_prob_dists
 from dsr.memory import Batch, make_queue
 
 # Ignore TensorFlow warnings
@@ -34,17 +34,15 @@ def work(p):
 def hof_work(p):
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-def pf_work(p):
-    return [p.complexity_eureqa, p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
-
 def learn(session, controller, pool, tensor_dsr,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, complexity="length", complexity_weight=0.001,
-          const_optimizer="minimize", const_params=None, alpha=0.1,
-          epsilon=0.01, n_cores_batch=1, verbose=True, summary=True,
-          output_file=None, save_all_r=False, baseline="ewma_R",
-          b_jumpstart=True, early_stopping=False, hof=10, save_batch=False, eval_all=False,
-          pareto_front=False, debug=0):
+          const_optimizer="minimize", const_params=None,
+          epsilon=0.01, n_cores_batch=1, verbose=True,
+          output_file=None, baseline=0.5,
+          b_jumpstart=True, early_stopping=False, hof=10,
+          optim_opt_full={'maxiter':100, 'gtol':1e-5}, optim_opt_sub={'maxiter':2000, 'gtol':1e-5},
+          save_batch=False, eval_all=False):
     """
     Executes the main training loop.
 
@@ -153,14 +151,6 @@ def learn(session, controller, pool, tensor_dsr,
     # Config assertions and warnings
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
-    # ?? disabled when changed to multiple sessions
-    # # Create the summary writer
-    # if summary:
-    #     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    #     summary_dir = os.path.join("summary", timestamp)
-    #     for sess in sessions: # doenst work properly for multiple sessions
-    #         writer = tf.summary.FileWriter(summary_dir, sess.graph)
-
     #Create dummy program to find names of tokens in library
     tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
     token_names = tmp_program.library.names
@@ -168,9 +158,9 @@ def learn(session, controller, pool, tensor_dsr,
 
     # Create log file
     if output_file is not None:
-        all_r_output_file, hof_output_file, pf_output_file = setup_output_files(logdir, output_file, token_names)
+        all_r_output_file, hof_output_file = setup_output_files(logdir, output_file, token_names)
     else:
-        all_r_output_file = hof_output_file = pf_output_file = None
+        all_r_output_file = hof_output_file = None
 
     # Set the complexity functions
     Program.set_complexity_penalty(complexity, complexity_weight)
@@ -189,35 +179,12 @@ def learn(session, controller, pool, tensor_dsr,
             with open(path, 'wb') as f:
                 pickle.dump(data, f)
 
-    # ?? disabled when changed to multiple sessions
-    # if debug:
-    #     tvars = tf.trainable_variables()
-    #     def print_var_means():
-    #         tvars_vals = sess.run(tvars)
-    #         for var, val in zip(tvars, tvars_vals):
-    #             print(var.name, "mean:", val.mean(),"var:", val.var())
-
     # Create the pool of workers, if pool is not already given
     if pool is None:
         if n_cores_batch == -1:
             n_cores_batch = multiprocessing.cpu_count()
         if n_cores_batch > 1:
             pool = multiprocessing.Pool(n_cores_batch)
-
-
-    # ?? disabled when changed to multiple sessions
-    priority_queue = None
-    # Create the priority queue
-    # k = controller.pqt_k
-    # if controller.pqt and k is not None and k > 0:
-    #     priority_queue = make_queue(priority=True, capacity=k)
-    # else:
-    #     priority_queue = None
-
-    # ?? disabled when changed to multiple sessions
-    # if debug >= 1:
-    #     print("\nInitial parameter means:")
-    #     print_var_means()
 
     base_r_history = None
 
@@ -232,7 +199,6 @@ def learn(session, controller, pool, tensor_dsr,
     # all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
 
     for step in range(n_epochs):
-        #
         # if step%100 == 0:
         #     plot_prob_dists(controllers, step, token_names)
 
@@ -245,24 +211,7 @@ def learn(session, controller, pool, tensor_dsr,
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
-        # Sample batch of expressions from controller
-        # Shape of actions: (batch_size, max_length)
-        # Shape of obs: [(batch_size, max_length)] * 3
-        # Shape of priors: (batch_size, max_length, n_choices)
-
-        # raw_actions = []
-
         actions, obs, priors = controller.sample(batch_size)
-
-        # disabled for now since initialised with different seeds:
-
-        # raw_actions.append(action)
-        # if tensor_dsr:
-        #     # for tensor_dsr actions need to be shuffled if controllers are initialised with the same seed.
-        #     shuffler = np.random.permutation(batch_size)
-        #     action = action[shuffler]
-        #     ob = [item[shuffler] for item in ob]
-        #     prior = prior[shuffler]
 
         # Choose to stack actions or not, if there is one controller they should not be stacked
         # Also calculate percentage of how much the sampled actions differ if there are multiple RNNs:
@@ -273,12 +222,6 @@ def learn(session, controller, pool, tensor_dsr,
             sample_metric = np.mean(all_means)
 
             actions = np.stack(actions, axis=-1)
-            # obs = np.stack(obs, axis=-1)
-            # priors = np.stack(priors, axis=-1)
-
-
-            # sample_metric = 1  # Dummy value, disabled for now since raw_actions is disabled
-
             actions_original = copy(actions)
 
         else:
@@ -288,20 +231,7 @@ def learn(session, controller, pool, tensor_dsr,
 
             sample_metric = 1  # Dummy value
 
-        # import pickle
-        # def load_pickle(path):
-        #     # function loads saved charge points
-        #     with open(path, 'rb') as f:
-        #         data = pickle.load(f)
-        #     return data
-        #
-        # actions = [np.array([ 9,  1,  9,  9,  7,  9,  0,  2,  9, 12,  9,  0, 11,  3,  9,  9,  0,
-        #         7,  8, 11, 10, 13, 12,  0,  1, 13, 13, 13, 13,  0], dtype=np.int32)]
-        #
-        # actions = [np.array([ 9,  1,  9,  9,  7,  9,  0,  2,  9, 12,  9,  0, 11,  3,  9,  9,  0,
-        #         7,  8, 11, 10, 13, 12,  1,  1, 13, 13, 13, 13,  0], dtype=np.int32)]
-
-        programs = [from_tokens(a, optimize=100) for a in actions]
+        programs = [from_tokens(a, optimize=optim_opt_full) for a in actions]
 
         # Retrieve metrics
         base_r = np.array([p.base_r for p in programs])
@@ -353,26 +283,15 @@ def learn(session, controller, pool, tensor_dsr,
         # Risk-seeking policy gradient: train on top epsilon fraction of samples
         if epsilon is not None and epsilon < 1.0:
             if any(np.isinf(r)): # code added to remove infinite rewards that mess up the quantile calculation.
-                # ?? added by Jasper Hemmes
                 min_noinf = min(r[~np.isinf(r)])
                 r[np.isinf(r)] = min_noinf
             quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
-            #
-            # programs = list(compress(programs, keep))
-            #
-            # actions = actions[keep]
-            # obs = [o[keep] for o in obs]
-            # priors = priors[keep]
-            # n_consts = n_consts[keep]
-            #
-            # l = l[keep]
-            # s = list(compress(s, keep))
 
         # Redo the optimisation "without" limit only for programs in the top quantile
         for p in list(compress(programs, keep)):
             p.top_quantile = 1  # used in tensorflow to distinguish what programs are in the sub batch.
-            p.optimize(2000)
+            p.optimize(optim_opt=optim_opt_sub)
 
         # memory heavy traversal no longer needed, replace by lighter version
         for p in programs:
@@ -402,8 +321,6 @@ def learn(session, controller, pool, tensor_dsr,
         token_occur_avg_sub = np.mean(token_occur[keep], axis=0)
         n_unq_tokens_avg_sub = np.mean(n_unq_tokens[keep])
 
-
-
         # Check if there is a new best performer
         base_r_max = max(base_r)
         base_r_best = max(base_r_max, base_r_best)
@@ -412,14 +329,6 @@ def learn(session, controller, pool, tensor_dsr,
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
-
-        # Compute baseline
-        if baseline == "ewma_R":
-            ewma = np.mean(r) if ewma is None else alpha*np.mean(r) + (1 - alpha)*ewma
-            b_train = ewma
-        elif baseline == "R_e": # Default
-            ewma = -1
-            b_train = quantile
 
         # val_list = []
         # for controller in controllers:
@@ -432,40 +341,10 @@ def learn(session, controller, pool, tensor_dsr,
 
         # collect program information for training:
         top_quantile = np.array([p.top_quantile for p in programs])
-        # top_quantile = np.array(list(range(1000)))[keep]
         invalid = invalid.astype(float)
 
         if tensor_dsr:
             # Compute sequence lengths (here I have used the lenghts of individual functions g samples by each)
-            #
-            # batch_ph = {
-            #     "actions": (tf.placeholder(tf.int32, [None, max_length]),
-            #                 tf.placeholder(tf.int32, [None, max_length]),
-            #                 tf.placeholder(tf.int32, [None, max_length]),
-            #                 tf.placeholder(tf.int32, [None, max_length])),
-            #     "obs": ((tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length])),
-            #             (tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length])),
-            #             (tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length])),
-            #             (tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length]),
-            #              tf.placeholder(tf.int32, [None, max_length]))),
-            #     "priors": tf.placeholder(tf.float32, [None, max_length, n_choices * n_tensors]),
-            #     "lengths": (tf.placeholder(tf.int32, [None, ]),
-            #                 tf.placeholder(tf.int32, [None, ]),
-            #                 tf.placeholder(tf.int32, [None, ]),
-            #                 tf.placeholder(tf.int32, [None, ]),
-            #                 tf.placeholder(tf.int32, [None, ])),
-            #     "rewards": tf.placeholder(tf.float32, [None], name="r"),
-            #     "top_quantile": tf.placeholder(tf.float32, [None, ]),
-            #     "invalid": tf.placeholder(tf.float32, [None, ])
-            # }
-
             # Set up lists as expected by controller
             actions_lst = [actions_original[:, :, ii] for ii in range(actions.shape[-1])]
             lengths_lst = []
@@ -492,13 +371,6 @@ def learn(session, controller, pool, tensor_dsr,
             sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
                                   lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
 
-        # Update and sample from the priority queue
-        if priority_queue is not None:
-            priority_queue.push_best(sampled_batch, programs)
-            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
-        else:
-            pqt_batch = None
-
         if save_batch:
             if prev_r_best is None or r_max > prev_r_best:
                 batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
@@ -508,8 +380,7 @@ def learn(session, controller, pool, tensor_dsr,
                 save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
 
         # Train the controller
-        b_train = 0.5
-        summaries, loss_ent, loss_inv, loss_pg = controller.train_step(b_train, sampled_batch, pqt_batch)
+        loss_ent, loss_inv, loss_pg = controller.train_step(baseline, sampled_batch)
 
         if output_file is not None:
             duration = time.process_time() - start_time
@@ -555,12 +426,6 @@ def learn(session, controller, pool, tensor_dsr,
             stats[0] += list(np.round(token_occur_avg_sub, 2))
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
-
-
-        # ?? disabled when changed to multiple sessions since writer is disabled. Also means that summaries above is unused.
-        # if summary:
-        #     writer.add_summary(summaries, step)
-        #     writer.flush()
 
         # Update new best expression
         new_r_best = False
@@ -644,63 +509,6 @@ def learn(session, controller, pool, tensor_dsr,
         if hof_output_file is not None:
             print("Saving Hall of Fame to {}".format(hof_output_file))
             df.to_csv(hof_output_file, header=True, index=False)
-        
-    # Print error statistics of the cache
-    # ?? Jasper Hemmes. Disabled this because when the cache is cleared it makes no sense to print these stats.
-    # Possibly make this available again, saving stats each time chache is cleared ??
-    # n_invalid = 0
-    # error_types = defaultdict(lambda : 0)
-    # error_nodes = defaultdict(lambda : 0)
-    # for p in Program.cache.values():
-    #     if p.invalid:
-    #         n_invalid += p.count
-    #         error_types[p.error_type] += p.count
-    #         error_nodes[p.error_node] += p.count
-    # if n_invalid > 0:
-    #     total_samples = (step + 1)*batch_size # May be less than n_samples if breaking early
-    #     print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, total_samples, n_invalid/total_samples))
-    #     print("Error type counts:")
-    #     for error_type, count in error_types.items():
-    #         print("  {}: {} ({:.1%})".format( error_type, count, count/n_invalid))
-    #     print("Error node counts:")
-    #     for error_node, count in error_nodes.items():
-    #         print("  {}: {} ({:.1%})".format(error_node, count, count/n_invalid))
-    #
-    # # Print the priority queue at the end of training
-    # if verbose and priority_queue is not None:
-    #     for i, item in enumerate(priority_queue.iter_in_order()):
-    #         print("\nPriority queue entry {}:".format(i))
-    #         p = Program.cache[item[0]]
-    #         p.print_stats()
-
-    # Compute the pareto front
-    if pareto_front:
-        if verbose:
-            print("Evaluating the pareto front...")
-        all_programs = list(Program.cache.values())
-        costs = np.array([(p.complexity_eureqa, -p.r) for p in all_programs])
-        pareto_efficient_mask = is_pareto_efficient(costs) # List of bool
-        pf = list(compress(all_programs, pareto_efficient_mask))
-        pf.sort(key=lambda p : p.complexity_eureqa) # Sort by complexity
-
-        if pool is not None:
-            results = pool.map(pf_work, pf)
-        else:
-            results = list(map(pf_work, pf))
-
-        eval_keys = list(results[0][-1].keys())
-        columns = ["complexity", "r", "base_r", "count", "expression", "traversal"] + eval_keys
-        pf_results = [result[:-1] + [result[-1][k] for k in eval_keys] for result in results]
-        df = pd.DataFrame(pf_results, columns=columns)
-        if pf_output_file is not None:
-            print("Saving Pareto Front to {}".format(pf_output_file))
-            df.to_csv(pf_output_file, header=True, index=False)
-
-        # Look for a success=True case within the Pareto front
-        for p in pf:
-            if p.evaluate.get("success"):
-                p_final = p
-                break
 
     # Close the pool
     if pool is not None:

@@ -88,16 +88,9 @@ def main_custom(config_template="config.json",
     with open(config_template, encoding='utf-8') as f:
         config = json.load(f)
 
-
     # set required configs
     config_task = config["task"]      # Task specification parameters
     config_training = config["training"]    # Training hyperparameters
-
-
-    # Optional configs
-    config_controller = config.get("controller")                        # Controller hyperparameters
-    config_language_model_prior = config.get("language_model_prior")    # Language model hyperparameters
-    config_gp = config.get("gp")                                        # GP hyperparameters
 
     # Create output directories
     if output_filename is None:
@@ -106,8 +99,6 @@ def main_custom(config_template="config.json",
         config_training["logdir"],
         "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
     logdir = config_training["logdir"]
-
-
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
 
@@ -197,8 +188,6 @@ def main_custom(config_template="config.json",
 
     print("Results saved to: {}".format(output_filename))
 
-
-
 if __name__ == "__main__":
 
     """Note, allowed entries for input and output in the JSON config file are:
@@ -215,7 +204,7 @@ if __name__ == "__main__":
      
     possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
 
-    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
-    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
 

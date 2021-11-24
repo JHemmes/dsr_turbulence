@@ -49,30 +49,28 @@ class DeepSymbolicOptimizer():
         self.pool = self.make_pool()
         self.prior = self.make_prior()
 
-        if self.config_task['enforce_sum']:
-            n_tensors = 0
-            for input in self.config_task['dataset_info']['input']:
-                # count the number of tensors in the inputs, if any:
-                if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
-                    n_tensors += 1
-        else:
-            n_tensors = 1
+        # if self.config_task['enforce_sum']:
+        #     n_tensors = 0
+        #     for input in self.config_task['dataset_info']['input']:
+        #         # count the number of tensors in the inputs, if any:
+        #         if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+        #             n_tensors += 1
+        # else:
+        #     n_tensors = 1
 
         # for ii in range(n_tensors):
         graph = tf.Graph()
         with graph.as_default():
             self.seed(seed)
-            new_sess = tf.Session()
-            self.sess = new_sess
-            new_controller = Controller(new_sess,
+            self.sess = tf.Session()
+            new_controller = Controller(self.sess,
                                         self.prior,
-                                        n_tensors,
+                                        self.config_task['enforce_sum'],
                                         **self.config_controller)
             new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
             self.controller = new_controller
 
     def train(self, seed=0):
-
         # Setup the model
         self.setup(seed)
 

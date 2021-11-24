@@ -44,8 +44,8 @@ def _finish_tokens(tokens):
         expr_length = 1 + np.argmax(dangling == 0)
         tokens = tokens[:expr_length]
     else:
-        # Extend with first variable until complete
-        tokens = np.append(tokens, np.random.choice(Program.sec_library.input_tokens, size=dangling[-1]))
+        # Extend with constants until complete
+        tokens = np.append(tokens, np.full(dangling[-1], Program.library.names.index('const')))
 
     return tokens
 
@@ -111,7 +111,7 @@ def from_str_tokens(str_tokens, optimize, skip_cache=False):
     return p
 
 
-def from_tokens(tokens, optimize, skip_cache=False):
+def from_tokens(tokens, optimize=False, skip_cache=False):
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -126,8 +126,9 @@ def from_tokens(tokens, optimize, skip_cache=False):
         defines an expression's pre-order traversal. "Dangling" programs are
         completed with repeated "x1" until the expression completes.
 
-    optimize : int
-        Whether to optimize the program before returning it. The int is also the maximum number of iterations
+    optimize : dict or False
+        if it is a dict, this dict contains the optimisation option
+        if it is False no constant optimisation is carried out.
 
     skip_cache : bool
         Whether to bypass the cache when creating the program.
@@ -290,8 +291,8 @@ class Program(object):
 
         self.str = tokens.tostring()
 
-        if optimize:
-            _ = self.optimize(optimize)
+        if optimize: # optimise is a dict or False. If it is a dict it contains the optimiser options.
+            _ = self.optimize(optim_opt=optimize)
 
         self.count = 1
 
@@ -443,7 +444,7 @@ class Program(object):
         return r[0], np.array(jacobian)
 
 
-    def optimize(self, maxiter):
+    def optimize(self, optim_opt):
         """
         Optimizes the constant tokens against the training data and returns the
         optimized constants.
@@ -476,9 +477,6 @@ class Program(object):
             # set ad_traversal
             self.task.set_ad_traversal(self)
 
-            gtol = 1e-10
-            # gtol = 1e-5
-
             if self.traversal[self.const_pos[0]].value:
                 # if this is the sub batch optimisation with no iter limit, set initial guess to be current constants
                 # gtol = 1e-5
@@ -489,8 +487,7 @@ class Program(object):
                 x0 = np.ones(len(self.const_pos))  # Initial guess
 
             # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
-            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter,
-                                                                                                        'gtol' : gtol})
+            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options=optim_opt)
 
             self.nfev += nfev
             self.nit += nit
@@ -637,7 +634,7 @@ class Program(object):
                     self.new_entry = True
 
                 if invalid_weight > 0:
-                    # choose update function dependent of
+                    # choose update function depending on whether invalid tokens are logged.
                     def update(self, p):
                         """If a floating-point error was encountered, set Program.invalid
                         to True and record the error type and error node."""

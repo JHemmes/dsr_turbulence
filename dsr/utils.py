@@ -78,16 +78,12 @@ def setup_output_files(logdir, output_file, token_names):
 
     hof_output_file : string
         hof output filename
-
-    pf_output_file : string
-        pf output filename
     """
     os.makedirs(logdir, exist_ok=True)
     output_file = os.path.join(logdir, output_file)
     prefix, _ = os.path.splitext(output_file)
     all_r_output_file = "{}_all_r.npy".format(prefix)
     hof_output_file = "{}_hof.csv".format(prefix)
-    pf_output_file = "{}_pf.csv".format(prefix)
     with open(output_file, 'w') as f:
         # r_best : Maximum across all iterations so far
         # r_max : Maximum across this iteration's batch
@@ -138,7 +134,7 @@ def setup_output_files(logdir, output_file, token_names):
 
         f.write("{}\n".format(",".join(headers)))
 
-    return all_r_output_file, hof_output_file, pf_output_file
+    return all_r_output_file, hof_output_file
 
 
 class cached_property(object):
