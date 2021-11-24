@@ -379,8 +379,11 @@ def learn(session, controller, pool, tensor_dsr,
                 batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
                 save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
 
+        # failsafe to ensure positive PG-loss
+        b_train = min(baseline, quantile)
+
         # Train the controller
-        loss_ent, loss_inv, loss_pg = controller.train_step(baseline, sampled_batch)
+        loss_ent, loss_inv, loss_pg = controller.train_step(b_train, sampled_batch)
 
         if output_file is not None:
             duration = time.process_time() - start_time
