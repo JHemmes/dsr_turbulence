@@ -18,7 +18,7 @@
       "reward_noise" : 0.0
    },
    "prior": {
-      "length" : {"min_" : 3, "max_" : 5},
+      "length" : {"min_" : 3, "max_" : 30},
       "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},

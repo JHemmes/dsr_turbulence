@@ -45,7 +45,7 @@ def _finish_tokens(tokens):
         tokens = tokens[:expr_length]
     else:
         # Extend with constants until complete
-        tokens = np.append(tokens, np.full(dangling[-1], Program.library.names.index('const')))
+        tokens = np.append(tokens, np.full(dangling[-1], Program.sec_library.names.index('const')))
 
     return tokens
 
