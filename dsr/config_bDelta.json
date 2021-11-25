@@ -1,11 +1,11 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "testing_cleaned_code",
+      "name" : "finding_HOF_error",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : true,
       "dataset" : {
-         "name" : "PH10595",
+         "name" : "benchmark",
          "noise": null,
          "input": ["T1", "T2", "T3", "T4", "k", "grad_u", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "bDelta",
@@ -27,7 +27,7 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 100000,
+        "n_samples": 20000,
         "batch_size": 1000,
         "complexity": "length",
         "complexity_weight": 0.0,

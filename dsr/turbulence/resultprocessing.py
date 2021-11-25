@@ -538,11 +538,12 @@ if __name__ == "__main__":
 
     # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
     # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
-    logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
-    logdir = '../logs_completed/log_2021-10-01_bDelta_runs/bDelta_one_network'
+    # logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
+    # logdir = '../logs_completed/log_2021-10-01_bDelta_runs/bDelta_one_network'
+    logdir = './log/log_2021-11-24-153425'
     # logdir = './log/log_2021-08-25-170231'
 
-    plot_iterations_metrics(logdir, finished=True)
+    plot_iterations_metrics(logdir, finished=False)
 
 
 

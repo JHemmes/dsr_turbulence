@@ -9,6 +9,57 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import time
 
+def load_benchmark_dataset(config_task):
+    if config_task['dataset']['output'] == 'bDelta':
+        print('bDelta benchmark equation needs attention')
+        np.random.seed(0)
+        X = np.zeros((30, 11))
+        X[:, 0] = np.random.uniform(0, 7, 30)  # use this
+        X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
+        X[:, 2] = np.random.uniform(0, 1, 30)  # use this
+        X[:, 3] = np.random.uniform(-1, 0, 30)  # use this
+        X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)  # use this
+        X[:, 5] = np.random.uniform(0, 2, 30)
+        X[:, 6] = np.random.uniform(-1, 1, 30)
+        X[:, 7] = np.random.uniform(0, 2, 30)
+        X[:, 8] = np.random.uniform(0, 2, 30)
+        X[:, 9] = np.random.uniform(0, 2, 30)
+        X[:, 10] = np.random.uniform(0, 2, 30)
+
+        y = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0]) - 1000 * X[:, 4]
+    else:
+        np.random.seed(0)
+        X = np.zeros((30, 7))
+        X[:, 0] = np.random.uniform(0, 7, 30)  # use this
+        X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
+        X[:, 2] = np.random.uniform(0, 1, 30)  # use this
+        X[:, 3] = np.random.uniform(-1, 0, 30)  # use this
+        X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)  # use this
+        X[:, 5] = np.random.uniform(0, 2, 30)
+        X[:, 6] = np.random.uniform(-1, 1, 30)
+        noise = np.random.normal(0, 0.15, (30,))
+
+        y = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0]) + noise
+
+        # check expression fitness without noise
+        var_y = np.var(y)
+        y_hat = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0])
+        inv_nrmse = 1 / (1 + np.sqrt(np.mean((y - y_hat) ** 2) / var_y))
+        print(f'If inv_nrmse is above {round(inv_nrmse, 4)}, the benchmark expression is overfitted on the noise')
+
+
+    # Quick visual check to see possible correlation between vars and noise
+    # import matplotlib.pyplot as plt
+    # import matplotlib
+    # matplotlib.use('tkagg')
+    #
+    # for ii in range(X.shape[-1]):
+    #     plt.figure()
+    #     plt.scatter(noise, X[:,ii])
+
+
+    return X, y
+
 
 def calc_sij_rij(grad_u, omega):
     """ Calculates the strain rate and rotation rate tensors.  Normalizes by omega:
@@ -162,7 +213,6 @@ def load_frozen_RANS_dataset(config_task):
 
     inputs = config_task['dataset']['input']
     n_inputs = len(inputs)
-
 
     # Check what inputs need to be calculated:
     grad_tens = False

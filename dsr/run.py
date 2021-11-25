@@ -11,7 +11,6 @@ import sys
 dsrpath = os.path.abspath(__file__)   # these two lines are to add the dsr dir to path to run it without installing dsr package
 sys.path.append(dsrpath[:dsrpath.rfind('dsr')])
 import json
-import time
 from datetime import datetime
 import multiprocessing
 import logging
@@ -33,7 +32,7 @@ from dsr import DeepSymbolicOptimizer
 from dsr.program import Program
 from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
-from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
+from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, load_benchmark_dataset
 from dsr.turbulence.resultprocessing import plot_results
 
 def train_dsr(name_and_seed, config):
@@ -69,7 +68,8 @@ def train_dsr(name_and_seed, config):
     result = {"name" : name, "seed" : seed} # Name and seed are listed first
     result.update(model.train(seed=seed))
     result["t"] = time.time() - start
-    plot_results(result, config)
+    if config['task']['dataset_info']['name'] in ['PH10595', 'CBFS13700', 'CD12600']:
+        plot_results(result, config)
     result.pop("program")
 
     return result
@@ -136,28 +136,11 @@ def main_custom(config_template="config.json",
 
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
-    X, y = load_frozen_RANS_dataset(config_task)
-    #
-    # np.random.seed(0)
-    # X = np.zeros((30, 11))
-    # X[:, 0] = np.random.uniform(0, 7, 30)    # use this
-    # X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
-    # X[:, 2] = np.random.uniform(0, 1, 30)    # use this
-    # X[:, 3] = np.random.uniform(-1, 0, 30)   # use this
-    # X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)   # use this
-    # X[:, 5] = np.random.uniform(0, 2, 30)
-    # X[:, 6] = np.random.uniform(-1, 1, 30)
-    # X[:, 7] = np.random.uniform(0, 2, 30)
-    # X[:, 8] = np.random.uniform(0, 2, 30)
-    # X[:, 9] = np.random.uniform(0, 2, 30)
-    # X[:, 10] = np.random.uniform(0, 2, 30)
-
-    #
-    # y = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0]) - 1000 * X[:, 4]
-    # term1 = 4.5 * np.exp(X[:, 2]) * X[:, 1]
-    # term2 = X[:, 3] ** 2
-    # term3 = 0.5* np.log(1.7 * X[:, 1] + 1 / X[:, 0])
-    # term4 = -1000*X[:, 4]
+    if config_task['dataset']['name'] in ['PH10595', 'CBFS13700', 'CD12600']:
+        X, y = load_frozen_RANS_dataset(config_task)
+    else:
+        print('Using benchmark dataset')
+        X, y = load_benchmark_dataset(config_task)
 
     config["task"]["dataset_info"] = config["task"]["dataset"] # save dataset information for later use
     config["task"]["dataset"] = (X, y)
@@ -190,8 +173,9 @@ def main_custom(config_template="config.json",
 
 if __name__ == "__main__":
 
-    """Note, allowed entries for input and output in the JSON config file are:
-    
+    """
+    Allowed entries for input and output in the JSON config file are:
+     
     scalars:
     k - turbulent kinetic energy
     grad_u_T1, grad_u_T2, etc.  - The tensor product of the base tensors with grad_u
@@ -202,9 +186,17 @@ if __name__ == "__main__":
     T1, T2, etc. - Base tensors 
     grad_u - velocity gradient
      
-    possible entries for the function_set:"  # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]"""
+    possible entries for the function_set:
+    ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"]
+    
+    
+    possible entries for dataset: 
+    'PH10595', 'CBFS13700', 'CD12600', anything else will result in benchmark being used
+    
+    """
 
-    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
-    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=2)
+
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=2)
 
 
