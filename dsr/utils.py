@@ -136,7 +136,6 @@ def setup_output_files(logdir, output_file, token_names):
 
     return all_r_output_file, hof_output_file
 
-
 class cached_property(object):
     """
     Decorator used for lazy evaluation of an object attribute. The property
@@ -156,6 +155,8 @@ class cached_property(object):
         setattr(obj, self.getter.__name__, value)
         return value
 
+def save_config(config):
+    print('not implemented yet')
 
 # Entropy computation in batch
 def empirical_entropy(labels):

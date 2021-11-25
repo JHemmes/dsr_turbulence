@@ -480,7 +480,7 @@ def plot_iterations_metrics(logdir, finished=True):
 
     plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best',
                     'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub', 'n_const_per_eq_full',
-                    'n_const_per_eq_sub', 'duration', 'a_ent_full', 'a_ent_sub', 'x2_sub','x2_full']
+                    'n_const_per_eq_sub', 'duration', 'a_ent_full', 'a_ent_sub', 'base_r_avg_sub', 'x2_sub','x2_full']
     # plot_metrics = ['invalid_avg_full', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best', 'sample_metric']
 
     results = load_iterations(logdir)
@@ -520,8 +520,20 @@ def plot_iterations_metrics(logdir, finished=True):
         plt.grid()
         plt.savefig(f'{logdir}/iterations_{metric}')
 
-
-
+    # To possibly use debugger to compare two runs, create plot_dict2 for other run.
+    # for metric in plot_metrics:
+    #     fig = plt.figure()
+    #     for arr in plot_dict[metric]:
+    #         plt.plot(arr, label=None, color='C0')
+    #     for arr in plot_dict2[metric]:
+    #         plt.plot(arr, label=None, color='C1')
+    #     if finished:
+    #         plt.plot(np.mean(np.array(plot_dict[metric]), axis=0), color='red', label='mean')
+    #     plt.xlabel('iterations')
+    #     plt.ylabel(metric)
+    #     plt.legend()
+    #     plt.grid()
+    #     plt.savefig(f'{logdir}/iterations_{metric}')
 
 
 

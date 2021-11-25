@@ -34,6 +34,7 @@ from dsr.task.regression.dataset import BenchmarkDataset
 from dsr.baselines import gpsr
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, load_benchmark_dataset
 from dsr.turbulence.resultprocessing import plot_results
+from dsr.hyperparameters import create_configs_sensitivity
 
 def train_dsr(name_and_seed, config):
     """Trains DSR and returns dict of reward, expression, and traversal"""
@@ -79,7 +80,6 @@ def main_custom(config_template="config.json",
                 output_filename=None,
                 n_cores_task=24,
                 seed_shift=1):
-    """Modified by Jasper Hemmes - 2021"""
     """Now loads custom dataset to run with dsr"""
 
     """Runs DSR custom datasets using multiprocessing."""
@@ -95,10 +95,14 @@ def main_custom(config_template="config.json",
     # Create output directories
     if output_filename is None:
         output_filename = "Results_dsr.csv"
-    config_training["logdir"] = os.path.join(
-        config_training["logdir"],
-        "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
+    if config_training["logdir"] == './log':
+        config_training["logdir"] = os.path.join(config_training["logdir"],
+                                                 "log_{}".format(datetime.now().strftime("%Y-%m-%d-%H%M%S")))
     logdir = config_training["logdir"]
+
+    if 'sensitivity' in logdir:  # delete original config file when performing sensiticity analysis
+        os.remove(config_template)
+
     os.makedirs(logdir, exist_ok=True)
     output_filename = os.path.join(logdir, output_filename)
 
@@ -171,6 +175,32 @@ def main_custom(config_template="config.json",
 
     print("Results saved to: {}".format(output_filename))
 
+def sensitivity_analysis(config_template="config.json",
+                         mc=1,
+                         n_cores_task=24):
+
+    # Load the base config file
+    with open(config_template, encoding='utf-8') as f:
+        base_config = json.load(f)
+
+    # set output dir:
+    if base_config['task']['enforce_sum']:
+        base_logdir = './log/sensitivity/tensor'
+        base_config['training']['logdir'] = base_logdir
+    else:
+        base_logdir = './log/sensitivity/scalar'
+        base_config['training']['logdir'] = base_logdir
+    os.makedirs(base_logdir, exist_ok=True)
+
+    create_configs_sensitivity(base_config)
+
+    config_list = [x for x in os.listdir(base_logdir) if not os.path.isdir(os.path.join(base_logdir, x))]
+
+    for config in config_list:
+        main_custom(config_template=os.path.join(base_logdir, config), mc=mc, n_cores_task=n_cores_task)
+
+
+
 if __name__ == "__main__":
 
     """
@@ -196,7 +226,9 @@ if __name__ == "__main__":
     """
 
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=2)
 
 
+
+    sensitivity_analysis(config_template="config_kDeficit.json", mc=100, n_cores_task=4)
