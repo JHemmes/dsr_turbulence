@@ -2,6 +2,7 @@
 
 import array
 import os
+import platform
 import warnings
 from textwrap import indent
 
@@ -595,23 +596,28 @@ class Program(object):
         If cython ran, we will have a 'c' file generated. The dynamic libary can be 
         given different names, so it's not reliable for testing if cython ran.
         """
-        cpath = os.path.join(os.path.dirname(__file__),'cyfunc.c')
 
-        if os.path.isfile(cpath):
-            from .                  import cyfunc
-            Program.cyfunc          = cyfunc
-            if invalid_weight > 0:
-                execute_function = Program.python_execute
-            else:
-                # if invalid tokens are not logged, use cython and set dummy ixd_counter
-                execute_function = Program.cython_execute
-                globals()['idx_counter'] = 1
-            Program.have_cython     = True
-            ad_execute              = Program.ad_python_execute
+        if platform.system() == 'Windows':
+            execute_function = Program.python_execute
+            Program.have_cython = False
+            ad_execute = Program.ad_python_execute
         else:
-            execute_function        = Program.python_execute
-            Program.have_cython     = False
-            ad_execute              = Program.ad_python_execute
+            cpath = os.path.join(os.path.dirname(__file__), 'cyfunc.c')
+            if os.path.isfile(cpath):
+                from .                  import cyfunc
+                Program.cyfunc          = cyfunc
+                if invalid_weight > 0:
+                    execute_function = Program.python_execute
+                else:
+                    # if invalid tokens are not logged, use cython and set dummy ixd_counter
+                    execute_function = Program.cython_execute
+                    globals()['idx_counter'] = 1
+                Program.have_cython     = True
+                ad_execute              = Program.ad_python_execute
+            else:
+                execute_function        = Program.python_execute
+                Program.have_cython     = False
+                ad_execute              = Program.ad_python_execute
 
         if protected:
             Program.execute = execute_function
