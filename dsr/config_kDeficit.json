@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "entropy_1",
+      "name" : "testing_time_limit",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -40,6 +40,7 @@
         "n_cores_batch": 1,
         "output_file": null,
         "early_stopping": true,
+        "t_lim": 1,
         "hof": 100,
         "optim_opt_full":{
            "maxiter": 100,

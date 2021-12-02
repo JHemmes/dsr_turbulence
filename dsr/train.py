@@ -40,8 +40,9 @@ def learn(session, controller, pool, tensor_dsr,
           const_optimizer="minimize", const_params=None,
           epsilon=0.01, n_cores_batch=1, verbose=True,
           output_file=None, baseline=0.5,
-          b_jumpstart=True, early_stopping=False, hof=10,
-          optim_opt_full={'maxiter':100, 'gtol':1e-5}, optim_opt_sub={'maxiter':2000, 'gtol':1e-5},
+          b_jumpstart=True, early_stopping=False,
+          t_lim=1000, hof=10,
+          optim_opt_full={'maxiter': 100, 'gtol': 1e-5}, optim_opt_sub={'maxiter': 2000, 'gtol': 1e-5},
           save_batch=False, eval_all=False):
     """
     Executes the main training loop.
@@ -84,9 +85,6 @@ def learn(session, controller, pool, tensor_dsr,
     const_params : dict, optional
         Dict of constant optimizer kwargs.
 
-    alpha : float, optional
-        Coefficient of exponentially-weighted moving average of baseline.
-
     epsilon : float or None, optional
         Fraction of top expressions used for training. None (or
         equivalently, 1.0) turns off risk-seeking.
@@ -124,8 +122,21 @@ def learn(session, controller, pool, tensor_dsr,
     early_stopping : bool, optional
         Whether to stop early if stopping criteria is reached.
 
+    t_lim : int, optional
+        Time limit that stops the training after the limit, value given in hours wall clock time
+
     hof : int or None, optional
         If not None, number of top Programs to evaluate after training.
+
+    optim_opt_full: dict, optional
+        dict containing options controlling constant optimisation for the full batch
+        maxiter sets iteration limit
+        gtol sets gradient tolerance when optimisation stops
+
+    optim_opt_sub: dict, optional
+        dict containing options controlling constant optimisation for the sub-batch
+        maxiter sets iteration limit
+        gtol sets gradient tolerance when optimisation stops
 
     save_batch : bool, optional
         Determines whether the batches that provided a new best are saved to a pickle file
@@ -197,7 +208,11 @@ def learn(session, controller, pool, tensor_dsr,
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    # all_r = np.zeros(shape=(n_epochs, batch_size), dtype=np.float32)
+
+    # wall clock time limit:
+    wct_start = time.time()  # start time for
+    t_lim_seconds = t_lim*3600
+    print(f"Time limit set to {t_lim}h")
 
     for step in range(n_epochs):
         # if step%100 == 0:
@@ -486,7 +501,11 @@ def learn(session, controller, pool, tensor_dsr,
         if len(Program.cache) > 5000:
             # if the cache contains more than x function, tidy cache.
             Program.tidy_cache(hof)
-    #
+
+        if (time.time() - wct_start) > t_lim_seconds:
+            print(f"Time limit of {t_lim}h exceeded; breaking early.")
+            break
+
     # if save_all_r:
     #     with open(all_r_output_file, 'ab') as f:
     #         np.save(f, all_r)

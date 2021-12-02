@@ -11,28 +11,44 @@ import time
 
 def load_benchmark_dataset(config_task):
     if config_task['dataset']['output'] == 'bDelta':
-        print('bDelta benchmark equation needs attention')
         np.random.seed(0)
         X = np.zeros((30, 11))
-        X[:, 0] = np.random.uniform(0, 7, 30)  # use this
-        X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
-        X[:, 2] = np.random.uniform(0, 1, 30)  # use this
-        X[:, 3] = np.random.uniform(-1, 0, 30)  # use this
-        X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)  # use this
-        X[:, 5] = np.random.uniform(0, 2, 30)
-        X[:, 6] = np.random.uniform(-1, 1, 30)
-        X[:, 7] = np.random.uniform(0, 2, 30)
-        X[:, 8] = np.random.uniform(0, 2, 30)
-        X[:, 9] = np.random.uniform(0, 2, 30)
-        X[:, 10] = np.random.uniform(0, 2, 30)
+        X[:, 0] = np.random.uniform(0, 2, 30)    # use as tensors when enforcing sum
+        X[:, 1] = np.random.uniform(0, 0.1, 30)  # use as tensors when enforcing sum
+        X[:, 2] = np.random.uniform(0, 1, 30)    # use as tensors when enforcing sum
+        X[:, 3] = np.random.uniform(-1, 0, 30)   # use as tensors when enforcing sum
+        X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)    # use to scale "tensors"
+        X[:, 5] = np.random.uniform(2, 5, 30)               # use to scale "tensors"
+        X[:, 6] = np.random.uniform(-1, 1, 30)              # use to scale "tensors"
+        X[:, 7] = np.random.uniform(0, 2, 30)               # use to scale "tensors"
+        X[:, 8] = np.random.uniform(0, 0.1, 30)             # use to scale "tensors"
+        X[:, 9] = np.random.uniform(-1, 0, 30)
+        X[:, 10] = np.random.uniform(1, 7, 30)
 
-        y = 4.5 * np.exp(X[:, 2]) * X[:, 1] + X[:, 3] ** 2 + 0.5 * np.log(1.7 * X[:, 1] + 1 / X[:, 0]) - 1000 * X[:, 4]
+        # y = X[:, 0] * () + X[:, 1] * () + X[:, 2] * () + X[:, 3] * ()
+
+        term0 = X[:, 0] * (0.1 * (X[:, 5]+X[:, 6]) + 1.7 * np.log(X[:, 7]) + 0.23)
+        term1 = X[:, 1] * (X[:, 7] * X[:, 8] * 3 + 0.7*np.exp(X[:, 8]) + 15)
+        term2 = X[:, 2] * (np.exp(X[:, 6]) + 3/(np.log(X[:, 5])))
+        term3 = X[:, 3] * (X[:, 4] * 10 + X[:, 7])
+
+        y = term0 + term1 + term2 + term3
+
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(y)
+        plt.plot(term0)
+        plt.plot(term1)
+        plt.plot(term2)
+        plt.plot(term3)
+        plt.legend(['y', 'term0', 'term1', 'term2', 'term3'])
+
     else:
         np.random.seed(0)
         X = np.zeros((30, 7))
-        X[:, 0] = np.random.uniform(0, 7, 30)  # use this
-        X[:, 1] = np.random.uniform(0, 0.1, 30)  # use this
-        X[:, 2] = np.random.uniform(0, 1, 30)  # use this
+        X[:, 0] = np.random.uniform(0, 7, 30)   # use this
+        X[:, 1] = np.random.uniform(0, 0.1, 30) # use this
+        X[:, 2] = np.random.uniform(0, 1, 30)   # use this
         X[:, 3] = np.random.uniform(-1, 0, 30)  # use this
         X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)  # use this
         X[:, 5] = np.random.uniform(0, 2, 30)

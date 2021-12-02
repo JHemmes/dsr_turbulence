@@ -27,7 +27,7 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 20000,
+        "n_samples": 200000,
         "batch_size": 1000,
         "complexity": "length",
         "complexity_weight": 0.0,
@@ -40,6 +40,7 @@
         "n_cores_batch": 1,
         "output_file": null,
         "early_stopping": true,
+        "t_lim": 1,
         "hof": 100,
         "optim_opt_full":{
            "maxiter": 100,
@@ -65,6 +66,7 @@
       "observe_sibling": true,
       "entropy_weight": 0.005,
       "invalid_weight": 0,
+      "scale_to_pg": true,
       "max_length": 30
    }
 }
