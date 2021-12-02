@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "finding_HOF_error",
+      "name" : "testing_",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : true,
       "dataset" : {
@@ -40,7 +40,7 @@
         "n_cores_batch": 1,
         "output_file": null,
         "early_stopping": true,
-        "t_lim": 1,
+        "t_lim": 100,
         "hof": 100,
         "optim_opt_full":{
            "maxiter": 100,

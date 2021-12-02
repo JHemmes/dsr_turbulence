@@ -503,7 +503,17 @@ def learn(session, controller, pool, tensor_dsr,
             Program.tidy_cache(hof)
 
         if (time.time() - wct_start) > t_lim_seconds:
-            print(f"Time limit of {t_lim}h exceeded; breaking early.")
+            # if the wall clock time exceeds time limit, save controller and stop iterations
+            print(f"Time limit of {t_lim}h exceeded; breaking early and saving controller state")
+            controllers_dir = os.path.join(logdir, 'controllers')
+
+            if not os.path.isdir(controllers_dir):
+                os.mkdir(controllers_dir)  # directory where all controllers are saved, might already exist
+
+            controller_dir = os.path.join(controllers_dir, output_file.split('.')[0])
+            os.mkdir(controller_dir)  # subdirectory where this controller is saved
+
+            controller.save(os.path.join(controller_dir, 'controller.ckpt'))
             break
 
     # if save_all_r:

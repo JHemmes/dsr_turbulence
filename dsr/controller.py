@@ -858,6 +858,11 @@ class Controller(object):
                 tf.summary.scalar('gradient norm', self.norms)
                 self.summaries = tf.summary.merge_all()
 
+    def save(self, path):
+        with self.sess as Sess:
+            saver = tf.train.Saver()
+            saver.save(sess=Sess, save_path=path)
+
     def sample(self, n):
         """Sample batch of n expressions"""
         feed_dict = {self.batch_size: n}
@@ -891,3 +896,4 @@ class Controller(object):
         _, entropy_loss, invalid_loss, pg_loss = self.sess.run([self.train_op, self.entropy_loss, self.invalid_loss, self.pg_loss], feed_dict=feed_dict)
 
         return entropy_loss, invalid_loss, pg_loss
+
