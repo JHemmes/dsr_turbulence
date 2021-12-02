@@ -126,6 +126,7 @@ class Controller(object):
                  # Loss hyperparameters
                  entropy_weight=0.0,
                  invalid_weight=0.0,
+                 scale_to_pg=True,
                  # Other hyperparameters
                  max_length=None):
 
@@ -173,7 +174,8 @@ class Controller(object):
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
         self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
-        
+        self.objective_scaling = tf.placeholder(dtype=tf.float32, shape=(), name="objective_scaling")
+
         # Parameter assertions/warnings
         assert observe_action + observe_parent + observe_sibling > 0, "Must include at least one observation."
 
@@ -778,19 +780,23 @@ class Controller(object):
             top_quantile = self.sampled_batch_ph.top_quantile
             invalid = self.sampled_batch_ph.invalid
 
-            # Entropy loss
-            # sub_entropy = tf.gather(entropy, top_quantile)
-            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy * top_quantile / tf.reduce_mean(top_quantile), name="entropy_loss")
-            self.entropy_loss = entropy_loss
-            loss = entropy_loss
 
             # Policy gradient loss
             pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile / tf.reduce_mean(top_quantile), name="pg_loss")
             self.pg_loss = pg_loss
-            loss += pg_loss
+            loss = pg_loss
+
+            # Entropy loss
+            entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy * top_quantile / tf.reduce_mean(top_quantile), name="entropy_loss")
+            if scale_to_pg:  # scale entropy objective to
+                entropy_loss = entropy_loss * self.objective_scaling
+            self.entropy_loss = entropy_loss
+            loss += entropy_loss
 
             # Equation validity loss
             invalid_loss = tf.reduce_mean(-self.invalid_weight * invalid * neglogp, name="invalid_loss")
+            if scale_to_pg:  # scale invalid objective to
+                invalid_loss = invalid_loss * self.objective_scaling
             self.invalid_loss = invalid_loss
             loss += invalid_loss
 
@@ -874,11 +880,12 @@ class Controller(object):
         probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
         return probs
 
-    def train_step(self, b, sampled_batch):
+    def train_step(self, b, scaling, sampled_batch):
         """Computes loss, trains model, and returns summaries."""
         feed_dict = {
-            self.baseline : b,
-            self.sampled_batch_ph : sampled_batch
+            self.baseline: b,
+            self.objective_scaling: scaling,  # to scale the entropy and invalid objectives relative to pg objective
+            self.sampled_batch_ph: sampled_batch
         }
 
         _, entropy_loss, invalid_loss, pg_loss = self.sess.run([self.train_op, self.entropy_loss, self.invalid_loss, self.pg_loss], feed_dict=feed_dict)

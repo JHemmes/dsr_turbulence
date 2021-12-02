@@ -1,11 +1,11 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "testing_benchmarks",
+      "name" : "entropy_1",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
-         "name" : "PH10595",
+         "name" : "Benchmark",
          "noise": null,
          "input": ["grad_u_T1", "k", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "kDeficit",
@@ -63,8 +63,9 @@
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.005,
+      "entropy_weight": 0.1,
       "invalid_weight": 0,
+      "scale_to_pg": true,
       "max_length": 30
    }
 }

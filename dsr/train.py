@@ -192,6 +192,7 @@ def learn(session, controller, pool, tensor_dsr,
     p_final = None
     base_r_best = -np.inf
     r_best = -np.inf
+    loss_pg = 1
     prev_r_best = None
     prev_base_r_best = None
     ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
@@ -383,7 +384,7 @@ def learn(session, controller, pool, tensor_dsr,
         b_train = min(baseline, quantile)
 
         # Train the controller
-        loss_ent, loss_inv, loss_pg = controller.train_step(b_train, sampled_batch)
+        loss_ent, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
 
         if output_file is not None:
             duration = time.process_time() - start_time
