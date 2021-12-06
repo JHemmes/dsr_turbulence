@@ -16,6 +16,11 @@ def is_float(s):
     except ValueError:
         return False
 
+def save_pickle(path, data):
+    # function saves data
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)
+
 def load_pickle(path):
     # function loads saved charge points
     with open(path, 'rb') as f:
@@ -54,7 +59,7 @@ def is_pareto_efficient(costs):
     return is_efficient_mask
 
 
-def setup_output_files(logdir, output_file, token_names):
+def setup_output_files(logdir, output_file, token_names, save_batch, save_controller):
     """
     Writes the main output file header and returns the reward, hall of fame, and Pareto front config filenames.
 
@@ -70,19 +75,40 @@ def setup_output_files(logdir, output_file, token_names):
     token_names : list
         Names of tokens in library, used to add to end of output file to correctly name tokens in output file.
 
+    save_batch : boolean
+        Boolean controls creation of batch_dir
+
+    save_controller : boolean
+        Boolean controls creation of controller_dir
+
     Returns:
     --------
 
-    all_r_output_file : string
-        all_r output filename
-
     hof_output_file : string
         hof output filename
+
+    batch_dir : string
+        directory where batches are saved
+
+    controller_dir : string
+        directory where controller checkpoints are saved
     """
+    run_name = output_file.split('.')[0]
     os.makedirs(logdir, exist_ok=True)
     output_file = os.path.join(logdir, output_file)
+
     prefix, _ = os.path.splitext(output_file)
-    all_r_output_file = "{}_all_r.npy".format(prefix)
+
+    batch_dir = None
+    if save_batch:
+        batch_dir = os.path.join(*[logdir, 'batches', run_name])
+        os.makedirs(batch_dir, exist_ok=True)
+
+    controller_dir = None
+    if save_controller:
+        controller_dir = os.path.join(*[logdir, 'controllers', run_name])
+        os.makedirs(controller_dir, exist_ok=True)
+
     hof_output_file = "{}_hof.csv".format(prefix)
     with open(output_file, 'w') as f:
         # r_best : Maximum across all iterations so far
@@ -134,7 +160,7 @@ def setup_output_files(logdir, output_file, token_names):
 
         f.write("{}\n".format(",".join(headers)))
 
-    return all_r_output_file, hof_output_file
+    return hof_output_file, batch_dir, controller_dir
 
 class cached_property(object):
     """

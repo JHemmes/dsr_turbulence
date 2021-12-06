@@ -43,7 +43,7 @@ def learn(session, controller, pool, tensor_dsr,
           b_jumpstart=True, early_stopping=False,
           t_lim=1000, hof=10,
           optim_opt_full={'maxiter': 100, 'gtol': 1e-5}, optim_opt_sub={'maxiter': 2000, 'gtol': 1e-5},
-          save_batch=False, eval_all=False):
+          save_batch=False, save_controller=False, eval_all=False):
     """
     Executes the main training loop.
 
@@ -167,11 +167,9 @@ def learn(session, controller, pool, tensor_dsr,
     token_names = tmp_program.library.names
     del tmp_program
 
-    # Create log file
-    if output_file is not None:
-        all_r_output_file, hof_output_file = setup_output_files(logdir, output_file, token_names)
-    else:
-        all_r_output_file = hof_output_file = None
+    # Create log files and dirs
+    hof_output_file, batch_dir, controller_dir = setup_output_files(logdir, output_file, token_names,
+                                                                    save_batch, save_controller)
 
     # Set the complexity functions
     Program.set_complexity_penalty(complexity, complexity_weight)
@@ -181,14 +179,7 @@ def learn(session, controller, pool, tensor_dsr,
     Program.set_const_optimizer(const_optimizer, **const_params)
 
     if save_batch:
-        # if batches are saved import pickle, set up output folder and define save_pickle function
-        import pickle
-        pickle_dir = os.path.join(logdir, 'pickled_batches')
-        os.mkdir(pickle_dir)
-        def save_pickle(path, data):
-            # function saves data
-            with open(path, 'wb') as f:
-                pickle.dump(data, f)
+        from utils import save_pickle
 
     # Create the pool of workers, if pool is not already given
     if pool is None:
@@ -388,12 +379,9 @@ def learn(session, controller, pool, tensor_dsr,
                                   lengths=lengths, rewards=r, top_quantile=top_quantile, invalid=invalid)
 
         if save_batch:
-            if prev_r_best is None or r_max > prev_r_best:
-                batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
-                save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
-            if step%50 == 0:
-                batch_filename = f"{output_file.split('.')[0]}_step_{step}.p"
-                save_pickle(os.path.join(pickle_dir, batch_filename), sampled_batch)
+            if prev_r_best is None or r_max > prev_r_best or step%50 == 0:
+                batch_filename = os.path.join(batch_dir, f'step_{step}.p')
+                save_pickle(batch_filename, sampled_batch)
 
         # failsafe to ensure positive PG-loss
         b_train = min(baseline, quantile)
@@ -504,21 +492,8 @@ def learn(session, controller, pool, tensor_dsr,
 
         if (time.time() - wct_start) > t_lim_seconds:
             # if the wall clock time exceeds time limit, save controller and stop iterations
-            print(f"Time limit of {t_lim}h exceeded; breaking early and saving controller state")
-            controllers_dir = os.path.join(logdir, 'controllers')
-
-            if not os.path.isdir(controllers_dir):
-                os.mkdir(controllers_dir)  # directory where all controllers are saved, might already exist
-
-            controller_dir = os.path.join(controllers_dir, output_file.split('.')[0])
-            os.mkdir(controller_dir)  # subdirectory where this controller is saved
-
-            controller.save(os.path.join(controller_dir, 'controller.ckpt'))
+            print(f"Time limit of {t_lim}h exceeded; breaking early")
             break
-
-    # if save_all_r:
-    #     with open(all_r_output_file, 'ab') as f:
-    #         np.save(f, all_r)
 
     # Save the hall of fame
     if hof is not None and hof > 0:
@@ -542,6 +517,12 @@ def learn(session, controller, pool, tensor_dsr,
         if hof_output_file is not None:
             print("Saving Hall of Fame to {}".format(hof_output_file))
             df.to_csv(hof_output_file, header=True, index=False)
+
+    # save tensorflow checkpoint of network state
+    if save_controller:
+        controller_file = os.path.join(controller_dir, 'controller.ckpt')
+        print("Saving Controller Checkpoint to {}".format(controller_file))
+        controller.save(controller_file)
 
     # Close the pool
     if pool is not None:

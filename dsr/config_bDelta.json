@@ -50,7 +50,8 @@
            "maxiter": 2000,
            "gtol": 1e-5
         },
-        "save_batch": false
+        "save_batch": false,
+        "save_controller": true
    },
    "controller": {
       "cell": "lstm",
