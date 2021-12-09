@@ -154,7 +154,7 @@ def setup_output_files(logdir, output_file, token_names, save_batch, save_contro
                    "n_unq_tokens_avg_full",
                    "n_unq_tokens_avg_sub",
                    "wall_time",
-                   "proc_time",
+                   "proc_time"
                    ]
         headers += [token_name + '_full' for token_name in token_names]
         headers += [token_name + '_sub' for token_name in token_names]
