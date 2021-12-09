@@ -201,7 +201,7 @@ def learn(session, controller, pool, tensor_dsr,
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
 
     # wall clock time limit:
-    wct_start = time.time()  # start time for
+    program_start = time.process_time()  # start time for
     t_lim_seconds = t_lim*3600
     print(f"Time limit set to {t_lim}h")
 
@@ -488,7 +488,7 @@ def learn(session, controller, pool, tensor_dsr,
             # if the cache contains more than x function, tidy cache.
             Program.tidy_cache(hof)
 
-        if (time.time() - wct_start) > t_lim_seconds:
+        if (time.process_time() - program_start) > t_lim_seconds:
             # if the wall clock time exceeds time limit, save controller and stop iterations
             print(f"Time limit of {t_lim}h exceeded; breaking early")
             break

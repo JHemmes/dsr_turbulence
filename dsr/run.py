@@ -226,8 +226,8 @@ if __name__ == "__main__":
     """
 
 
-    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=2)
-    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
+    main_custom(config_template="config_kDeficit.json", mc=32, n_cores_task=32)
+    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
 
 
