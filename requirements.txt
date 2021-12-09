@@ -8,5 +8,4 @@ pandas
 scikit-learn
 click
 dataclasses
-deap
 matplotlib

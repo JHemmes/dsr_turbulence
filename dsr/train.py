@@ -214,14 +214,14 @@ def learn(session, controller, pool, tensor_dsr,
         # if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
         #     test_fixed_actions(logdir, from_tokens)
 
-        start_time = time.process_time()
+        proc_start = time.process_time()
+        wall_start = time.time()
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
         actions, obs, priors = controller.sample(batch_size)
 
         # Choose to stack actions or not, if there is one controller they should not be stacked
-        # Also calculate percentage of how much the sampled actions differ if there are multiple RNNs:
         if tensor_dsr:
             all_means = []
             for a, b in combinations(actions, 2):
@@ -390,7 +390,8 @@ def learn(session, controller, pool, tensor_dsr,
         loss_ent, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
 
         if output_file is not None:
-            duration = time.process_time() - start_time
+            proc_duration = time.process_time() - proc_start
+            wall_duration = time.time() - wall_start
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
@@ -427,7 +428,8 @@ def learn(session, controller, pool, tensor_dsr,
                          np.round(n_const_per_eq_sub, 3),
                          np.round(n_unq_tokens_avg_full, 3),
                          np.round(n_unq_tokens_avg_sub, 3),
-                         np.round(duration, 2)
+                         np.round(wall_duration, 2),
+                         np.round(proc_duration, 2)
                          ]]  # changed this array to a list, changed save routine to pandas to allow expression string
             stats[0] += list(np.round(token_occur_avg_full, 2))
             stats[0] += list(np.round(token_occur_avg_sub, 2))
@@ -481,10 +483,6 @@ def learn(session, controller, pool, tensor_dsr,
 
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
-        #
-        # if debug >= 2:
-        #     print("\nParameter means after step {} of {}:".format(step+1, n_epochs))
-        #     print_var_means()
 
         if len(Program.cache) > 5000:
             # if the cache contains more than x function, tidy cache.

@@ -153,7 +153,8 @@ def setup_output_files(logdir, output_file, token_names, save_batch, save_contro
                    "n_const_per_eq_sub",
                    "n_unq_tokens_avg_full",
                    "n_unq_tokens_avg_sub",
-                   "duration"
+                   "wall_time",
+                   "proc_time",
                    ]
         headers += [token_name + '_full' for token_name in token_names]
         headers += [token_name + '_sub' for token_name in token_names]
@@ -279,3 +280,48 @@ def test_fixed_actions(logdir, from_tokens):
 
         df_save.to_csv(results_filename, mode='a', header=False, index=False)
 
+
+
+#
+# if __name__ == "__main__":
+#
+
+    # used code below to numerically test entropy approximation
+    # import numpy as np
+    #
+    # test = [0.25,0.75]
+    # H = 0
+    # for p in test:
+    #     H -= p*np.log(p)
+    #
+    # # here set entropyies for all nodes to H1, ...., H6
+    #
+    # probs = [0.045, 0.03, 0.075, 0.045, 0.405, 0.112, 0.168, 0.12]
+    # ents = [H1 + H2 + H4, H1 + H2 + H4, H1 + H2 + H4, H1 + H2 + H5, H1 + H2 + H5, H1 + H3 + H6, H1 + H3 + H6, H1 + H3]
+    #
+    # Hexact = 0
+    # for ii in range(len(probs)):
+    #     Hexact += probs[ii]*ents[ii]
+    #
+    #
+    # from scipy import stats
+    #
+    # xk = np.arange(8)
+    #
+    # custm = stats.rv_discrete(name='custm', values=(xk, np.array(probs)))
+    #
+    #
+    # batch = []
+    # for ii in range(100):
+    #     batch.append(custm.rvs())
+    #
+    # batch = np.array(batch)
+    # checkprobs = []
+    # checkent = 0
+    # for ii in range(len(probs)):
+    #     checkprobs.append(np.mean(batch == ii))
+    #     checkent += np.sum(batch == ii) * ents[ii]
+    #
+    # checkent = checkent/len(batch)
+    # print(f'approx ent = {checkent}, true ent = {Hexact}')
+    # print(f'accuracy of {abs(Hexact - checkent)/Hexact}')
