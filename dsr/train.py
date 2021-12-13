@@ -202,6 +202,7 @@ def learn(session, controller, pool, tensor_dsr,
 
     # wall clock time limit:
     program_start = time.process_time()  # start time for
+    wall_clock_start = time.time()
     t_lim_seconds = t_lim*3600
     print(f"Time limit set to {t_lim}h")
 
@@ -492,6 +493,14 @@ def learn(session, controller, pool, tensor_dsr,
             # if the wall clock time exceeds time limit, save controller and stop iterations
             print(f"Time limit of {t_lim}h exceeded; breaking early")
             break
+
+        if (time.time() - wall_clock_start) > 71*3600:
+            # when running on cluster, copy files after 71H of wall_clock time
+            command = f'cp -r {os.path.join(os.getcwd(), "log")} /home/jghemmes/'
+            try:
+                os.system(command)
+            except:
+                print('Copying files failed, ignore this message if you are not running on cluster.')
 
     # Save the hall of fame
     if hof is not None and hof > 0:

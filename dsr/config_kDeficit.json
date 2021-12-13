@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "testing_time_limit",
+      "name" : "entropy_005",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -40,7 +40,7 @@
         "n_cores_batch": 1,
         "output_file": null,
         "early_stopping": true,
-        "t_lim": 1,
+        "t_lim": 24,
         "hof": 100,
         "optim_opt_full":{
            "maxiter": 100,
@@ -50,7 +50,7 @@
            "maxiter": 2000,
            "gtol": 1e-5
         },
-        "save_batch": true,
+        "save_batch": false,
         "save_controller": true
    },
    "controller": {
