@@ -480,7 +480,7 @@ def plot_iterations_metrics(logdir, finished=True):
 
     plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best',
                     'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub', 'n_const_per_eq_full',
-                    'n_const_per_eq_sub', 'duration', 'a_ent_full', 'a_ent_sub', 'base_r_avg_sub', 'x2_sub','x2_full']
+                    'n_const_per_eq_sub', 'wall_time', 'proc_time', 'a_ent_full', 'a_ent_sub', 'base_r_avg_sub', 'x2_sub','x2_full']
     # plot_metrics = ['invalid_avg_full', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best', 'sample_metric']
 
     results = load_iterations(logdir)
@@ -551,11 +551,11 @@ if __name__ == "__main__":
     # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
     # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
     # logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
-    # logdir = '../logs_completed/log_2021-10-01_bDelta_runs/bDelta_one_network'
-    logdir = './log/log_2021-11-24-153425'
+    logdir = '../logs_completed/sensitivity_analysis/LearningRate_005'
+    # logdir = './log/log_2021-11-24-153425'
     # logdir = './log/log_2021-08-25-170231'
 
-    plot_iterations_metrics(logdir, finished=False)
+    plot_iterations_metrics(logdir, finished=True)
 
 
 
