@@ -33,15 +33,15 @@ def load_benchmark_dataset(config_task):
         term3 = X[:, 3] * (X[:, 4] * 10 + X[:, 7])
 
         y = term0 + term1 + term2 + term3
-
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(y)
-        plt.plot(term0)
-        plt.plot(term1)
-        plt.plot(term2)
-        plt.plot(term3)
-        plt.legend(['y', 'term0', 'term1', 'term2', 'term3'])
+        #
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.plot(y)
+        # plt.plot(term0)
+        # plt.plot(term1)
+        # plt.plot(term2)
+        # plt.plot(term3)
+        # plt.legend(['y', 'term0', 'term1', 'term2', 'term3'])
 
     else:
         np.random.seed(0)

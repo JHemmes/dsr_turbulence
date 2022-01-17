@@ -562,15 +562,12 @@ def plot_sensitivity_results(logdir):
     with open(os.path.join(logdir, 'config_baseline.json'), encoding='utf-8') as f:
         config_bsl = json.load(f)
 
-
     dirlist.remove('config_baseline.json')
     dirlist.remove('figures')
 
     all_results = {}
 
     for run in dirlist:
-
-
         run_dir = os.path.join(logdir, run)
         run_dirlist = os.listdir(run_dir)
         with open(os.path.join(run_dir, 'config.json'), encoding='utf-8') as f:
@@ -611,9 +608,6 @@ def plot_sensitivity_results(logdir):
         os.makedirs(plot_dir, exist_ok=True)
         create_plots(all_results, plotmode='mean', plotlist=plot_dict[key], plot_dir=plot_dir)
         create_plots(all_results, plotmode='max', plotlist=plot_dict[key], plot_dir=plot_dir)
-
-    print('pause here')
-    print('pause here')
 
 def create_plots(all_results, plotmode, plotlist, plot_dir):
 

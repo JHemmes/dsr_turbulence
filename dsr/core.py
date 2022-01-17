@@ -66,6 +66,7 @@ class DeepSymbolicOptimizer():
             new_controller = Controller(self.sess,
                                         self.prior,
                                         self.config_task['enforce_sum'],
+                                        seed,
                                         **self.config_controller)
             new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
             self.controller = new_controller

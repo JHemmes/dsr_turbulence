@@ -107,7 +107,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, prior, enforce_sum, debug=0, summary=True,
+    def __init__(self, sess, prior, enforce_sum, seed, debug=0, summary=True,
                  # RNN cell hyperparameters
                  cell='lstm',
                  num_layers=1,
@@ -189,9 +189,13 @@ class Controller(object):
             def make_initializer(name):
                 if name == "zeros":
                     return tf.zeros_initializer()
+                if name == "uniform":
+                    return tf.random_uniform_initializer(minval=-0.05, maxval=0.05, seed=seed)
+                if name == "normal":
+                    return tf.random_normal_initializer(mean=0.0, stddev=0.05, seed=seed)
                 if name == "var_scale":
                     return tf.contrib.layers.variance_scaling_initializer(
-                            factor=0.5, mode='FAN_AVG', uniform=True, seed=0)
+                            factor=0.5, mode='FAN_AVG', uniform=True, seed=seed)
                 raise ValueError("Did not recognize initializer '{}'".format(name))
 
             def make_cell(name, num_units, initializer):
