@@ -476,7 +476,7 @@ def load_iterations(logdir):
 
     return return_dict
 
-def plot_iterations_metrics(logdir, finished=True):
+def fetch_iteration_metrics(logdir, finished=True):
 
     plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best',
                     'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub', 'n_const_per_eq_full',
@@ -503,12 +503,16 @@ def plot_iterations_metrics(logdir, finished=True):
             else:
                 plot_dict[metric].append(results[key][metric].values)
 
-    # find number of iterations completed:
+    return plot_dict
 
+def plot_iterations_metrics(logdir, finished=True):
+
+    # find number of iterations completed:
+    plot_dict = fetch_iteration_metrics(logdir, finished)
 
     # mean_n_novel_sub = np.mean(np.sum(np.array(plot_dict['n_novel_sub']), axis = 1))
 
-    for metric in plot_metrics:
+    for metric in plot_dict.keys():
         fig = plt.figure()
         for arr in plot_dict[metric]:
             plt.plot(arr, label=None)
@@ -535,6 +539,97 @@ def plot_iterations_metrics(logdir, finished=True):
     #     plt.grid()
     #     plt.savefig(f'{logdir}/iterations_{metric}')
 
+def compare_dicts(bsl, run):
+    diff = []
+    for key in bsl.keys():
+        if isinstance(bsl[key], dict):
+            diff.append(compare_dicts(bsl[key], run[key]))
+        elif key in ['name', 'logdir', 'verbose']:
+            pass
+        else:  # compare
+            if not bsl[key] == run[key]:
+                diff.append(f'{key}_{run[key]}')
+
+    diff = [item for item in diff if item is not 'baseline']
+    if len(diff) == 0:
+        return 'baseline'
+    else:
+        return '_'.join(diff)
+
+def plot_sensitivity_results(logdir):
+    dirlist = os.listdir(logdir)
+
+    with open(os.path.join(logdir, 'config_baseline.json'), encoding='utf-8') as f:
+        config_bsl = json.load(f)
+
+
+    dirlist.remove('config_baseline.json')
+    dirlist.remove('figures')
+
+    all_results = {}
+
+    for run in dirlist:
+
+
+        run_dir = os.path.join(logdir, run)
+        run_dirlist = os.listdir(run_dir)
+        with open(os.path.join(run_dir, 'config.json'), encoding='utf-8') as f:
+            config_run = json.load(f)
+
+        machine_name = config_run['task']['name'].split('_')[0]
+        run_name = compare_dicts(config_bsl, config_run)
+
+        run_dict = fetch_iteration_metrics(os.path.join(logdir, run))
+
+        save_dict = {}
+        for key in run_dict:
+            tmp_arr = np.array(run_dict[key])
+            save_dict[key] = {}
+            save_dict[key]['mean'] = np.mean(tmp_arr, axis=0)
+            save_dict[key]['max'] = np.max(tmp_arr, axis=0)
+            save_dict[key]['std'] = np.std(tmp_arr, axis=0)
+
+        all_results['_'.join([machine_name, run_name])] = save_dict
+
+    parameters = ['learning_rate', 'entropy_weight', 'num_units', 'num_layers', 'baseline']
+    for key in all_results:
+        all_results[key]['varied'] = []
+        for parameter in parameters:
+            if parameter in key:
+                all_results[key]['varied'].append(parameter)
+
+    plot_dict = {key: ['OW_baseline'] for key in parameters}
+    plot_dict['all'] = all_results.keys()
+
+    for parameter in parameters:
+        for run in all_results:
+            if parameter in all_results[run]['varied'] and len(all_results[run]['varied']) == 1:
+                plot_dict[parameter].append(run)
+
+    for key in plot_dict:
+        plot_dir = os.path.join(logdir, 'figures', key)
+        os.makedirs(plot_dir, exist_ok=True)
+        create_plots(all_results, plotmode='mean', plotlist=plot_dict[key], plot_dir=plot_dir)
+        create_plots(all_results, plotmode='max', plotlist=plot_dict[key], plot_dir=plot_dir)
+
+    print('pause here')
+    print('pause here')
+
+def create_plots(all_results, plotmode, plotlist, plot_dir):
+
+    for metric in all_results['OW_baseline']:
+        if metric == 'varied':
+            pass
+        else:
+            plt.figure()
+            for run in plotlist:
+                plt.plot(all_results[run][metric][plotmode])
+            plt.xlabel('iterations')
+            plt.ylabel(' '.join([plotmode, metric]))
+            plt.legend(plotlist)
+            plt.grid()
+            plt.savefig(f'{plot_dir}/{metric}_{plotmode}.png')
+            plt.close('all')
 
 
 if __name__ == "__main__":
@@ -551,11 +646,14 @@ if __name__ == "__main__":
     # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
     # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
     # logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
-    logdir = '../logs_completed/sensitivity_analysis/LearningRate_005'
     # logdir = './log/log_2021-11-24-153425'
     # logdir = './log/log_2021-08-25-170231'
 
-    plot_iterations_metrics(logdir, finished=True)
+    # plot_iterations_metrics(logdir, finished=True)
+
+
+    logdir = '../logs_completed/sensitivity_analysis'
+    plot_sensitivity_results(logdir)
 
 
 
