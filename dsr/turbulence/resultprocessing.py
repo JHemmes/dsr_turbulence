@@ -8,6 +8,8 @@ import json
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
+# matplotlib.use('tkagg')
+
 import matplotlib.pyplot as plt
 import time
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, de_flatten_tensor
@@ -478,9 +480,10 @@ def load_iterations(logdir):
 
 def fetch_iteration_metrics(logdir, finished=True):
 
-    plot_metrics = ['invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best',
-                    'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub', 'n_const_per_eq_full',
-                    'n_const_per_eq_sub', 'wall_time', 'proc_time', 'a_ent_full', 'a_ent_sub', 'base_r_avg_sub', 'x2_sub','x2_full']
+    plot_metrics = ['base_r_best', 'invalid_avg_full', 'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full',
+                    'base_r_best', 'nfev_avg_full', 'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub',
+                    'n_const_per_eq_full', 'n_const_per_eq_sub', 'wall_time', 'proc_time', 'a_ent_full', 'a_ent_sub',
+                    'base_r_avg_sub']
     # plot_metrics = ['invalid_avg_full', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best', 'sample_metric']
 
     results = load_iterations(logdir)
@@ -563,13 +566,25 @@ def plot_sensitivity_results(logdir):
         config_bsl = json.load(f)
 
     dirlist.remove('config_baseline.json')
-    dirlist.remove('figures')
+    dirlist.remove('results')
+
+    # ratios used to scale duration
+    machine_dur_ratios = {'OW': 1,
+                          'M15': 0.47895466499411693,
+                          'M18': 0.6902561859941414,
+                          'M3': 0.8175768873161131}
+
+    first_write = True
+
+
+    try:  # remove existing results file since new will be created.
+        os.remove(os.path.join(logdir, 'results', 'results.csv'))
+    except FileNotFoundError:
+        pass
 
     all_results = {}
-
     for run in dirlist:
         run_dir = os.path.join(logdir, run)
-        run_dirlist = os.listdir(run_dir)
         with open(os.path.join(run_dir, 'config.json'), encoding='utf-8') as f:
             config_run = json.load(f)
 
@@ -578,17 +593,36 @@ def plot_sensitivity_results(logdir):
 
         run_dict = fetch_iteration_metrics(os.path.join(logdir, run))
 
+        result_col = ['run_name']
+        result_val = ['_'.join([machine_name, run_name])]
+
+        tmp_arr = np.array(run_dict['proc_time'])
+        result_col.append('adjusted_avg_proc_duration')
+        result_val.append(round(np.mean(np.sum(tmp_arr, axis=1)) * machine_dur_ratios[machine_name]))
+
         save_dict = {}
+
         for key in run_dict:
             tmp_arr = np.array(run_dict[key])
             save_dict[key] = {}
             save_dict[key]['mean'] = np.mean(tmp_arr, axis=0)
-            save_dict[key]['max'] = np.max(tmp_arr, axis=0)
             save_dict[key]['std'] = np.std(tmp_arr, axis=0)
+            save_dict[key]['max'] = np.max(tmp_arr, axis=0)
+            tmp_arr = np.sort(tmp_arr, axis=0)
+            save_dict[key]['5max'] = np.mean(tmp_arr[-5:, :], axis=0)
+            result_col.extend(['_'.join([mode, key]) for mode in save_dict[key].keys()])
+            result_val.extend([save_dict[key][mode][-1] for mode in save_dict[key].keys()])
+
+        # write results to csv:
+        df_append = pd.DataFrame([result_val], columns=result_col)
+        df_append.to_csv(os.path.join(logdir, 'results', 'results.csv'), mode='a', header=first_write, index=False)
+
+        if first_write:  # used to only write header once
+            first_write = False
 
         all_results['_'.join([machine_name, run_name])] = save_dict
 
-    parameters = ['learning_rate', 'entropy_weight', 'num_units', 'num_layers', 'baseline']
+    parameters = ['learning_rate', 'entropy_weight', 'num_units', 'num_layers', 'baseline', 'initializer']
     for key in all_results:
         all_results[key]['varied'] = []
         for parameter in parameters:
@@ -596,6 +630,7 @@ def plot_sensitivity_results(logdir):
                 all_results[key]['varied'].append(parameter)
 
     plot_dict = {key: ['OW_baseline'] for key in parameters}
+    plot_dict['baseline'] = []
     plot_dict['all'] = all_results.keys()
 
     for parameter in parameters:
@@ -604,10 +639,11 @@ def plot_sensitivity_results(logdir):
                 plot_dict[parameter].append(run)
 
     for key in plot_dict:
-        plot_dir = os.path.join(logdir, 'figures', key)
+        plot_dir = os.path.join(logdir, 'results', key)
         os.makedirs(plot_dir, exist_ok=True)
         create_plots(all_results, plotmode='mean', plotlist=plot_dict[key], plot_dir=plot_dir)
         create_plots(all_results, plotmode='max', plotlist=plot_dict[key], plot_dir=plot_dir)
+        create_plots(all_results, plotmode='5max', plotlist=plot_dict[key], plot_dir=plot_dir)
 
 def create_plots(all_results, plotmode, plotlist, plot_dir):
 
@@ -621,7 +657,7 @@ def create_plots(all_results, plotmode, plotlist, plot_dir):
             plt.xlabel('iterations')
             plt.ylabel(' '.join([plotmode, metric]))
             plt.legend(plotlist)
-            plt.grid()
+            plt.grid('both')
             plt.savefig(f'{plot_dir}/{metric}_{plotmode}.png')
             plt.close('all')
 
@@ -648,8 +684,6 @@ if __name__ == "__main__":
 
     logdir = '../logs_completed/sensitivity_analysis'
     plot_sensitivity_results(logdir)
-
-
 
     print('end')
 
