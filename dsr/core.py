@@ -69,6 +69,7 @@ class DeepSymbolicOptimizer():
                 self.sess.append(new_sess)
                 new_controller = Controller(new_sess,
                                             self.prior,
+                                            seed,
                                             **self.config_controller)
                 new_controller.sess.run(tf.global_variables_initializer())  # initializer should be part of the graph
                 self.controller.append(new_controller)

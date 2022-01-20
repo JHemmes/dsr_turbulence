@@ -134,7 +134,7 @@ class Controller(object):
 
     """
 
-    def __init__(self, sess, prior, debug=0, summary=True,
+    def __init__(self, sess, prior, seed, debug=0, summary=True,
                  # RNN cell hyperparameters
                  cell='lstm',
                  num_layers=1,
@@ -232,7 +232,7 @@ class Controller(object):
 
             def make_cell(name, num_units, initializer):
                 if name == 'lstm':
-                    return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
+                    return tf.nn.rnn_cell.LSTMCell(num_units) # , initializer=tf.random_uniform_initializer(minval=-0.05, maxval=0.05, seed=seed)
                 if name == 'gru':
                     return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
                 raise ValueError("Did not recognize cell type '{}'".format(name))

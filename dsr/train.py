@@ -382,7 +382,7 @@ def learn(sessions, controllers, pool,
 
     for step in range(n_epochs):
 
-        if step%10 == 0:
+        if step%1 == 0:
             plot_prob_dists(controllers, step, token_names)
 
             probs = controllers[0].compute_probs_tokens(sampled_batch_original)
@@ -399,36 +399,36 @@ def learn(sessions, controllers, pool,
             # plt.show()
             plt.tight_layout()
             plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_original.png'), dpi=250)
-
-            probs = controllers[0].compute_probs_tokens(sampled_batch_edited)
-            df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
-
-            plt.figure(figsize=(20, 5))
-            sn.heatmap(df_plot,
-                       square=True,
-                       annot=True,
-                       annot_kws={"size": 5},
-                       cmap="YlGnBu",
-                       linewidths=.5,
-                       cbar=False)
-            # plt.show()
-            plt.tight_layout()
-            plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_edited.png'), dpi=250)
-
-            probs = controllers[0].compute_probs_tokens(sampled_batch_random)
-            df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
-
-            plt.figure(figsize=(20, 5))
-            sn.heatmap(df_plot,
-                       square=True,
-                       annot=True,
-                       annot_kws={"size": 5},
-                       cmap="YlGnBu",
-                       linewidths=.5,
-                       cbar=False)
-            # plt.show()
-            plt.tight_layout()
-            plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_random_obs.png'), dpi=250)
+            #
+            # probs = controllers[0].compute_probs_tokens(sampled_batch_edited)
+            # df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
+            #
+            # plt.figure(figsize=(20, 5))
+            # sn.heatmap(df_plot,
+            #            square=True,
+            #            annot=True,
+            #            annot_kws={"size": 5},
+            #            cmap="YlGnBu",
+            #            linewidths=.5,
+            #            cbar=False)
+            # # plt.show()
+            # plt.tight_layout()
+            # plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_edited.png'), dpi=250)
+            #
+            # probs = controllers[0].compute_probs_tokens(sampled_batch_random)
+            # df_plot = pd.DataFrame(np.transpose(probs[:,21,:]), index=list(range(14)), columns=column_strings)
+            #
+            # plt.figure(figsize=(20, 5))
+            # sn.heatmap(df_plot,
+            #            square=True,
+            #            annot=True,
+            #            annot_kws={"size": 5},
+            #            cmap="YlGnBu",
+            #            linewidths=.5,
+            #            cbar=False)
+            # # plt.show()
+            # plt.tight_layout()
+            # plt.savefig(os.path.join(heatmap_dir, f'run_{output_file.split(".")[0].split("_")[-1]}_step_{step}_random_obs.png'), dpi=250)
 
         # if output_file
         # this can be used to test performance on fixed set of actions:
