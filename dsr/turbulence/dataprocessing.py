@@ -11,28 +11,37 @@ import time
 
 def load_benchmark_dataset(config_task):
     if config_task['dataset']['output'] == 'bDelta':
+        n_points = 50
         np.random.seed(0)
-        X = np.zeros((30, 11))
-        X[:, 0] = np.random.uniform(0, 2, 30)    # use as tensors when enforcing sum
-        X[:, 1] = np.random.uniform(0, 0.1, 30)  # use as tensors when enforcing sum
-        X[:, 2] = np.random.uniform(0, 1, 30)    # use as tensors when enforcing sum
-        X[:, 3] = np.random.uniform(-1, 0, 30)   # use as tensors when enforcing sum
-        X[:, 4] = np.random.uniform(-0.0002, 0.0003, 30)    # use to scale "tensors"
-        X[:, 5] = np.random.uniform(2, 5, 30)               # use to scale "tensors"
-        X[:, 6] = np.random.uniform(-1, 1, 30)              # use to scale "tensors"
-        X[:, 7] = np.random.uniform(0, 2, 30)               # use to scale "tensors"
-        X[:, 8] = np.random.uniform(0, 0.1, 30)             # use to scale "tensors"
-        X[:, 9] = np.random.uniform(-1, 0, 30)
-        X[:, 10] = np.random.uniform(1, 7, 30)
-
-        # y = X[:, 0] * () + X[:, 1] * () + X[:, 2] * () + X[:, 3] * ()
+        X = np.zeros((n_points, 11))
+        X[:, 0] = np.random.uniform(0, 2, n_points)    # use as tensors when enforcing sum
+        X[:, 1] = np.random.uniform(0, 0.1, n_points)  # use as tensors when enforcing sum
+        X[:, 2] = np.random.uniform(0, 1, n_points)    # use as tensors when enforcing sum
+        X[:, 3] = np.random.uniform(-1, 0, n_points)   # use as tensors when enforcing sum
+        X[:, 4] = np.random.uniform(-0.0002, 0.0003, n_points)    # use to scale "tensors"
+        X[:, 5] = np.random.uniform(2, 5, n_points)               # use to scale "tensors"
+        X[:, 6] = np.random.uniform(-1, 1, n_points)              # use to scale "tensors"
+        X[:, 7] = np.random.uniform(0, 2, n_points)               # use to scale "tensors"
+        X[:, 8] = np.random.uniform(0, 0.1, n_points)             # use to scale "tensors"
+        X[:, 9] = np.random.uniform(-1, 0, n_points)
+        X[:, 10] = np.random.uniform(1, 7, n_points)
 
         term0 = X[:, 0] * (0.1 * (X[:, 5]+X[:, 6]) + 1.7 * np.log(X[:, 7]) + 0.23)
         term1 = X[:, 1] * (X[:, 7] * X[:, 8] * 3 + 0.7*np.exp(X[:, 8]) + 15)
         term2 = X[:, 2] * (np.exp(X[:, 6]) + 3/(np.log(X[:, 5])))
         term3 = X[:, 3] * (X[:, 4] * 10 + X[:, 7])
 
-        y = term0 + term1 + term2 + term3
+        noise = np.random.normal(0, 0.15, (n_points,))
+
+        y = term0 + term1 + term2 + term3 + noise
+
+        # check expression fitness without noise
+        var_y = np.var(y)
+        y_hat = term0 + term1 + term2 + term3
+        inv_nrmse = 1 / (1 + np.sqrt(np.mean((y - y_hat) ** 2) / var_y))
+        print(f'If inv_nrmse is above {round(inv_nrmse, 4)}, the benchmark expression is overfitted on the noise')
+
+
         #
         # import matplotlib.pyplot as plt
         # plt.figure()
