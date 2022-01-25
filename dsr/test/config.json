@@ -34,11 +34,11 @@
         "const_optimizer": "scipy",
         "const_params": {},
         "epsilon": 0.05,
-        "verbose": true,
+        "verbose": false,
         "baseline": 0.5,
         "b_jumpstart": false,
         "n_cores_batch": 1,
-        "output_file": null,
+        "output_file": "unit_test_run.csv",
         "early_stopping": true,
         "t_lim": 24,
         "hof": 100,
@@ -51,7 +51,7 @@
            "gtol": 1e-5
         },
         "save_batch": false,
-        "save_controller": true
+        "save_controller": false
    },
    "controller": {
       "cell": "lstm",
