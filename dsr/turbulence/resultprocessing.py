@@ -636,7 +636,7 @@ def plot_sensitivity_results(logdir):
 
     for parameter in parameters:
         for run in all_results:
-            if parameter in all_results[run]['varied'] and len(all_results[run]['varied']) == 1:
+            if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
                 plot_dict[parameter].append(run)
 
     for key in plot_dict:
@@ -652,7 +652,7 @@ def create_plots(all_results, plotmode, plotlist, plot_dir):
         if metric == 'varied':
             pass
         else:
-            plt.figure()
+            plt.figure(figsize=(12,10))
             for run in plotlist:
                 plt.plot(all_results[run][metric][plotmode])
             plt.xlabel('iterations')
@@ -683,7 +683,8 @@ if __name__ == "__main__":
     # plot_iterations_metrics(logdir, finished=True)
 
 
-    logdir = '../logs_completed/sensitivity_analysis_kDeficit'
+    # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
+    logdir = '../logs_completed/sensitivity_analysis_bDelta'
     plot_sensitivity_results(logdir)
 
     print('end')
