@@ -634,6 +634,11 @@ def plot_sensitivity_results(logdir):
     plot_dict['baseline'] = []
     plot_dict['all'] = all_results.keys()
 
+    if logdir.split('_')[-1] == 'kDeficit':
+        plot_dict['compare'] = ['M18_initializer_uniform_learning_rate_0.01', 'OW_initializer_normal_learning_rate_0.01', 'OW_learning_rate_0.01']
+    else:
+        plot_dict['compare'] = []
+
     for parameter in parameters:
         for run in all_results:
             if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
@@ -683,8 +688,8 @@ if __name__ == "__main__":
     # plot_iterations_metrics(logdir, finished=True)
 
 
-    # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
-    logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    logdir = '../logs_completed/sensitivity_analysis_kDeficit'
+    # logdir = '../logs_completed/sensitivity_analysis_bDelta'
     plot_sensitivity_results(logdir)
 
     print('end')
