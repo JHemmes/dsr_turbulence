@@ -5,7 +5,7 @@
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
-         "name" : "PH10595",
+         "name" : "CD12600",
          "noise": null,
          "input": ["grad_u_T1", "k", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "kDeficit",
@@ -57,7 +57,7 @@
       "cell": "lstm",
       "num_layers": 1,
       "num_units": 32,
-      "initializer": "normal",
+      "initializer": "zeros",
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
