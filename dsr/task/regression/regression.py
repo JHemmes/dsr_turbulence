@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 import dsr
-from dsr.library import Library
+from dsr.library import Library, AD_PlaceholderConstant
 from dsr.functions import create_tokens, create_ad_tokens, create_metric_ad_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
 
@@ -98,6 +98,9 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
         y_test = y_train
         y_test_noiseless = y_test
 
+    X_train_full = X_train
+    y_train_full = y_train
+
     if function_set is None:
         print("WARNING: Function set not provided. Using default set.")
         function_set = ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
@@ -121,6 +124,31 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
             scale = reward_noise * y_rms_train
         elif reward_noise_type == "r":
             scale = reward_noise
+
+    def data_shuffle(seed):
+        nonlocal X_train_full, y_train_full
+
+        idx = np.arange(y_train_full.shape[0])
+        np.random.seed(seed)
+        idx = np.random.permutation(idx)
+
+        X_train_full = X_train_full[idx, :]
+        y_train_full = y_train_full[idx]
+
+
+
+    def rotate_batch(batch_size):
+        nonlocal X_train, y_train, ad_metric_traversal, X_train_full, y_train_full
+
+        # set up train batch
+        X_train = X_train_full[:batch_size, :]
+        y_train = y_train_full[:batch_size]
+        ad_metric_traversal[-2] = AD_PlaceholderConstant(value=y_train, name='y')
+
+        # rotate full dataset
+        if batch_size:
+            X_train_full = np.roll(X_train_full, -batch_size, axis=0)
+            y_train_full = np.roll(y_train_full, -batch_size)
 
     def reward(p):
 
@@ -282,6 +310,8 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
     extra_info = {}
 
     task = dsr.task.Task(reward_function=reward,
+                         rotate_batch=rotate_batch,
+                         data_shuffle=data_shuffle,
                          ad_reverse=reverse_ad,
                          set_ad_traversal=set_ad_traversal,
                          evaluate=evaluate,
@@ -434,7 +464,7 @@ def make_regression_metric(name, y_train, *args):
     }
     max_reward = all_max_rewards[name]
 
-
+    # when implementing different metric, note the batch rotation needs y in the -2 position
     all_ad_metric_traversals = {
         'mse' : ['div', 'sum', 'n2', 'sub', 'y', 'n'],
         'inv_nrmse' : ['div', 'one', 'add', 'one', 'sqrt', 'div', 'sum', 'n2', 'sub', 'y', 'n_var_y']

@@ -36,7 +36,7 @@ def hof_work(p):
 
 def learn(session, controller, pool, tensor_dsr,
           logdir="./log", n_epochs=None, n_samples=1e6,
-          batch_size=1000, complexity="length", complexity_weight=0.001,
+          batch_size=1000, dataset_batch_size=10, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None,
           epsilon=0.01, n_cores_batch=1, verbose=True,
           output_file=None, baseline=0.5,
@@ -165,6 +165,9 @@ def learn(session, controller, pool, tensor_dsr,
     #Create dummy program to find names of tokens in library
     tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
     token_names = tmp_program.library.names
+    if dataset_batch_size:
+        tmp_program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
+        tmp_program.task.rotate_batch(dataset_batch_size)
     del tmp_program
 
     # Create log files and dirs
@@ -502,11 +505,30 @@ def learn(session, controller, pool, tensor_dsr,
             except:
                 print('Copying files failed, ignore this message if you are not running on cluster.')
 
+        if dataset_batch_size:
+            p_r_best.task.rotate_batch(dataset_batch_size)
+
     # Save the hall of fame
     if hof is not None and hof > 0:
-        programs = list(Program.cache.values()) # All unique Programs found during training
 
-        base_r = [p.base_r for p in programs]
+        # reduce cache size to avoid lengthy evaluation
+        Program.tidy_cache(batch_size)
+
+        programs = list(Program.cache.values()) # unique Programs in cache
+
+        # when batching the dataset, reset X_train and y_train to include all data
+        if dataset_batch_size:
+            p_r_best.task.rotate_batch(None)
+
+            actions = [p.tokens for p in programs]
+            programs = [from_tokens(a, optimize=optim_opt_sub, skip_cache=True) for a in actions]
+
+        base_r = np.array([p.base_r for p in programs])
+
+        if any(np.isnan(base_r)):  # this is probably prettier in program.py itself
+            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]
 
@@ -525,6 +547,8 @@ def learn(session, controller, pool, tensor_dsr,
             print("Saving Hall of Fame to {}".format(hof_output_file))
             df.to_csv(hof_output_file, header=True, index=False)
 
+        p_final = programs[np.argmax(base_r)]
+
     # save tensorflow checkpoint of network state
     if save_controller:
         controller_file = os.path.join(controller_dir, 'controller.ckpt')
@@ -537,6 +561,7 @@ def learn(session, controller, pool, tensor_dsr,
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
+
     result = {
         "r" : p.r,
         "base_r" : p.base_r,
