@@ -52,7 +52,7 @@
            "gtol": 1e-5
         },
         "save_batch": false,
-        "save_controller": true
+        "save_controller": false
    },
    "controller": {
       "cell": "lstm",
