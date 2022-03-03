@@ -61,7 +61,7 @@ def scatter_results_scalar(results, config):
             k, _ = load_frozen_RANS_dataset(dummy_config)
         Rsparta = 2*k*grad_u_T1*1.4
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
         NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
 
         reward = results['r']
@@ -100,7 +100,7 @@ def scatter_results_tensor(results, config):
 
         yhat_sparta = calc_tensor_sparta_yhat(config)
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
         NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
 
         # de-flatten tensors:
@@ -232,7 +232,7 @@ def contourplot_results_tensor(results, config):
         config['task']['dataset']['name'] = case
         X, y = load_frozen_RANS_dataset(config['task'])
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
 
         y = de_flatten_tensor(y)
         yhat = de_flatten_tensor(yhat)
@@ -367,7 +367,7 @@ def contourplot_results_scalar(results, config):
         mesh_x = data_i['meshRANS'][0, :, :]
         mesh_y = data_i['meshRANS'][1, :, :]
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
 
         filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
 
@@ -426,7 +426,7 @@ def retrospecitvely_plot_contours(logdir, with_sparta=True):
 #     yhat_bad = eval_expression(expression, X)
 #     yhat_bad = np.reshape(yhat_bad, mesh_x.shape, order='F')
 #
-#     # yhat_bad = results['program'].cython_execute(X) # normally this would be used, now the best performer is hardcoded in here
+#     # yhat_bad, _  = results['program'].execute(X) # normally this would be used, now the best performer is hardcoded in here
 #     # yhat_bad = np.reshape(yhat_bad, mesh_x.shape, order='F')
 #
 #     expression = 'x1*x2*(-x1 + x3)/(x3*(x1 - 577.4204240086917*x7)*(x5 - 13.056646077044142))'

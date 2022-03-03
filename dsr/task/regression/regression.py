@@ -135,8 +135,6 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
         X_train_full = X_train_full[idx, :]
         y_train_full = y_train_full[idx]
 
-
-
     def rotate_batch(batch_size):
         nonlocal X_train, y_train, ad_metric_traversal, X_train_full, y_train_full
 

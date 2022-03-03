@@ -197,6 +197,7 @@ def learn(session, controller, pool, tensor_dsr,
     p_final = None
     base_r_best = -np.inf
     r_best = -np.inf
+    r_max_full = 0
     loss_pg = 1
     prev_r_best = None
     prev_base_r_best = None
@@ -393,12 +394,34 @@ def learn(session, controller, pool, tensor_dsr,
         # Train the controller
         loss_ent, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
 
+        # Update new best expression
+        new_r_best = False
+        new_base_r_best = False
+
+        if prev_r_best is None or r_max > prev_r_best:
+            new_r_best = True
+            p_r_best = programs[np.argmax(r)]
+
+        if prev_base_r_best is None or base_r_max > prev_base_r_best:
+            new_base_r_best = True
+            p_base_r_best = programs[np.argmax(base_r)]
+
+        prev_r_best = r_best
+        prev_base_r_best = base_r_best
+
+        # Assess best program on full dataset for output file
+        if dataset_batch_size:
+            p_r_best.task.rotate_batch(None)
+            p_r_full = from_tokens(programs[np.argmax(r)].tokens, optimize=optim_opt_full, skip_cache=True)
+            r_max_full = p_r_full.r
+
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
             wall_duration = time.time() - wall_start
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
+                         r_max_full,
                          base_r_max,
                          base_r_avg_full,
                          base_r_avg_sub,
@@ -439,21 +462,6 @@ def learn(session, controller, pool, tensor_dsr,
             stats[0] += list(np.round(token_occur_avg_sub, 2))
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
-
-        # Update new best expression
-        new_r_best = False
-        new_base_r_best = False
-
-        if prev_r_best is None or r_max > prev_r_best:
-            new_r_best = True
-            p_r_best = programs[np.argmax(r)]
-            
-        if prev_base_r_best is None or base_r_max > prev_base_r_best:
-            new_base_r_best = True
-            p_base_r_best = programs[np.argmax(base_r)]
-
-        prev_r_best = r_best
-        prev_base_r_best = base_r_best
 
         # Print new best expression
         if verbose:
@@ -505,7 +513,20 @@ def learn(session, controller, pool, tensor_dsr,
             except:
                 print('Copying files failed, ignore this message if you are not running on cluster.')
 
+        # rotate batch
         if dataset_batch_size:
+
+            # switch to full dataset for last iterations
+            if step >= 0.95*batch_size:
+                dataset_batch_size = None
+
+                prev_r_best = None
+                prev_base_r_best = None
+                base_r_best = -np.inf
+                r_best = -np.inf
+
+                Program.clear_cache()
+
             p_r_best.task.rotate_batch(dataset_batch_size)
 
     # Save the hall of fame
