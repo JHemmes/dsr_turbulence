@@ -415,6 +415,43 @@ def learn(session, controller, pool, tensor_dsr,
             p_r_full = from_tokens(programs[np.argmax(r)].tokens, optimize=optim_opt_full, skip_cache=True)
             r_max_full = p_r_full.r
 
+            # rotate batch
+
+            # switch to full dataset for last iterations
+            if step >= 0.99 * n_epochs:
+                dataset_batch_size = None
+                p_r_best.task.rotate_batch(dataset_batch_size)
+
+                prev_r_best = None
+                prev_base_r_best = None
+
+                Program.tidy_cache(batch_size)
+                programs = list(Program.cache.values())  # unique Programs in cache
+
+                Program.clear_cache()
+
+                actions = [p.tokens for p in programs]
+                programs = [from_tokens(a, optimize=optim_opt_sub) for a in actions]
+
+                base_r = np.array([p.base_r for p in programs])
+                r = np.array([p.r for p in programs])
+
+                if any(np.isnan(base_r)):  # this is probably prettier in program.py itself
+                    # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+                    base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+
+                if any(np.isnan(r)):  # this is probably prettier in program.py itself
+                    # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+                    r[np.where(np.isnan(r))[0]] = min(r)
+
+                base_r_best = max(base_r)
+                r_best = max(r)
+
+                p_r_best = programs[np.argmax(r)]
+                p_base_r_best = programs[np.argmax(base_r)]
+
+            p_r_best.task.rotate_batch(dataset_batch_size)
+
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
             wall_duration = time.time() - wall_start
@@ -512,22 +549,6 @@ def learn(session, controller, pool, tensor_dsr,
                 os.system(command)
             except:
                 print('Copying files failed, ignore this message if you are not running on cluster.')
-
-        # rotate batch
-        if dataset_batch_size:
-
-            # switch to full dataset for last iterations
-            if step >= 0.95*batch_size:
-                dataset_batch_size = None
-
-                prev_r_best = None
-                prev_base_r_best = None
-                base_r_best = -np.inf
-                r_best = -np.inf
-
-                Program.clear_cache()
-
-            p_r_best.task.rotate_batch(dataset_batch_size)
 
     # Save the hall of fame
     if hof is not None and hof > 0:
