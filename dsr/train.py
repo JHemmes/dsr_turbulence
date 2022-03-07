@@ -315,8 +315,8 @@ def learn(session, controller, pool, tensor_dsr,
 
         if any(np.isnan(base_r)):
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
-            r[np.where(np.isnan(r))[0]] = min(r)
+            base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
+            r[np.where(np.isnan(r))[0]] = np.nanmin(r)
 
         # Collect newly optimised sub batch statistics
         base_r_avg_sub = np.mean(base_r[keep])
@@ -412,13 +412,16 @@ def learn(session, controller, pool, tensor_dsr,
         # Assess best program on full dataset for output file
         if dataset_batch_size:
             p_r_best.task.rotate_batch(None)
-            p_r_full = from_tokens(programs[np.argmax(r)].tokens, optimize=optim_opt_full, skip_cache=True)
-            r_max_full = p_r_full.r
 
-            # rotate batch
+            # set best program of batch
+            p_max = programs[np.argmax(r)]
+
+            # reoptimise constants for full datase
+            p_max.optimize(optim_opt=optim_opt_sub)
+            r_max_full = Program.task.reward_function(p_max)
 
             # switch to full dataset for last iterations
-            if step >= 0.99 * n_epochs:
+            if step >= 0.5 * n_epochs:
                 dataset_batch_size = None
                 p_r_best.task.rotate_batch(dataset_batch_size)
 
@@ -430,19 +433,19 @@ def learn(session, controller, pool, tensor_dsr,
 
                 Program.clear_cache()
 
-                actions = [p.tokens for p in programs]
-                programs = [from_tokens(a, optimize=optim_opt_sub) for a in actions]
+                for p in programs:
+                    p.optimize(optim_opt=optim_opt_sub)
+                #
+                # actions = [p.tokens for p in programs]
+                # programs = [from_tokens(a, optimize=optim_opt_sub) for a in actions]
 
-                base_r = np.array([p.base_r for p in programs])
-                r = np.array([p.r for p in programs])
+                base_r = np.array([p.task.reward_function(p) for p in programs])
+                r = np.array([p.task.reward_function(p) - p.complexity for p in programs])
 
                 if any(np.isnan(base_r)):  # this is probably prettier in program.py itself
                     # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-                    base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
-
-                if any(np.isnan(r)):  # this is probably prettier in program.py itself
-                    # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-                    r[np.where(np.isnan(r))[0]] = min(r)
+                    base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
+                    r[np.where(np.isnan(r))[0]] = np.nanmin(r)
 
                 base_r_best = max(base_r)
                 r_best = max(r)
@@ -450,6 +453,7 @@ def learn(session, controller, pool, tensor_dsr,
                 p_r_best = programs[np.argmax(r)]
                 p_base_r_best = programs[np.argmax(base_r)]
 
+            # rotate batch
             p_r_best.task.rotate_batch(dataset_batch_size)
 
         if output_file is not None:
@@ -555,7 +559,6 @@ def learn(session, controller, pool, tensor_dsr,
 
         # reduce cache size to avoid lengthy evaluation
         Program.tidy_cache(batch_size)
-
         programs = list(Program.cache.values()) # unique Programs in cache
 
         # when batching the dataset, reset X_train and y_train to include all data
@@ -569,7 +572,7 @@ def learn(session, controller, pool, tensor_dsr,
 
         if any(np.isnan(base_r)):  # this is probably prettier in program.py itself
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
+            base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
 
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]

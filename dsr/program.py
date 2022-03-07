@@ -37,8 +37,10 @@ def _finish_tokens(tokens):
         completed with repeated "x1" until the expression completes.
 
     """
-
-    arities = np.array([Program.sec_library.arities[t] for t in tokens])
+    try:
+        arities = np.array([Program.sec_library.arities[t] for t in tokens])
+    except IndexError:
+        print('pause_here')
     dangling = 1 + np.cumsum(arities - 1)
 
     if 0 in dangling:
@@ -783,6 +785,10 @@ class Program(object):
     def print_stats(self):
         """Prints the statistics of the program"""
         print("\tReward: {}".format(self.r))
+        try:
+            print("\tFull dataset reward: {}".format(self.ad_r))
+        except AttributeError:
+            pass
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {}".format(self.invalid))
