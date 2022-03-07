@@ -5,9 +5,9 @@
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : true,
       "dataset" : {
-         "name" : "benchmark",
+         "name" : "PH10595",
          "noise": null,
-         "input": ["T1", "T2", "T3", "T4", "k", "grad_u", "inv1", "inv2", "inv3", "inv4", "inv5"],
+         "input": ["T1", "T2", "T3", "T4", "k", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "bDelta",
          "dataset_size_multiplier": 1.0
       },
