@@ -480,7 +480,7 @@ def load_iterations(logdir):
 
 def fetch_iteration_metrics(logdir, finished=True):
 
-    plot_metrics = ['base_r_best', 'base_r_max', 'pg_loss', 'ent_loss', 'proc_time', 'wall_time', 'invalid_avg_full',
+    plot_metrics = ['base_r_best', 'r_max_full', 'base_r_max', 'pg_loss', 'ent_loss', 'proc_time', 'wall_time', 'invalid_avg_full',
                     'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'nfev_avg_full',
                     'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub',
                     'n_const_per_eq_full', 'n_const_per_eq_sub', 'a_ent_full', 'a_ent_sub',
@@ -623,7 +623,7 @@ def plot_sensitivity_results(logdir):
 
         all_results['_'.join([machine_name, run_name])] = save_dict
 
-    parameters = ['learning_rate', 'entropy_weight', 'num_units', 'num_layers', 'baseline', 'initializer']
+    parameters = ['learning_rate', 'entropy_weight', 'num_units', 'num_layers', 'baseline', 'initializer', 'dataset_batch_size']
     for key in all_results:
         all_results[key]['varied'] = []
         for parameter in parameters:
@@ -634,23 +634,23 @@ def plot_sensitivity_results(logdir):
     plot_dict['baseline'] = []
     plot_dict['all'] = all_results.keys()
 
-    if logdir.split('_')[-1] == 'kDeficit':
-        plot_dict['compare'] = ['OW_baseline',
-                                'M18_initializer_uniform_learning_rate_0.01',
-                                'OW_initializer_normal_learning_rate_0.01',
-                                'OW_learning_rate_0.01',
-                                'M18_num_units_128_initializer_normal_learning_rate_0.01',
-                                'OW_num_units_256_initializer_normal_learning_rate_0.01',
-                                'OW_num_units_256',
-                                'OW_entropy_weight_0.0025',
-                                'M3_initializer_normal']
-    else:
-        plot_dict['compare'] = ['OW_baseline',
-                                'M15_learning_rate_0.01',
-                                'M18_learning_rate_0.01',
-                                'OW_initializer_normal_learning_rate_0.01',
-                                'M3_num_units_64_initializer_normal_learning_rate_0.01',
-                                'OW_num_units_256']
+    # if logdir.split('_')[-1] == 'kDeficit':
+    #     plot_dict['compare'] = ['OW_baseline',
+    #                             'M18_initializer_uniform_learning_rate_0.01',
+    #                             'OW_initializer_normal_learning_rate_0.01',
+    #                             'OW_learning_rate_0.01',
+    #                             'M18_num_units_128_initializer_normal_learning_rate_0.01',
+    #                             'OW_num_units_256_initializer_normal_learning_rate_0.01',
+    #                             'OW_num_units_256',
+    #                             'OW_entropy_weight_0.0025',
+    #                             'M3_initializer_normal']
+    # else:
+    #     plot_dict['compare'] = ['OW_baseline',
+    #                             'M15_learning_rate_0.01',
+    #                             'M18_learning_rate_0.01',
+    #                             'OW_initializer_normal_learning_rate_0.01',
+    #                             'M3_num_units_64_initializer_normal_learning_rate_0.01',
+    #                             'OW_num_units_256']
 
     for parameter in parameters:
         for run in all_results:
@@ -702,7 +702,8 @@ if __name__ == "__main__":
 
 
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
-    logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    # logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    logdir = '../logs_completed/sensitivity_analysis_batching_kDeficit'
     plot_sensitivity_results(logdir)
 
     print('end')
