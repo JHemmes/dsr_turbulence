@@ -421,7 +421,7 @@ def learn(session, controller, pool, tensor_dsr,
             r_max_full = Program.task.reward_function(p_max)
 
             # switch to full dataset for last iterations
-            if step >= 0.5 * n_epochs:
+            if step >= 0.99 * n_epochs:
                 dataset_batch_size = None
                 p_r_best.task.rotate_batch(dataset_batch_size)
 
