@@ -86,7 +86,7 @@ def load_benchmark_dataset(config_task):
     return X, y
 
 
-def calc_sij_rij(grad_u, omega):
+def calc_sij_rij(grad_u, omega, normalize=True):
     """ Calculates the strain rate and rotation rate tensors.  Normalizes by omega:
     Sij = k/eps * 0.5* (grad_u  + grad_u^T) = 1/omega * 0.5* (grad_u  + grad_u^T)
     Rij = k/eps * 0.5* (grad_u  - grad_u^T) = 1/omega * 0.5* (grad_u  - grad_u^T)
@@ -102,8 +102,12 @@ def calc_sij_rij(grad_u, omega):
     for ii in range(omega.shape[0]):
         omega_lim[ii] = 1. / max(np.sqrt(2 * np.tensordot(tmp[:,:,ii], tmp[:,:,ii])) / 0.31, omega[ii])
 
-    Sij = omega_lim*0.5*(grad_u + np.transpose(grad_u, (1,0,2)))
-    Rij = omega_lim*0.5*(grad_u - np.transpose(grad_u, (1,0,2)))
+    if normalize:
+        Sij = omega_lim*0.5*(grad_u + np.transpose(grad_u, (1,0,2)))
+        Rij = omega_lim*0.5*(grad_u - np.transpose(grad_u, (1,0,2)))
+    else:
+        Sij = 0.5*(grad_u + np.transpose(grad_u, (1,0,2)))
+        Rij = 0.5*(grad_u - np.transpose(grad_u, (1,0,2)))
 
     # ensure Sij is traceless, should be the case but machine precision could result in a very small magnitude trace
     Sij = Sij - np.repeat(np.eye(3), omega.shape[0], axis=1).reshape(3, 3, omega.shape[0]) * np.trace(Sij)/3

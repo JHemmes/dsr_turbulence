@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import time
 import pickle
+import platform
 
 def is_float(s):
     """Determine whether str can be cast to float."""
@@ -15,6 +16,16 @@ def is_float(s):
         return True
     except ValueError:
         return False
+
+def cd_main_dsr_dir():
+    dsrpath = os.path.abspath(__file__)
+
+    if platform.system() == 'Windows':
+        os.chdir(dsrpath[:dsrpath.find('\\dsr\\')+4]) # change the working directory to main dsr dir with the config files
+    else:
+        os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
+
+
 
 def save_pickle(path, data):
     # function saves data
