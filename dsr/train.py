@@ -411,14 +411,17 @@ def learn(session, controller, pool, tensor_dsr,
 
         # Assess best program on full dataset for output file
         if dataset_batch_size:
-            p_r_best.task.rotate_batch(None)
+            Program.task.rotate_batch(None)
 
             # set best program of batch
             p_max = programs[np.argmax(r)]
 
             # reoptimise constants for full datase
             p_max.optimize(optim_opt=optim_opt_sub)
-            r_max_full = Program.task.reward_function(p_max)
+            r_max_full = p_max.task.reward_function(p_max)
+            #
+            # if r_max_full > 0.6:
+            #     print('pause_here')
 
             # switch to full dataset for last iterations
             if step >= 0.99 * n_epochs:
