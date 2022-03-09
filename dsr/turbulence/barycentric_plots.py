@@ -7,9 +7,9 @@ from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import matplotlib
+import json
 
 iX, iY = 0, 1
-
 
 def colors_to_cmap(colors):
     """
@@ -31,7 +31,7 @@ def colors_to_cmap(colors):
     colors = np.asarray(colors)
     if colors.shape[1] == 3:
         colors = np.hstack((colors, np.ones((len(colors), 1))))
-    steps = (0.5 + np.asarray(range(len(colors) - 1), dtype=np.float)) / (len(colors) - 1)
+    steps = (0.5 + np.asarray(range(len(colors) - 1), dtype=float)) / (len(colors) - 1)
     return matplotlib.colors.LinearSegmentedColormap(
         'auto_cmap',
         {clrname: ([(0, col[0], col[0])] +
@@ -87,7 +87,7 @@ class BarycentricColormap:
         """Normalize Barycentric coordinates to 1."""
         return (lam.T / np.sum(lam, axis=1)).T
 
-def tricolor_plot_tensor(a, data_i):
+def tricolor_plot_tensor(a, data_i, title=None):
 
 
     mesh_x = data_i['meshRANS'][0, :, :]
@@ -106,7 +106,7 @@ def tricolor_plot_tensor(a, data_i):
 
     trispace = tri.Triangulation(mesh_x_flat, mesh_y_flat, triangles=tris[mask])
 
-    eigs = np.linalg.eigvalsh(aij_bous)
+    eigs = np.linalg.eigvalsh(a)
     eigs.sort(axis=1)
     eigs = eigs[:,::-1]
 
@@ -125,9 +125,9 @@ def tricolor_plot_tensor(a, data_i):
 
     # Build colormaps
     lamcolor = (lamspace.T / np.max(lamspace, axis=1)).T
-    # scale lamcolor?
-    lamcolor[:,0] = lamcolor[:,0]/max(lamcolor[:,0])
-    lamcolor[:,1] = lamcolor[:,1]/max(lamcolor[:,1])
+    # # scale lamcolor?
+    # lamcolor[:,0] = lamcolor[:,0]/max(lamcolor[:,0])
+    # lamcolor[:,1] = lamcolor[:,1]/max(lamcolor[:,1])
 
     lamlegend = (lamlegend.T / np.max(lamlegend, axis=1)).T
     cmap_space = colors_to_cmap(lamcolor)
@@ -140,7 +140,8 @@ def tricolor_plot_tensor(a, data_i):
                  edgecolors='none', cmap=cmap_space, shading='gouraud')
     plt.gca().axison = False
     plt.gca().set_aspect('equal')
-    plt.show()
+    plt.title(title)
+    # plt.show()
 
 
 
@@ -158,29 +159,57 @@ if __name__ == "__main__":
 
     Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'], normalize=False)
 
-    # # aij_bous = -2 * data_i['nut_frozen'] * Sij
-    # aij_bous = data_i['aij']
-    #
-    # aij_bous = np.moveaxis(aij_bous, -1, 0)
+    # bij = data_i['bij']
+    # bij = np.moveaxis(bij, -1, 0)
+    # tricolor_plot_tensor(bij, data_i, 'bij')
+
+    nut = data_i['nut_frozen']
+    k = data_i['k']
+
+    bij_LEVM = -(nut/k)*Sij
+    bij_LEVM = np.moveaxis(bij_LEVM, -1, 0)
+
+    tricolor_plot_tensor(bij_LEVM, data_i, 'LEVM')
+
+    bdelta =  np.moveaxis(data_i['bDelta'], -1, 0)
+    bij_corr = bij_LEVM + bdelta
+
+    tricolor_plot_tensor(bij_corr, data_i, 'LEVM plus bDelta')
+
+    # load dataset:
+    with open('config_bDelta.json', encoding='utf-8') as f:
+        config = json.load(f)
+
+    X, y = load_frozen_RANS_dataset(config['task'])
+
+    x1 = X[:,0]
+    x2 = X[:,1]
+    x3 = X[:,2]
+    x4 = X[:,3]
+    x5 = X[:,4]
+    x6 = X[:,5]
+    x7 = X[:,6]
+    x8 = X[:,7]
+    x9 = X[:,8]
+    x10 = X[:,9]
+
+    dsr_bDelta = x1*(18.53628531372629*x7 + 0.53041498422016339) + 0.17597672099208503*x2/(-1.5907187870838878*x5 + x6 + 0.59071878708388784*np.exp(x5 - x6) + np.log(x5 - x9 + np.exp(np.exp(x5))) - 1.590944655918643) + x3*(x5 + x7 + x8 + 10.176040402349427) + x4*(13717.614941230593*x5*(x6 - 0.061601349115670084 + 0.013417116728867052*(x7 - 0.050292032841165346)/x7)*(x7 + x8*(np.exp(x5) - 3241.9616916815266) + np.exp(x5)) + 1.0781230466703526)
+
+    # dsr_bDelta = x1 * (np.exp(x7) - 0.7400604774603605) + x2 * (0.032630438215257891 * np.exp(x10) - (
+    #             -0.17095618044834858 * x6 - 0.0002021103539912845) / x5) / x6 + x3 * (x5 + x8) + x4 * (
+    #             x10 - 4.424733413784568)
+
+    inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-dsr_bDelta)**2))/np.std(y))
+
+    dsr_bDelta = de_flatten_tensor(dsr_bDelta)
+    dsr_bDelta =  np.moveaxis(dsr_bDelta, -1, 0)
+
+    dsr_bij_corrected = bij_LEVM + dsr_bDelta
+    tricolor_plot_tensor(dsr_bij_corrected, data_i, f'DSR model, inv_nrmse = {inv_nrmse}')
+
+    plt.show()
 
 
-
-    # below calculation of  aij as done in tricolor_plot, uses "perfect" DNS data i think
-    uu = data_i['uu']
-    vv = data_i['vv']
-    ww = data_i['ww']
-    uv = data_i['uv']
-    k = .5 * (uu+vv+ww)
-                                        # Anisotropy tensor - where k==0 (e.g. on
-                                        # wall) tensor is not defined.
-    aij_bous = np.zeros((len(uu),3,3))
-    aij_bous[:,0,0] = uu/(2*k) - 1./3
-    aij_bous[:,1,1] = vv/(2*k) - 1./3
-    aij_bous[:,2,2] = ww/(2*k) - 1./3
-    aij_bous[:,0,1] = aij_bous[:,1,0] = uv/(2*k)
-    aij_bous[k < 1.e-10] = 0.
-
-    tricolor_plot_tensor(aij_bous, data_i)
 
     print('end')
     print('end')
