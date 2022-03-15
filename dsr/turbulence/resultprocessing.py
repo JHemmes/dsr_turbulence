@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import time
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, de_flatten_tensor
 from dsr.program import from_str_tokens
+from dsr.turbulence.lumley_plots import plot_lumley_comparison
 import copy
 
 
@@ -28,7 +29,8 @@ def plot_results(results, config):
 
     if tensor:
         scatter_results_tensor(results, config)
-        contourplot_results_tensor(results, config)
+        # contourplot_results_tensor(results, config)
+        lumley_plot(results, config)
     else:
         scatter_results_scalar(results, config)
         contourplot_results_scalar(results, config)
@@ -61,7 +63,7 @@ def scatter_results_scalar(results, config):
             k, _ = load_frozen_RANS_dataset(dummy_config)
         Rsparta = 2*k*grad_u_T1*1.4
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
         NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
 
         reward = results['r']
@@ -100,7 +102,7 @@ def scatter_results_tensor(results, config):
 
         yhat_sparta = calc_tensor_sparta_yhat(config)
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
         NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
 
         # de-flatten tensors:
@@ -232,7 +234,7 @@ def contourplot_results_tensor(results, config):
         config['task']['dataset']['name'] = case
         X, y = load_frozen_RANS_dataset(config['task'])
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
 
         y = de_flatten_tensor(y)
         yhat = de_flatten_tensor(yhat)
@@ -288,6 +290,26 @@ def contourplot_results_tensor(results, config):
             fig.colorbar(ax0, ax=axs[1])
         plt.savefig(filename, bbox_inches='tight')
 
+
+def lumley_plot(results, config):
+
+    # re-read config file in output directory to find in and outputs
+    logdir = config['training']['logdir']
+    with open(logdir + '/config.json', encoding='utf-8') as f:
+        config = json.load(f)
+
+    name = results['name']
+    seed = results['seed']
+
+    cases = ['CBFS13700', 'PH10595', 'CD12600']
+
+    for case in cases:
+
+        config['task']['dataset']['name'] = case
+
+        filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
+
+        plot_lumley_comparison(results, case, config, filename)
 
 def eval_expression(expression, X):
 
@@ -367,7 +389,7 @@ def contourplot_results_scalar(results, config):
         mesh_x = data_i['meshRANS'][0, :, :]
         mesh_y = data_i['meshRANS'][1, :, :]
 
-        yhat = results['program'].cython_execute(X)
+        yhat, _ = results['program'].execute(X)
 
         filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
 
@@ -426,7 +448,7 @@ def retrospecitvely_plot_contours(logdir, with_sparta=True):
 #     yhat_bad = eval_expression(expression, X)
 #     yhat_bad = np.reshape(yhat_bad, mesh_x.shape, order='F')
 #
-#     # yhat_bad = results['program'].cython_execute(X) # normally this would be used, now the best performer is hardcoded in here
+#     # yhat_bad, _ = results['program'].execute(X) # normally this would be used, now the best performer is hardcoded in here
 #     # yhat_bad = np.reshape(yhat_bad, mesh_x.shape, order='F')
 #
 #     expression = 'x1*x2*(-x1 + x3)/(x3*(x1 - 577.4204240086917*x7)*(x5 - 13.056646077044142))'
