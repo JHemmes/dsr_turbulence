@@ -171,21 +171,20 @@ def calc_invariants(Sij, Rij):
 
     return invariants
 
-
 def flatten_tensor(tensor):
     """ Flattens symmetric tensor.
 
     :param tensor: Given tensor (3,3,num_of_points)
     :return: tensor_flatten: Flatted tensor (6*num_of_points)
     """
-    num_of_points =  tensor.shape[2]
-    tensor_flatten = np.zeros([6, num_of_points])
-    tensor_flatten[0, :] = tensor[0, 0, :]
-    tensor_flatten[1, :] = tensor[0, 1, :]
-    tensor_flatten[2, :] = tensor[0, 2, :]
-    tensor_flatten[3, :] = tensor[1, 1, :]
-    tensor_flatten[4, :] = tensor[1, 2, :]
-    tensor_flatten[5, :] = tensor[2, 2, :]
+    num_of_points = tensor.shape[2]
+    tensor_flatten = np.zeros([num_of_points, 6])
+    tensor_flatten[:, 0] = tensor[0, 0, :]
+    tensor_flatten[:, 1] = tensor[0, 1, :]
+    tensor_flatten[:, 2] = tensor[0, 2, :]
+    tensor_flatten[:, 3] = tensor[1, 1, :]
+    tensor_flatten[:, 4] = tensor[1, 2, :]
+    tensor_flatten[:, 5] = tensor[2, 2, :]
     return tensor_flatten.flatten('A')
 
 
@@ -198,15 +197,15 @@ def de_flatten_tensor(tensor_flat):
     num_of_points = int(tensor_flat.shape[0]/6)
     tensor = np.zeros((3, 3, num_of_points))
 
-    tensor[0, 0, :] = tensor_flat[:num_of_points]
-    tensor[0, 1, :] = tensor_flat[num_of_points:2*num_of_points]
-    tensor[1, 0, :] = tensor_flat[num_of_points:2*num_of_points]
-    tensor[0, 2, :] = tensor_flat[2*num_of_points:3*num_of_points]
-    tensor[2, 0, :] = tensor_flat[2*num_of_points:3*num_of_points]
-    tensor[1, 1, :] = tensor_flat[3*num_of_points:4*num_of_points]
-    tensor[1, 2, :] = tensor_flat[4*num_of_points:5*num_of_points]
-    tensor[2, 1, :] = tensor_flat[4*num_of_points:5*num_of_points]
-    tensor[2, 2, :] = tensor_flat[5*num_of_points:]
+    tensor[0, 0, :] = tensor_flat[::6]
+    tensor[0, 1, :] = tensor_flat[1::6]
+    tensor[1, 0, :] = tensor_flat[1::6]
+    tensor[0, 2, :] = tensor_flat[2::6]
+    tensor[2, 0, :] = tensor_flat[2::6]
+    tensor[1, 1, :] = tensor_flat[3::6]
+    tensor[1, 2, :] = tensor_flat[4::6]
+    tensor[2, 1, :] = tensor_flat[4::6]
+    tensor[2, 2, :] = tensor_flat[5::6]
 
     return tensor
 

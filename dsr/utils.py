@@ -131,6 +131,8 @@ def setup_output_files(logdir, output_file, token_names, save_batch, save_contro
         # a_ent_* : Empirical positional entropy across sequences averaged over positions
         # invalid_avg_* : Fraction of invalid Programs per batch
         headers = ["base_r_best",
+                   "r_best_full",
+                   "r_max_full",
                    "base_r_max",
                    "base_r_avg_full",
                    "base_r_avg_sub",

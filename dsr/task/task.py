@@ -36,6 +36,8 @@ class Task:
     """
 
     reward_function: Callable[[Program], float]
+    rotate_batch: Callable[[Program], float]
+    data_shuffle: Callable[[Program], float]
     ad_reverse: Callable[[Program], float]
     set_ad_traversal: Callable[[Program], list]
     evaluate: Callable[[Program], float]

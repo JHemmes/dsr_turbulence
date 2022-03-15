@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "baseline",
+      "name" : "kDeficit",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -27,8 +27,9 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 1000000,
+        "n_samples": 600000,
         "batch_size": 1000,
+        "dataset_batch_size": null,
         "complexity": "length",
         "complexity_weight": 0.0,
         "const_optimizer": "scipy",
@@ -40,7 +41,7 @@
         "n_cores_batch": 1,
         "output_file": null,
         "early_stopping": true,
-        "t_lim": 72,
+        "t_lim": 48,
         "hof": 100,
         "optim_opt_full":{
            "maxiter": 100,

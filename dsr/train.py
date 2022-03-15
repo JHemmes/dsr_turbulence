@@ -32,11 +32,12 @@ def work(p):
     return optimized_constants, p.base_r
 
 def hof_work(p):
+
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def learn(session, controller, pool, tensor_dsr,
           logdir="./log", n_epochs=None, n_samples=1e6,
-          batch_size=1000, complexity="length", complexity_weight=0.001,
+          batch_size=1000, dataset_batch_size=10, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None,
           epsilon=0.01, n_cores_batch=1, verbose=True,
           output_file=None, baseline=0.5,
@@ -165,6 +166,10 @@ def learn(session, controller, pool, tensor_dsr,
     #Create dummy program to find names of tokens in library
     tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
     token_names = tmp_program.library.names
+    if dataset_batch_size:
+        if not tensor_dsr:
+            tmp_program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
+        tmp_program.task.rotate_batch(dataset_batch_size)
     del tmp_program
 
     # Create log files and dirs
@@ -194,6 +199,9 @@ def learn(session, controller, pool, tensor_dsr,
     p_final = None
     base_r_best = -np.inf
     r_best = -np.inf
+    r_max_full = 0
+    r_best_full = 0
+
     loss_pg = 1
     prev_r_best = None
     prev_base_r_best = None
@@ -311,8 +319,8 @@ def learn(session, controller, pool, tensor_dsr,
 
         if any(np.isnan(base_r)):
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-            base_r[np.where(np.isnan(base_r))[0]] = min(base_r)
-            r[np.where(np.isnan(r))[0]] = min(r)
+            base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
+            r[np.where(np.isnan(r))[0]] = np.nanmin(r)
 
         # Collect newly optimised sub batch statistics
         base_r_avg_sub = np.mean(base_r[keep])
@@ -390,12 +398,45 @@ def learn(session, controller, pool, tensor_dsr,
         # Train the controller
         loss_ent, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
 
+        # Update new best expression
+        new_r_best = False
+        new_base_r_best = False
+
+        if prev_r_best is None or r_max > prev_r_best:
+            new_r_best = True
+            p_r_best = programs[np.argmax(r)]
+
+        if prev_base_r_best is None or base_r_max > prev_base_r_best:
+            new_base_r_best = True
+            p_base_r_best = programs[np.argmax(base_r)]
+
+        prev_r_best = r_best
+        prev_base_r_best = base_r_best
+
+        # Assess best program on full dataset for output file
+        if dataset_batch_size:
+            Program.task.rotate_batch(None)
+
+            # set best program of batch
+            p_max = programs[np.argmax(r)]
+
+            # reoptimise constants for full datase
+            p_max.optimize(optim_opt=optim_opt_sub)
+            r_max_full = p_max.task.reward_function(p_max)
+            if r_max_full > r_best_full:
+                r_best_full = r_max_full
+
+            # rotate batch
+            p_r_best.task.rotate_batch(dataset_batch_size)
+
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
             wall_duration = time.time() - wall_start
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
+                         r_best_full,
+                         r_max_full,
                          base_r_max,
                          base_r_avg_full,
                          base_r_avg_sub,
@@ -437,21 +478,6 @@ def learn(session, controller, pool, tensor_dsr,
             df_append = pd.DataFrame(stats)
             df_append.to_csv(os.path.join(logdir, output_file), mode='a', header=False, index=False)
 
-        # Update new best expression
-        new_r_best = False
-        new_base_r_best = False
-
-        if prev_r_best is None or r_max > prev_r_best:
-            new_r_best = True
-            p_r_best = programs[np.argmax(r)]
-            
-        if prev_base_r_best is None or base_r_max > prev_base_r_best:
-            new_base_r_best = True
-            p_base_r_best = programs[np.argmax(base_r)]
-
-        prev_r_best = r_best
-        prev_base_r_best = base_r_best
-
         # Print new best expression
         if verbose:
             if new_r_best and new_base_r_best:
@@ -486,7 +512,7 @@ def learn(session, controller, pool, tensor_dsr,
             print("Completed {} steps".format(step))
 
         if len(Program.cache) > 5000:
-            # if the cache contains more than x function, tidy cache.
+            # if the cache contains more than x programs, tidy cache.
             Program.tidy_cache(hof)
 
         if (time.process_time() - program_start) > t_lim_seconds:
@@ -504,9 +530,33 @@ def learn(session, controller, pool, tensor_dsr,
 
     # Save the hall of fame
     if hof is not None and hof > 0:
-        programs = list(Program.cache.values()) # All unique Programs found during training
 
-        base_r = [p.base_r for p in programs]
+        Program.task.rotate_batch(None)
+
+        Program.tidy_cache(batch_size)
+        programs = list(Program.cache.values())  # unique Programs in cache
+
+        Program.clear_cache()
+
+        for p in programs:
+            p.optimize(optim_opt=optim_opt_sub)
+
+            # overwrite cached base_r
+            if (p.base_r != p.ad_r) and p.ad_r is not None:
+                p.base_r = p.ad_r
+            else:
+                p.base_r = p.task.reward_function(p)
+
+            # overwrite cached r
+            p.r = p.base_r - p.complexity
+
+        base_r = np.array([p.base_r for p in programs])
+
+        if any(np.isnan(base_r)):
+            # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
+            base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
+            # r[np.where(np.isnan(r))[0]] = np.nanmin(r)
+
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]
 
@@ -525,6 +575,8 @@ def learn(session, controller, pool, tensor_dsr,
             print("Saving Hall of Fame to {}".format(hof_output_file))
             df.to_csv(hof_output_file, header=True, index=False)
 
+        p_final = programs[np.argmax(base_r)]
+
     # save tensorflow checkpoint of network state
     if save_controller:
         controller_file = os.path.join(controller_dir, 'controller.ckpt')
@@ -537,6 +589,7 @@ def learn(session, controller, pool, tensor_dsr,
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_base_r_best
+
     result = {
         "r" : p.r,
         "base_r" : p.base_r,

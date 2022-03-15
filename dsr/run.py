@@ -15,6 +15,7 @@ from datetime import datetime
 import multiprocessing
 import logging
 from functools import partial
+from random import shuffle
 from pkg_resources import resource_filename
 import zlib
 # import pp
@@ -226,8 +227,10 @@ if __name__ == "__main__":
     """
 
 
-    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=12)
-    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=12)
+
+    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=6)
+    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=6)
+
 
 
 
