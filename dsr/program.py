@@ -552,9 +552,19 @@ class Program(object):
         keys = list(cls.cache.keys())
         values = list(cls.cache.values())
         rewards = [program.r for program in values]
+        ad_rewards = [program.ad_r if program.ad_r else program.r for program in values]
+        if not ad_rewards == rewards:
+            rewards = np.array(rewards)
+            ad_rewards = np.array(ad_rewards)
+            ad_rewards[rewards == ad_rewards] = 0
+            rewards = ad_rewards
+
         hof_idx = np.argsort(rewards)[-n_hof:][::-1]
 
         cls.cache = {keys[ii]: values[ii] for ii in hof_idx}
+
+
+
 
     @classmethod
     def set_task(cls, task):

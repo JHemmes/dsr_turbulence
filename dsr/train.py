@@ -32,6 +32,7 @@ def work(p):
     return optimized_constants, p.base_r
 
 def hof_work(p):
+
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 def learn(session, controller, pool, tensor_dsr,
@@ -166,7 +167,8 @@ def learn(session, controller, pool, tensor_dsr,
     tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
     token_names = tmp_program.library.names
     if dataset_batch_size:
-        tmp_program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
+        if not tensor_dsr:
+            tmp_program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
         tmp_program.task.rotate_batch(dataset_batch_size)
     del tmp_program
 
@@ -198,6 +200,8 @@ def learn(session, controller, pool, tensor_dsr,
     base_r_best = -np.inf
     r_best = -np.inf
     r_max_full = 0
+    r_best_full = 0
+
     loss_pg = 1
     prev_r_best = None
     prev_base_r_best = None
@@ -419,42 +423,8 @@ def learn(session, controller, pool, tensor_dsr,
             # reoptimise constants for full datase
             p_max.optimize(optim_opt=optim_opt_sub)
             r_max_full = p_max.task.reward_function(p_max)
-            #
-            # if r_max_full > 0.6:
-            #     print('pause_here')
-
-            # switch to full dataset for last iterations
-            if step >= 0.99 * n_epochs:
-                dataset_batch_size = None
-                p_r_best.task.rotate_batch(dataset_batch_size)
-
-                prev_r_best = None
-                prev_base_r_best = None
-
-                Program.tidy_cache(batch_size)
-                programs = list(Program.cache.values())  # unique Programs in cache
-
-                Program.clear_cache()
-
-                for p in programs:
-                    p.optimize(optim_opt=optim_opt_sub)
-                #
-                # actions = [p.tokens for p in programs]
-                # programs = [from_tokens(a, optimize=optim_opt_sub) for a in actions]
-
-                base_r = np.array([p.task.reward_function(p) for p in programs])
-                r = np.array([p.task.reward_function(p) - p.complexity for p in programs])
-
-                if any(np.isnan(base_r)):  # this is probably prettier in program.py itself
-                    # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
-                    base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
-                    r[np.where(np.isnan(r))[0]] = np.nanmin(r)
-
-                base_r_best = max(base_r)
-                r_best = max(r)
-
-                p_r_best = programs[np.argmax(r)]
-                p_base_r_best = programs[np.argmax(base_r)]
+            if r_max_full > r_best_full:
+                r_best_full = r_max_full
 
             # rotate batch
             p_r_best.task.rotate_batch(dataset_batch_size)
@@ -465,6 +435,7 @@ def learn(session, controller, pool, tensor_dsr,
             # If the outputted stats are changed dont forget to change the column names in utils
             stats = [[
                          base_r_best,
+                         r_best_full,
                          r_max_full,
                          base_r_max,
                          base_r_avg_full,
@@ -540,7 +511,7 @@ def learn(session, controller, pool, tensor_dsr,
         if verbose and step > 0 and step % 10 == 0:
             print("Completed {} steps".format(step))
 
-        if len(Program.cache) > 5000:
+        if len(Program.cache) > 90:
             # if the cache contains more than x function, tidy cache.
             Program.tidy_cache(hof)
 
@@ -560,22 +531,31 @@ def learn(session, controller, pool, tensor_dsr,
     # Save the hall of fame
     if hof is not None and hof > 0:
 
-        # reduce cache size to avoid lengthy evaluation
+        Program.task.rotate_batch(None)
+
         Program.tidy_cache(batch_size)
-        programs = list(Program.cache.values()) # unique Programs in cache
+        programs = list(Program.cache.values())  # unique Programs in cache
 
-        # when batching the dataset, reset X_train and y_train to include all data
-        if dataset_batch_size:
-            p_r_best.task.rotate_batch(None)
+        Program.clear_cache()
 
-            actions = [p.tokens for p in programs]
-            programs = [from_tokens(a, optimize=optim_opt_sub, skip_cache=True) for a in actions]
+        for p in programs:
+            p.optimize(optim_opt=optim_opt_sub)
+
+            # overwrite cached base_r
+            if (p.base_r != p.ad_r) and p.ad_r is not None:
+                p.base_r = p.ad_r
+            else:
+                p.base_r = p.task.reward_function(p)
+
+            # overwrite cached r
+            p.r = p.base_r - p.complexity
 
         base_r = np.array([p.base_r for p in programs])
 
-        if any(np.isnan(base_r)):  # this is probably prettier in program.py itself
+        if any(np.isnan(base_r)):
             # if the const optimisation returns nan constants, the rewards is nan, that is set to min reward here.
             base_r[np.where(np.isnan(base_r))[0]] = np.nanmin(base_r)
+            # r[np.where(np.isnan(r))[0]] = np.nanmin(r)
 
         i_hof = np.argsort(base_r)[-hof:][::-1] # Indices of top hof Programs
         hof = [programs[i] for i in i_hof]
