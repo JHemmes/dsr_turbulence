@@ -209,15 +209,13 @@ def de_flatten_tensor(tensor_flat):
 
     return tensor
 
-
-def broadcast_scalar(scalar_array):
+def broadcast_scalar(scalar):
     """ broadcasts scalar array to use with flattened tensors.
 
     :param scalar: Given scalar (num_of_points,)
     :return: broadcast_scalar: expanded scalar (6*num_of_points)
     """
-    return np.tile(scalar_array, 6)
-
+    return np.repeat(scalar, 6)
 
 def broadcast(scalar, flat_bool):
     """ Returns broadcasted scalar or not, depending on flat_bool """

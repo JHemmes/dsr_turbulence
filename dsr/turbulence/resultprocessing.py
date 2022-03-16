@@ -537,6 +537,15 @@ def fetch_iteration_metrics(logdir, finished=True):
                 extended_arr[:short_arr.shape[0]] = short_arr
                 plot_dict[metric].append(extended_arr)
 
+    # if the r_max_full or r_best_full are nonzero, overwrite base_r_best and base_r_max with full dataset stats
+    if 'r_max_full' in plot_metrics:
+        if not (plot_dict['r_max_full'][0] == 0).all():
+            plot_dict['base_r_max'] = plot_dict['r_max_full']
+
+    if 'r_best_full' in plot_metrics:
+        if not (plot_dict['r_best_full'][0] == 0).all():
+            plot_dict['base_r_best'] = plot_dict['r_best_full']
+
     return plot_dict
 
 def plot_iterations_metrics(logdir, finished=True):
