@@ -2,6 +2,7 @@
 
 import os
 import sys
+import shutil
 import pickle
 import numpy as np
 import json
@@ -502,7 +503,7 @@ def load_iterations(logdir):
 
 def fetch_iteration_metrics(logdir, finished=True):
 
-    plot_metrics = ['base_r_best', 'r_max_full', 'base_r_max', 'pg_loss', 'ent_loss', 'proc_time', 'wall_time', 'invalid_avg_full',
+    plot_metrics = ['base_r_best', 'r_max_full', 'r_best_full', 'base_r_max', 'pg_loss', 'ent_loss', 'proc_time', 'wall_time', 'invalid_avg_full',
                     'invalid_avg_sub', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'nfev_avg_full',
                     'nfev_avg_sub', 'eq_w_const_full', 'eq_w_const_sub',
                     'n_const_per_eq_full', 'n_const_per_eq_sub', 'a_ent_full', 'a_ent_sub',
@@ -510,6 +511,9 @@ def fetch_iteration_metrics(logdir, finished=True):
     # plot_metrics = ['invalid_avg_full', 'n_novel_sub', 'l_avg_sub', 'l_avg_full', 'base_r_best', 'sample_metric']
 
     results = load_iterations(logdir)
+
+    available_metric = results[list(results.keys())[0]].columns.values
+    plot_metrics = [metric for metric in plot_metrics if metric in available_metric]
 
     # if finished:
     n_iter = 0
@@ -569,34 +573,54 @@ def plot_iterations_metrics(logdir, finished=True):
     #     plt.grid()
     #     plt.savefig(f'{logdir}/iterations_{metric}')
 
+# def compare_dicts(bsl, run):
+#     diff = []
+#     for key in bsl.keys():
+#         if isinstance(bsl[key], dict):
+#             diff.append(compare_dicts(bsl[key], run[key]))
+#         elif key in ['name', 'logdir', 'verbose']:
+#             pass
+#         else:  # compare
+#             if not bsl[key] == run[key]:
+#                 diff.append(f'{key}_{run[key]}')
+#
+#     diff = [item for item in diff if item is not 'baseline']
+#     if len(diff) == 0:
+#         return 'baseline'
+#     else:
+#         return '_'.join(diff)
+
 def compare_dicts(bsl, run):
     diff = []
     for key in bsl.keys():
         if isinstance(bsl[key], dict):
-            diff.append(compare_dicts(bsl[key], run[key]))
-        elif key in ['name', 'logdir', 'verbose']:
+            diff += compare_dicts(bsl[key], run[key])
+        elif key in ['name', 'logdir', 'verbose', 'save_batch', 'save_controller']:
             pass
         else:  # compare
             if not bsl[key] == run[key]:
-                diff.append(f'{key}_{run[key]}')
+                diff.append((key, run[key]))
 
     diff = [item for item in diff if item is not 'baseline']
     if len(diff) == 0:
-        return 'baseline'
+        return ['baseline']
     else:
-        return '_'.join(diff)
+        return diff
 
 def plot_sensitivity_results(logdir):
+    try:
+        shutil.rmtree(os.path.join(logdir, 'results'))
+    except FileNotFoundError:
+        pass
+
     dirlist = os.listdir(logdir)
+
+    os.mkdir(os.path.join(logdir, 'results'))
 
     with open(os.path.join(logdir, 'config_baseline.json'), encoding='utf-8') as f:
         config_bsl = json.load(f)
 
     dirlist.remove('config_baseline.json')
-    try:
-        dirlist.remove('results')
-    except ValueError:
-        os.mkdir(os.path.join(logdir, 'results'))
     # ratios used to scale duration
     machine_dur_ratios = {'OW': 1,
                           'M15': 0.47895466499411693,
@@ -604,13 +628,14 @@ def plot_sensitivity_results(logdir):
                           'M3': 0.8175768873161131}
 
     first_write = True
+    baseline = None
 
 
     try:  # remove existing results file since new will be created.
         os.remove(os.path.join(logdir, 'results', 'results.csv'))
     except FileNotFoundError:
         pass
-    parameters = ['baseline']
+    parameters = []
 
     all_results = {}
     for run in dirlist:
@@ -619,17 +644,23 @@ def plot_sensitivity_results(logdir):
             config_run = json.load(f)
 
         machine_name = config_run['task']['name'].split('_')[0]
-        run_name = compare_dicts(config_bsl, config_run)
-        for param in run_name.split('_')[::2]:
-            if param not in parameters:
-                parameters.append(param)
-
+        diff = compare_dicts(config_bsl, config_run)
+        run_name = machine_name
+        if diff[0] == 'baseline':
+            run_name += '_baseline'
+            baseline = run_name
+            parameters.append('baseline')
+        else:
+            for item in diff:
+                run_name += f'_{item[0]}_{item[1]}'
+                if item[0] not in parameters:
+                    parameters.append(item[0])
 
 
         run_dict = fetch_iteration_metrics(os.path.join(logdir, run), finished=False)
 
         result_col = ['run_name']
-        result_val = ['_'.join([machine_name, run_name])]
+        result_val = [run_name]
 
         tmp_arr = np.array(run_dict['proc_time'])
         result_col.append('adjusted_avg_proc_duration')
@@ -655,9 +686,7 @@ def plot_sensitivity_results(logdir):
         if first_write:  # used to only write header once
             first_write = False
 
-        all_results['_'.join([machine_name, run_name])] = save_dict
-
-    # parameters = ['learning_rate', 'entropy_weight', 'num_units', 'num_layers', 'baseline', 'initializer']
+        all_results[run_name] = save_dict
 
     for key in all_results:
         all_results[key]['varied'] = []
@@ -665,7 +694,7 @@ def plot_sensitivity_results(logdir):
             if parameter in key:
                 all_results[key]['varied'].append(parameter)
 
-    plot_dict = {key: ['OW_baseline'] for key in parameters}
+    plot_dict = {key: [baseline] if baseline else [] for key in parameters}
     plot_dict['baseline'] = []
     plot_dict['all'] = all_results.keys()
 
@@ -701,7 +730,7 @@ def plot_sensitivity_results(logdir):
 
 def create_plots(all_results, plotmode, plotlist, plot_dir):
 
-    for metric in all_results['OW_baseline']:
+    for metric in all_results[list(all_results.keys())[0]]:
         if metric == 'varied':
             pass
         else:

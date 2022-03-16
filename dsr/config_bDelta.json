@@ -18,7 +18,7 @@
       "reward_noise" : 0.0
    },
    "prior": {
-      "length" : {"min_" : 3, "max_" : 30},
+      "length" : {"min_" : 3, "max_" : 15},
       "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},
@@ -69,6 +69,6 @@
       "entropy_weight": 0.005,
       "invalid_weight": 0,
       "scale_to_pg": true,
-      "max_length": 30
+      "max_length": 15
    }
 }
