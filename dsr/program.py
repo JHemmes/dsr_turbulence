@@ -278,6 +278,7 @@ class Program(object):
         self.nit = 0
         self.top_quantile = 0
         self.ad_r = None
+        self.full_set = False
         self.traversal = [copy(Program.library[t]) for t in tokens]
         # self.lowmemory_traversal = [Program.library[t] for t in tokens]
         # self.traversal = [deepcopy(token) for token in self.lowmemory_traversal]
@@ -546,18 +547,24 @@ class Program(object):
 
     @classmethod
     def tidy_cache(cls, n_hof):
-        """Reduces the size of the class' cache"""
-        """only retains the n_hof best expressions in cache"""
+        """Reduces the size of the class' cache, retains the n_hof best expressions in cache"""
 
         keys = list(cls.cache.keys())
         values = list(cls.cache.values())
+
+        full_set_evaluated = np.array([p.full_set for p in values])
+        if full_set_evaluated.any():
+            values = np.array(values)
+            values = values[full_set_evaluated]
+
         rewards = [program.r for program in values]
-        ad_rewards = [program.ad_r if program.ad_r else program.r for program in values]
-        if not ad_rewards == rewards:
-            rewards = np.array(rewards)
-            ad_rewards = np.array(ad_rewards)
-            ad_rewards[rewards == ad_rewards] = 0
-            rewards = ad_rewards
+
+        # ad_rewards = [program.ad_r if program.ad_r else program.r for program in values]
+        # if not ad_rewards == rewards:
+        #     rewards = np.array(rewards)
+        #     ad_rewards = np.array(ad_rewards)
+        #     ad_rewards[rewards == ad_rewards] = 0
+        #     rewards = ad_rewards
 
         hof_idx = np.argsort(rewards)[-n_hof:][::-1]
 
@@ -748,6 +755,17 @@ class Program(object):
 
             return self.base_r - self.complexity
 
+    def update_rewards(self):
+        """Overwrites cached base_r and r after re-optimised constants"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+            if not self.ad_r is None:
+                self.base_r = self.ad_r
+            else:
+                self.base_r = self.task.reward_function(self)
+
+            self.r = self.base_r - self.complexity
 
     @cached_property
     def evaluate(self):
@@ -795,10 +813,6 @@ class Program(object):
     def print_stats(self):
         """Prints the statistics of the program"""
         print("\tReward: {}".format(self.r))
-        try:
-            print("\tFull dataset reward: {}".format(self.ad_r))
-        except AttributeError:
-            pass
         print("\tBase reward: {}".format(self.base_r))
         print("\tCount: {}".format(self.count))
         print("\tInvalid: {}".format(self.invalid))

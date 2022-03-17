@@ -308,6 +308,7 @@ def learn(session, controller, pool, tensor_dsr,
         for p in list(compress(programs, keep)):
             p.top_quantile = 1  # used in tensorflow to distinguish what programs are in the sub batch.
             p.optimize(optim_opt=optim_opt_sub)
+            p.update_rewards()
 
         # memory heavy traversal no longer needed, replace by lighter version
         for p in programs:
@@ -398,21 +399,6 @@ def learn(session, controller, pool, tensor_dsr,
         # Train the controller
         loss_ent, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
 
-        # Update new best expression
-        new_r_best = False
-        new_base_r_best = False
-
-        if prev_r_best is None or r_max > prev_r_best:
-            new_r_best = True
-            p_r_best = programs[np.argmax(r)]
-
-        if prev_base_r_best is None or base_r_max > prev_base_r_best:
-            new_base_r_best = True
-            p_base_r_best = programs[np.argmax(base_r)]
-
-        prev_r_best = r_best
-        prev_base_r_best = base_r_best
-
         # Assess best program on full dataset for output file
         if dataset_batch_size:
             Program.task.rotate_batch(None)
@@ -420,14 +406,50 @@ def learn(session, controller, pool, tensor_dsr,
             # set best program of batch
             p_max = programs[np.argmax(r)]
 
-            # reoptimise constants for full datase
+            # reoptimise constants for full dataset
             p_max.optimize(optim_opt=optim_opt_sub)
-            r_max_full = p_max.task.reward_function(p_max)
-            if r_max_full > r_best_full:
-                r_best_full = r_max_full
+            p_max.update_rewards()
+            p_max.full_set = True
+            r_max_full = p_max.r
 
             # rotate batch
-            p_r_best.task.rotate_batch(dataset_batch_size)
+            Program.task.rotate_batch(dataset_batch_size)
+
+
+
+            # update new best program
+            new_r_best = False
+            new_base_r_best = False
+
+            if r_max_full > r_best_full:
+                # note, if there will be a difference between base_r and r in the future this needs revising
+                r_best_full = r_max_full
+
+                new_r_best = True
+                p_r_best = p_max
+
+                new_base_r_best = True
+                p_base_r_best = p_max
+
+            prev_r_best = r_best
+            prev_base_r_best = base_r_best
+
+        else:
+
+            # update new best program
+            new_r_best = False
+            new_base_r_best = False
+
+            if prev_r_best is None or r_max > prev_r_best:
+                new_r_best = True
+                p_r_best = programs[np.argmax(r)]
+
+            if prev_base_r_best is None or base_r_max > prev_base_r_best:
+                new_base_r_best = True
+                p_base_r_best = programs[np.argmax(base_r)]
+
+            prev_r_best = r_best
+            prev_base_r_best = base_r_best
 
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
@@ -540,15 +562,15 @@ def learn(session, controller, pool, tensor_dsr,
 
         for p in programs:
             p.optimize(optim_opt=optim_opt_sub)
-
-            # overwrite cached base_r
-            if (p.base_r != p.ad_r) and p.ad_r is not None:
-                p.base_r = p.ad_r
-            else:
-                p.base_r = p.task.reward_function(p)
-
-            # overwrite cached r
-            p.r = p.base_r - p.complexity
+            p.update_rewards()
+            # # overwrite cached base_r
+            # if (p.base_r != p.ad_r) and p.ad_r is not None:
+            #     p.base_r = p.ad_r
+            # else:
+            #     p.base_r = p.task.reward_function(p)
+            #
+            # # overwrite cached r
+            # p.r = p.base_r - p.complexity
 
         base_r = np.array([p.base_r for p in programs])
 
