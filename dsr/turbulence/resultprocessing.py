@@ -330,6 +330,8 @@ def eval_expression(expression, X):
 
 def case_contourplots(mesh_x, mesh_y, y, yhat, filename):
 
+    inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-yhat)**2))/np.std(y))
+
     yhat = np.reshape(yhat, mesh_x.shape, order='F')
     y = np.reshape(y, mesh_x.shape, order='F')
 
@@ -339,9 +341,11 @@ def case_contourplots(mesh_x, mesh_y, y, yhat, filename):
     fig, ax = plt.subplots(2, figsize=(15,10), dpi=250)
     fig.tight_layout()
     ax0 = ax[0].contourf(mesh_x, mesh_y, y, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-    ax[0].set_title('Target', y=1.0, pad=-14)
+    ax[0].set_title('Target', y=1.05, pad=-14)
     ax1 = ax[1].contourf(mesh_x, mesh_y, yhat, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-    ax[1].set_title('DSR model', y=1.0, pad=-14)
+    ax[1].set_title(f'DSR model, inv_nrmse = {inv_nrmse}', y=1.05, pad=-14)
+    ax[0].axison = False
+    ax[1].axison = False
     fig.colorbar(ax0, ax=ax[0])
     fig.colorbar(ax0, ax=ax[1])
     plt.savefig(filename)

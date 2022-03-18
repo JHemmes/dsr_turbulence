@@ -415,13 +415,11 @@ def learn(session, controller, pool, tensor_dsr,
             # rotate batch
             Program.task.rotate_batch(dataset_batch_size)
 
-
-
             # update new best program
             new_r_best = False
             new_base_r_best = False
 
-            if r_max_full > r_best_full:
+            if r_best_full == 0 or r_max_full > r_best_full:
                 # note, if there will be a difference between base_r and r in the future this needs revising
                 r_best_full = r_max_full
 
