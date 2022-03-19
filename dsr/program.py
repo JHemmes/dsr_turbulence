@@ -489,12 +489,18 @@ class Program(object):
                     x0[ii] = self.traversal[self.const_pos[ii]].value
             else:
                 x0 = np.ones(len(self.const_pos))  # Initial guess
+                self.all_r = []
 
             # optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options={'maxiter': maxiter})
-            optimized_constants, nfev, nit = Program.const_optimizer(reverse_ad, x0, jac=True, options=optim_opt)
+            optimized_constants, nfev, nit, all_vecs = Program.const_optimizer(reverse_ad, x0, jac=True, options=optim_opt)
 
             self.nfev += nfev
             self.nit += nit
+
+            for consts in all_vecs:
+                r, _ = reverse_ad(tuple(consts))
+                self.all_r.append(-r)
+
 
             # some times minimize returns nan constants, rendering the program invalid.
             if any(np.isnan(optimized_constants)):

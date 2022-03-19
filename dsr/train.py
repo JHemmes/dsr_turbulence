@@ -303,12 +303,64 @@ def learn(session, controller, pool, tensor_dsr,
                 r[np.isinf(r)] = min_noinf
             quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
             keep = base_r >= quantile
+        #
 
-        # Redo the optimisation "without" limit only for programs in the top quantile
+        # iterations = np.array([0, 1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200,
+        #               220, 240, 260, 280, 300, 350, 400, 450, 500, 600, 700, 800])
+        iterations = np.arange(0, 700, 10)
+
+        fully_optimised_sub_batch = np.array(programs)[keep]
+        best_p = programs[np.argmax(np.array(r))]
+
+        # find r list for lesser iterations
+        percentages_match = []
+        best_program_match = []
+
+        for iters in iterations:
+            r = []
+            for p in programs:
+                try:
+                    r.append(p.all_r[iters])
+                except:
+                    r.append(p.r)
+
+            if any(np.isinf(r)):
+                min_noinf = min(r[~np.isinf(r)])
+                r[np.isinf(r)] = min_noinf
+            quantile = np.nanquantile(r, 1 - epsilon, interpolation="higher")
+            keep = r >= quantile
+
+            shortened_sub_batch = np.array(programs)[keep]
+
+            counter = 0
+            for p in shortened_sub_batch:
+                if p in fully_optimised_sub_batch:
+                    counter += 1
+
+            percentage_in_sub = counter / len(fully_optimised_sub_batch)
+            best_performer_in_sub = best_p in shortened_sub_batch
+            percentages_match.append(percentage_in_sub)
+            best_program_match.append(best_performer_in_sub)
+
+
+
+        #save results:
+        percentages_match.insert(0, iterations[best_program_match][0])
+
+        df_append = pd.DataFrame([percentages_match])
+        df_append.to_csv(os.path.join(logdir, output_file.split('.')[0] + '_stats.csv'), mode='a', header=False, index=False)
+
+
+
+
+
+
+
+        # # Redo the optimisation "without" limit only for programs in the top quantile
         for p in list(compress(programs, keep)):
             p.top_quantile = 1  # used in tensorflow to distinguish what programs are in the sub batch.
-            p.optimize(optim_opt=optim_opt_sub)
-            p.update_rewards()
+        #     p.optimize(optim_opt=optim_opt_sub)
+        #     p.update_rewards()
 
         # memory heavy traversal no longer needed, replace by lighter version
         for p in programs:

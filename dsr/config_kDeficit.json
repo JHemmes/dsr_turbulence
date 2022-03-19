@@ -1,11 +1,11 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "_kDef_PH",
+      "name" : "testing_optmizestats",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
-         "name" : "PH10595",
+         "name" : "benchmark",
          "noise": null,
          "input": ["grad_u_T1", "k", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "kDeficit",
@@ -44,7 +44,7 @@
         "t_lim": 48,
         "hof": 100,
         "optim_opt_full":{
-           "maxiter": 100,
+           "maxiter": 2000,
            "gtol": 1e-5
         },
         "optim_opt_sub":{
@@ -52,7 +52,7 @@
            "gtol": 1e-5
         },
         "save_batch": false,
-        "save_controller": true
+        "save_controller": false
    },
    "controller": {
       "cell": "lstm",

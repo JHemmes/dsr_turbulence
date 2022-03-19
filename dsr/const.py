@@ -70,8 +70,10 @@ class ScipyMinimize(ConstOptimizer):
     def __call__(self, f, x0, options=None, jac=None):
         with np.errstate(divide='ignore'):
             # opt_result = partial(minimize, **self.kwargs)(f, x0)
+            options['return_all'] = True
             opt_result = partial(minimize, **self.kwargs)(f, x0, options=options, jac=jac, method='BFGS')
         x = opt_result['x']
         nfev = opt_result['nfev']
+        all_vecs = opt_result['allvecs']
         nit = opt_result['nit']
-        return x, nfev, nit
+        return x, nfev, nit, all_vecs
