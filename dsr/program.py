@@ -498,9 +498,9 @@ class Program(object):
             self.nit += nit
 
             for consts in all_vecs:
-                r, _ = reverse_ad(tuple(consts))
-                self.all_r.append(-r)
-
+                self.set_constants(consts)
+                r = self.task.reward_function(self)
+                self.all_r.append(r)
 
             # some times minimize returns nan constants, rendering the program invalid.
             if any(np.isnan(optimized_constants)):
