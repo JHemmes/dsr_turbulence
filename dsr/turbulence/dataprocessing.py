@@ -298,8 +298,8 @@ def load_frozen_RANS_dataset(config_task):
                      'grad_u_T5', 'grad_u_T7', 'grad_u_T8', 'grad_u_T9', 'grad_u_T10']:
             # input is a product of base tensors and grad_u
             tensor_idx = int(value[value.find('_u_T') + 4:]) - 1
-            input = np.zeros(y.shape)
-            for ii in range(y.shape[0]):
+            input = np.zeros(grad_u.shape[-1])
+            for ii in range(grad_u.shape[-1]):
                 input[ii] = np.tensordot(grad_u[:, :, ii], Tij[tensor_idx, :, :, ii])
             X[:,index] = broadcast(input, flatten)
         elif value in ['inv1', 'inv2', 'inv3', 'inv4', 'inv5']:
