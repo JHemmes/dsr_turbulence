@@ -307,7 +307,7 @@ def learn(session, controller, pool, tensor_dsr,
 
         # iterations = np.array([0, 1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200,
         #               220, 240, 260, 280, 300, 350, 400, 450, 500, 600, 700, 800])
-        iterations = np.arange(0, 700, 10)
+        iterations = np.arange(0, 2000, 10)
 
         fully_optimised_sub_batch = np.array(programs)[keep]
         best_p = programs[np.argmax(np.array(r))]
@@ -345,8 +345,10 @@ def learn(session, controller, pool, tensor_dsr,
 
 
         #save results:
-        percentages_match.insert(0, iterations[best_program_match][0])
-
+        if np.any(best_program_match):
+            percentages_match.insert(0, iterations[best_program_match][0])
+        else:
+            percentages_match.insert(0, optim_opt_full['maxiter'])
         df_append = pd.DataFrame([percentages_match])
         df_append.to_csv(os.path.join(logdir, output_file.split('.')[0] + '_stats.csv'), mode='a', header=False, index=False)
 
