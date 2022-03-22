@@ -747,7 +747,7 @@ class Controller(object):
 
                 entropy_per_step = safe_cross_entropy(probs, logprobs,
                                                       axis=2)  # Sum over action dim -> (batch_size, max_length)
-                entropy = tf.reduce_sum(entropy_per_step * mask, axis=1)  # Sum over time dim -> (batch_size, )
+                entropy = tf.reduce_sum(entropy_per_step, axis=1)  # Sum over time dim -> (batch_size, )
 
                 return neglogp, entropy
 
@@ -788,22 +788,24 @@ class Controller(object):
             # Policy gradient loss
             pg_loss = tf.reduce_mean((r - self.baseline) * neglogp * top_quantile / tf.reduce_mean(top_quantile), name="pg_loss")
             self.pg_loss = pg_loss
-            loss = pg_loss
+            # loss = pg_loss
 
             # Entropy loss
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy * top_quantile / tf.reduce_mean(top_quantile), name="entropy_loss")
+            self.unscaled_entropy_loss = entropy_loss
             if scale_to_pg:  # scale entropy objective to
                 entropy_loss = entropy_loss * self.objective_scaling
             self.entropy_loss = entropy_loss
-            loss += entropy_loss
+            # loss += entropy_loss
 
             # Equation validity loss
             invalid_loss = tf.reduce_mean(-self.invalid_weight * invalid * neglogp, name="invalid_loss")
             if scale_to_pg:  # scale invalid objective to
                 invalid_loss = invalid_loss * self.objective_scaling
             self.invalid_loss = invalid_loss
-            loss += invalid_loss
+            # loss += invalid_loss
 
+            loss = pg_loss + entropy_loss + invalid_loss
             self.loss = loss
 
         def make_optimizer(name, learning_rate):
@@ -897,7 +899,7 @@ class Controller(object):
             self.sampled_batch_ph: sampled_batch
         }
 
-        _, entropy_loss, invalid_loss, pg_loss = self.sess.run([self.train_op, self.entropy_loss, self.invalid_loss, self.pg_loss], feed_dict=feed_dict)
+        _, loss, entropy_loss, unscaled_entropy_loss, invalid_loss, pg_loss = self.sess.run([self.train_op, self.loss, self.entropy_loss, self.unscaled_entropy_loss, self.invalid_loss, self.pg_loss], feed_dict=feed_dict)
 
-        return entropy_loss, invalid_loss, pg_loss
+        return loss, entropy_loss, unscaled_entropy_loss, invalid_loss, pg_loss
 

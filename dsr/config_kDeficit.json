@@ -62,7 +62,7 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.01,
+      "learning_rate": 0.001,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,

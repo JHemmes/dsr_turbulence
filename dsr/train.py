@@ -397,7 +397,7 @@ def learn(session, controller, pool, tensor_dsr,
         b_train = min(baseline, quantile)
 
         # Train the controller
-        loss_ent, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
+        loss, loss_ent, loss_ent_unscaled, loss_inv, loss_pg = controller.train_step(b_train, loss_pg, sampled_batch)
 
         # Assess best program on full dataset for output file
         if dataset_batch_size:
@@ -468,9 +468,11 @@ def learn(session, controller, pool, tensor_dsr,
                          l_avg_full,
                          l_avg_sub,
                          ewma,
+                         loss,
                          loss_pg,  # avg_pg_loss,
                          loss_inv,  # avg_inv_loss,
-                         loss_ent,  # avg_ent_loss,
+                         loss_ent,
+                         loss_ent_unscaled, # avg_ent_loss,
                          n_unique_full,
                          n_unique_sub,
                          n_novel_full,
