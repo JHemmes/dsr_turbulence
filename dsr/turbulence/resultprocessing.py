@@ -782,7 +782,8 @@ if __name__ == "__main__":
 
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
     # logdir = '../logs_completed/sensitivity_analysis_bDelta'
-    logdir = '../logs_completed/sensitivity_compare'
+    # logdir = '../logs_completed/sensitivity_compare'
+    logdir = '../logs_completed/test_compare'
     plot_sensitivity_results(logdir)
 
     print('end')
