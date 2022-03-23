@@ -12,6 +12,7 @@ matplotlib.use('Agg')
 # matplotlib.use('tkagg')
 
 import matplotlib.pyplot as plt
+import platform
 import time
 from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset, de_flatten_tensor
 from dsr.program import from_str_tokens
@@ -761,8 +762,12 @@ def create_plots(all_results, plotmode, plotlist, plot_dir):
 
 
 if __name__ == "__main__":
+
     dsrpath = os.path.abspath(__file__)
-    os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
+    if platform.system() == 'Windows':
+        os.chdir(dsrpath[:dsrpath.find('\\dsr\\')+4]) # change the working directory to main dsr dir
+    else:
+        os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
     ############################################################################
     # #use function below to plot the contours when the logs are already written
