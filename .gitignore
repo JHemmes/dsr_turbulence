@@ -13,3 +13,6 @@ dsr/dsr/summary*
 *.idea/*
 **/transfer_learning/*
 **/test/data/
+**/turbulence/frozen_data/pickled_*
+
+

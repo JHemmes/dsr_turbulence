@@ -80,6 +80,7 @@ class DeepSymbolicOptimizer():
                        self.controller,
                        self.pool,
                        self.config_task['enforce_sum'],
+                       self.config_task['dataset_info']['name'],
                        **self.config_training)
         return result
 

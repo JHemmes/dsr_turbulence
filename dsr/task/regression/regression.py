@@ -5,7 +5,7 @@ import dsr
 from dsr.library import Library, AD_PlaceholderConstant
 from dsr.functions import create_tokens, create_ad_tokens, create_metric_ad_tokens
 from dsr.task.regression.dataset import BenchmarkDataset
-
+from dsr.turbulence.dataprocessing import load_frozen_RANS_dataset
 
 def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info, metric="inv_nrmse",
     metric_params=(1.0,), extra_metric_test=None, extra_metric_test_params=(),
@@ -101,6 +101,47 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
     X_train_full = X_train
     y_train_full = y_train
 
+    cases = {}
+    if dataset_info['name'] in ['PH10595', 'CBFS13700', 'CD12600']:
+        # set up datasets for program evaluation on all cases
+        # sets = [['PH10595', False],
+        #         ['PH10595', 3],
+        #         ['CBFS13700', False],
+        #         ['CBFS13700', 3],
+        #         ['CD12600', False],
+        #         ['CD12600', 3]]
+        dummy_config = dataset_info.copy()
+        dummy_config['name'] = 'PH10595'
+        dummy_config['skip_wall'] = False
+        X_train_PH, y_train_PH = load_frozen_RANS_dataset(dummy_config)
+
+        dummy_config = dataset_info.copy()
+        dummy_config['name'] = 'CBFS13700'
+        dummy_config['skip_wall'] = False
+        X_train_CBFS, y_train_CBFS = load_frozen_RANS_dataset(dummy_config)
+
+        dummy_config = dataset_info.copy()
+        dummy_config['name'] = 'CD12600'
+        dummy_config['skip_wall'] = False
+        X_train_CD, y_train_CD = load_frozen_RANS_dataset(dummy_config)
+        # #
+        # sw = dataset_info['skip_wall']
+        # dummy_config = dataset_info.copy()
+        # dummy_config['name'] = 'PH10595'
+        # dummy_config['skip_wall'] = sw
+        # X_train_PH_SW, y_train_PH_SW = load_frozen_RANS_dataset(dummy_config)
+        #
+        # dummy_config = dataset_info.copy()
+        # dummy_config['name'] = 'CBFS13700'
+        # dummy_config['skip_wall'] = sw
+        # X_train_CBFS_SW, y_train_CBFS_SW = load_frozen_RANS_dataset(dummy_config)
+        #
+        # dummy_config = dataset_info.copy()
+        # dummy_config['name'] = 'CD12600'
+        # dummy_config['skip_wall'] = sw
+        # X_train_CD_SW, y_train_CD_SW = load_frozen_RANS_dataset(dummy_config)
+
+
     if function_set is None:
         print("WARNING: Function set not provided. Using default set.")
         function_set = ["add", "sub", "mul", "div", "sin", "cos", "exp", "log"]
@@ -135,21 +176,76 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
         X_train_full = X_train_full[idx, :]
         y_train_full = y_train_full[idx]
 
-    def rotate_batch(batch_size):
+    def rotate_batch(batch_size, data_set=None):
+        """
+
+        :param batch_size: int or None
+            number of points in batch to be returned, if None full dataset is selected
+        :param data_set: string or None
+            if dataset in ['PH', 'CD', 'CBFS'] the X_train and y_train are changed to different dataset for evaluation
+        :return:
+            Nothing is returned, X_train and y_train are changed non locally
+        """
+
+
         nonlocal X_train, y_train, ad_metric_traversal, X_train_full, y_train_full
 
-        # set up train batch
-        X_train = X_train_full[:batch_size, :]
-        y_train = y_train_full[:batch_size]
-        ad_metric_traversal[-2] = AD_PlaceholderConstant(value=y_train, name='y')
+        if data_set == 'PH':
+            # switch to PH
+            nonlocal X_train_PH, y_train_PH
+            X_train = X_train_PH
+            y_train = y_train_PH
 
-        # rotate full dataset
-        if batch_size:
-            X_train_full = np.roll(X_train_full, -batch_size, axis=0)
-            y_train_full = np.roll(y_train_full, -batch_size)
+        elif data_set == 'CD':
+            # switch to CD
+            nonlocal X_train_CD, y_train_CD
+            X_train = X_train_CD
+            y_train = y_train_CD
+
+        elif data_set == 'CBFS':
+            # switch to CBFS
+            nonlocal X_train_CBFS, y_train_CBFS
+            X_train = X_train_CBFS
+            y_train = y_train_CBFS
+        #
+        # if data_set == 'PH_NW':
+        #     # switch to PH
+        #     nonlocal X_train_PH_SW, y_train_PH_SW
+        #     X_train = X_train_PH_SW
+        #     y_train = y_train_PH_SW
+        #
+        # elif data_set == 'CD_NW':
+        #     # switch to CD
+        #     nonlocal X_train_CD_SW, y_train_CD_SW
+        #     X_train = X_train_CD_SW
+        #     y_train = y_train_CD_SW
+        #
+        # elif data_set == 'CBFS_NW':
+        #     # switch to CBFS
+        #     nonlocal X_train_CBFS_SW, y_train_CBFS_SW
+        #     X_train = X_train_CBFS_SW
+        #     y_train = y_train_CBFS_SW
+
+        else:
+            # set up train batch
+            X_train = X_train_full[:batch_size, :]
+            y_train = y_train_full[:batch_size]
+            ad_metric_traversal[-2] = AD_PlaceholderConstant(value=y_train, name='y')
+
+            # rotate full dataset
+            if batch_size:
+                X_train_full = np.roll(X_train_full, -batch_size, axis=0)
+                y_train_full = np.roll(y_train_full, -batch_size)
 
     def reward(p):
 
+        # from dsr.utils import load_pickle, save_pickle
+        # save_pickle('xy_PHBASE.p', (X_train, y_train))
+        # X_train_saved, y_train_saved = load_pickle('xy_PHBASE.p')
+        #
+        # from dsr.utils import load_pickle, save_pickle
+        # save_pickle('xy_CBFSBASE.p', (X_train, y_train))
+        #
         # Compute estimated values
         y_hat, invalid_indices = p.execute(X_train)
 
@@ -174,7 +270,8 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
             y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
 
         # Compute metric
-        r = metric(y_train, y_hat)
+        r = 1 / (1 + np.sqrt(np.mean((y_train - y_hat) ** 2) / np.var(y_train)))
+        # r = metric(y_train, y_hat)
 
         ### Direct reward noise
         # For reward_noise_type == "r", success can for ~max_reward metrics be
@@ -320,6 +417,7 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
 
     return task
 
+# def update_metric(name, y_train, *args):
 
 def make_regression_metric(name, y_train, *args):
     """

@@ -35,7 +35,7 @@ def hof_work(p):
 
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-def learn(session, controller, pool, tensor_dsr,
+def learn(session, controller, pool, tensor_dsr, dataset_name,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, dataset_batch_size=10, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None,
@@ -201,6 +201,12 @@ def learn(session, controller, pool, tensor_dsr,
     r_best = -np.inf
     r_max_full = 0
     r_best_full = 0
+    r_max_PH = 0
+    r_max_CD = 0
+    r_max_CBFS = 0
+    r_max_PH_NW = 0
+    r_max_CD_NW = 0
+    r_max_CBFS_NW = 0
 
     loss_pg = 1
     prev_r_best = None
@@ -412,7 +418,7 @@ def learn(session, controller, pool, tensor_dsr,
             p_max.full_set = True
             r_max_full = p_max.r
 
-            # rotate batch
+            # rotate batch to select next batch for training
             Program.task.rotate_batch(dataset_batch_size)
 
             # update new best program
@@ -449,6 +455,37 @@ def learn(session, controller, pool, tensor_dsr,
             prev_r_best = r_best
             prev_base_r_best = base_r_best
 
+
+        if dataset_name in ['PH10595', 'CBFS13700', 'CD12600']:
+            # when using turbulence data, asses programs on all cases
+
+            p_max = programs[np.argmax(r)]
+
+            Program.task.rotate_batch(None, data_set='PH')
+            r_max_PH = p_max.task.reward_function(p_max)
+
+            Program.task.rotate_batch(None, data_set='CD')
+            r_max_CD = p_max.task.reward_function(p_max)
+
+            Program.task.rotate_batch(None, data_set='CBFS')
+            r_max_CBFS = p_max.task.reward_function(p_max)
+            #
+            # Program.task.rotate_batch(None, data_set='PH_NW')
+            # r_max_PH_NW = p_max.task.reward_function(p_max)
+            #
+            # Program.task.rotate_batch(None, data_set='CD_NW')
+            # r_max_CD_NW = p_max.task.reward_function(p_max)
+            #
+            # Program.task.rotate_batch(None, data_set='CBFS_NW')
+            # r_max_CBFS_NW = p_max.task.reward_function(p_max)
+
+            Program.task.rotate_batch(dataset_batch_size)
+
+            # test = np.array([ 9,  9, 11,  1,  0,  7,  7,  1,  5, 13])
+            # p_test = from_tokens(test, optimize=optim_opt_sub, skip_cache=True)
+            # p_test.traversal[-1].value[0] = 0.054435153499558075
+            # print(p_test.task.reward_function(p_test))
+
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
             wall_duration = time.time() - wall_start
@@ -463,6 +500,12 @@ def learn(session, controller, pool, tensor_dsr,
                          r_best,
                          r_max,
                          programs[np.argmax(r)].sympy_expr,
+                         r_max_PH,
+                         r_max_CD,
+                         r_max_CBFS,
+                         r_max_PH_NW,
+                         r_max_CD_NW,
+                         r_max_CBFS_NW,
                          r_avg_full,
                          r_avg_sub,
                          l_avg_full,

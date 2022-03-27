@@ -142,7 +142,7 @@ def main_custom(config_template="config.json",
     # load dataset and overwrite config
     # (needs to happen after the config is written to the logdir, because dataset is not JSON serialisable)
     if config_task['dataset']['name'] in ['PH10595', 'CBFS13700', 'CD12600']:
-        X, y = load_frozen_RANS_dataset(config_task)
+        X, y = load_frozen_RANS_dataset(config_task['dataset'])
     else:
         print('Using benchmark dataset')
         X, y = load_benchmark_dataset(config_task)
@@ -227,8 +227,7 @@ if __name__ == "__main__":
     """
 
 
-
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=12)
     # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
 
