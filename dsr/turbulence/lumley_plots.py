@@ -237,7 +237,7 @@ def plot_lumley_comparison(results, case, config, filename):
     # with open('config_bDelta.json', encoding='utf-8') as f:
     #     config = json.load(f)
 
-    X, y = load_frozen_RANS_dataset(config['task'])
+    X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
     if isinstance(results, str):
         dsr_bDelta = eval_string(results, X)

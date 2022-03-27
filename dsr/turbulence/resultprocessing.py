@@ -54,7 +54,9 @@ def scatter_results_scalar(results, config):
         else:
             dummy_config = config['task']
             dummy_config['dataset']['input'] = ['grad_u_T1']
-            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config)
+            dummy_config['dataset']['skip_wall'] = False
+
+            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config['dataset'])
 
         # find K
         if 'k' in inputs:
@@ -62,7 +64,8 @@ def scatter_results_scalar(results, config):
         else:
             dummy_config = config['task']
             dummy_config['dataset']['input'] = ['k']
-            k, _ = load_frozen_RANS_dataset(dummy_config)
+            dummy_config['dataset']['skip_wall'] = False
+            k, _ = load_frozen_RANS_dataset(dummy_config['dataset'])
         Rsparta = 2*k*grad_u_T1*1.4
 
         yhat, _ = results['program'].execute(X)
@@ -193,7 +196,9 @@ def calc_tensor_sparta_yhat(config):
     dummy_config['dataset'] = dummy_config.pop('dataset_info')
     dummy_config['dataset']['input'] = ['T1', 'T2', 'T3', 'T4', 'inv1', 'inv2']
     dummy_config['dataset']['output'] = 'bDelta'
-    RANSdata, _ = load_frozen_RANS_dataset(dummy_config)
+    dummy_config['dataset']['skip_wall'] = False
+
+    RANSdata, _ = load_frozen_RANS_dataset(dummy_config['dataset'])
     T1 = RANSdata[:,0]
     T2 = RANSdata[:,1]
     T3 = RANSdata[:,2]
@@ -234,7 +239,9 @@ def contourplot_results_tensor(results, config):
     for case in cases:
 
         config['task']['dataset']['name'] = case
-        X, y = load_frozen_RANS_dataset(config['task'])
+        config['task']['dataset']['skip_wall'] = False
+
+        X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
         yhat, _ = results['program'].execute(X)
 
@@ -387,7 +394,8 @@ def contourplot_results_scalar(results, config):
 
     for case in cases:
         config['task']['dataset']['name'] = case
-        X, y = load_frozen_RANS_dataset(config['task'])
+        config['task']['dataset']['skip_wall'] = False
+        X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
         frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
         data_i = frozen['data_i']
@@ -409,7 +417,9 @@ def retrospecitvely_plot_contours(logdir, with_sparta=True):
 
     for case in cases:
         config['task']['dataset']['name'] = case
-        X, y = load_frozen_RANS_dataset(config['task'])
+        config['task']['dataset']['skip_wall'] = False
+
+        X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
         ysparta = 2*1.4*X[:,0]*X[:,1]
 
