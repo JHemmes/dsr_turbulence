@@ -546,12 +546,12 @@ def fetch_iteration_metrics(logdir, finished=True):
     if 'r_max_full' in plot_metrics:
         if not (plot_dict['r_max_full'][0] == 0).all():
             plot_dict['base_r_max'] = plot_dict['r_max_full']
-            del plot_dict['r_max_full']
+        del plot_dict['r_max_full']
 
     if 'r_best_full' in plot_metrics:
         if not (plot_dict['r_best_full'][0] == 0).all():
             plot_dict['base_r_best'] = plot_dict['r_best_full']
-            del plot_dict['r_best_full']
+        del plot_dict['r_best_full']
 
     return plot_dict
 
@@ -787,7 +787,7 @@ if __name__ == "__main__":
 
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
     # logdir = '../logs_completed/sensitivity_analysis_bDelta'
-    logdir = '../logs_completed/sensitivity_compare'
+    logdir = '../logs_completed/compare_iterlim_optimisation'
     plot_sensitivity_results(logdir)
 
     print('end')
