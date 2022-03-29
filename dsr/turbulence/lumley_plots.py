@@ -201,15 +201,6 @@ def calc_lumley_cspace(a, data_i):
 
     return trispace, cmap_space
 
-    # fig = plt.figure(figsize=(20,8))
-    # ax = fig.add_subplot(111, aspect='equal')
-    # ax.tripcolor(mesh_x_flat, mesh_y_flat, trispace.triangles,
-    #              np.linspace(0,1,mesh_x_flat.shape[0]),
-    #              edgecolors='none', cmap=cmap_space, shading='gouraud')
-    # plt.gca().axison = False
-    # plt.gca().set_aspect('equal')
-    # plt.title(title)
-    # # plt.show()
 
 def plot_lumley_comparison(results, case, config, filename):
     frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
@@ -233,11 +224,9 @@ def plot_lumley_comparison(results, case, config, filename):
 
     trispace_target, cmap_space_target = calc_lumley_cspace(bij_corr, data_i)
 
-    # # load dataset:
-    # with open('config_bDelta.json', encoding='utf-8') as f:
-    #     config = json.load(f)
 
-    X, y = load_frozen_RANS_dataset(config['task'])
+    #first calculate reward on dataset used fro training (without walls)
+    X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
     if isinstance(results, str):
         dsr_bDelta = eval_string(results, X)
@@ -250,6 +239,20 @@ def plot_lumley_comparison(results, case, config, filename):
         return
 
     inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-dsr_bDelta)**2))/np.std(y))
+
+    # now load full dataset with walls for plotting
+    config['task']['dataset']['skip_wall'] = False
+    X, y = load_frozen_RANS_dataset(config['task']['dataset'])
+
+    if isinstance(results, str):
+        dsr_bDelta = eval_string(results, X)
+        # evaluate string
+    else:
+        dsr_bDelta, _ = results['program'].execute(X)
+
+    # set all nan or inf values to zero to avoid errors in plotting
+    dsr_bDelta[np.isnan(dsr_bDelta)] = 0
+    dsr_bDelta[np.isinf(dsr_bDelta)] = 0
 
     dsr_bDelta = de_flatten_tensor(dsr_bDelta)
     dsr_bDelta = np.moveaxis(dsr_bDelta, -1, 0)
@@ -272,6 +275,7 @@ def plot_lumley_comparison(results, case, config, filename):
     # ax[0].set_aspect('equal')
     ax[1].axison = False
     # ax[1].set_aspect('equal')
+
     plt.savefig(f'{filename}.png', bbox_inches='tight', pad_inches=0)
 
 

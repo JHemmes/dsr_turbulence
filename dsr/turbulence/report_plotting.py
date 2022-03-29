@@ -14,7 +14,6 @@ def create_plots_for_increasing_n_iterations():
 
     dirlist = os.listdir(logdir)
 
-
     iterations = np.arange(10, 110, 10)
 
     metrics = {}

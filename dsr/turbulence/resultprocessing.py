@@ -54,7 +54,9 @@ def scatter_results_scalar(results, config):
         else:
             dummy_config = config['task']
             dummy_config['dataset']['input'] = ['grad_u_T1']
-            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config)
+            dummy_config['dataset']['skip_wall'] = False
+
+            grad_u_T1, _ = load_frozen_RANS_dataset(dummy_config['dataset'])
 
         # find K
         if 'k' in inputs:
@@ -62,11 +64,12 @@ def scatter_results_scalar(results, config):
         else:
             dummy_config = config['task']
             dummy_config['dataset']['input'] = ['k']
-            k, _ = load_frozen_RANS_dataset(dummy_config)
+            dummy_config['dataset']['skip_wall'] = False
+            k, _ = load_frozen_RANS_dataset(dummy_config['dataset'])
+
         Rsparta = 2*k*grad_u_T1*1.4
 
         yhat, _ = results['program'].execute(X)
-        NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
 
         reward = results['r']
         expression = results['expression']
@@ -86,7 +89,7 @@ def scatter_results_scalar(results, config):
 
         plt.xlabel('Target (ground truth)')
         plt.ylabel('DSR model result')
-        plt.title(f'reward = {reward}, NRMSE = {NRMSE} \n  expression = ' + expression)
+        plt.title(f'{config["task"]["metric"]} = {reward} \n  expression = ' + expression)
         plt.grid('both')
         plt.xlim([10e-6, 1])
         plt.ylim([10e-6, 1])
@@ -105,7 +108,7 @@ def scatter_results_tensor(results, config):
         yhat_sparta = calc_tensor_sparta_yhat(config)
 
         yhat, _ = results['program'].execute(X)
-        NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
+        # NRMSE = np.sqrt(np.mean((y-yhat)**2))/np.std(y)
 
         # de-flatten tensors:
         y = de_flatten_tensor(y)
@@ -118,9 +121,7 @@ def scatter_results_tensor(results, config):
         seed = results['seed']
         filename = f'dsr_{name}_{seed}'
 
-
-
-        fig, axs = plt.subplots(2, 3, figsize=(22,15), dpi=100)
+        fig, axs = plt.subplots(2, 3, figsize=(22, 15), dpi=100)
         axs_flat = np.reshape(axs, (6,))
         axs[0, 0].scatter(y[0, 0, :], yhat[0, 0, :], s=2)
         axs[0, 0].set_title("T[1,1]")
@@ -168,7 +169,7 @@ def scatter_results_tensor(results, config):
             if plot_sparta:
                 ax.legend(['DSR', 'sparta'])
 
-        plt.suptitle(f'reward = {reward}, NRMSE = {NRMSE} \n  expression = ' + expression)
+        plt.suptitle(f'{config["task"]["metric"]} = {reward} \n  expression = ' + expression)
         plt.grid('both')
         plt.savefig(logdir + '/' + filename)
         # log_axes = [axs[0, 0], axs[0, 1], axs[1, 2]]
@@ -188,12 +189,14 @@ def scatter_results_tensor(results, config):
 def calc_tensor_sparta_yhat(config):
 
     # load all required inputs
-    dummy_config = copy.deepcopy(config['task'])
-    dummy_config.pop('dataset')
-    dummy_config['dataset'] = dummy_config.pop('dataset_info')
-    dummy_config['dataset']['input'] = ['T1', 'T2', 'T3', 'T4', 'inv1', 'inv2']
-    dummy_config['dataset']['output'] = 'bDelta'
-    RANSdata, _ = load_frozen_RANS_dataset(dummy_config)
+    tmp_config = config['task'].copy()
+    tmp_config.pop('dataset')
+    tmp_config['dataset'] = tmp_config.pop('dataset_info')
+    tmp_config['dataset']['input'] = ['T1', 'T2', 'T3', 'T4', 'inv1', 'inv2']
+    tmp_config['dataset']['output'] = 'bDelta'
+    # tmp_config['dataset']['skip_wall'] = False
+
+    RANSdata, _ = load_frozen_RANS_dataset(tmp_config['dataset'])
     T1 = RANSdata[:,0]
     T2 = RANSdata[:,1]
     T3 = RANSdata[:,2]
@@ -234,7 +237,9 @@ def contourplot_results_tensor(results, config):
     for case in cases:
 
         config['task']['dataset']['name'] = case
-        X, y = load_frozen_RANS_dataset(config['task'])
+        config['task']['dataset']['skip_wall'] = False
+
+        X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
         yhat, _ = results['program'].execute(X)
 
@@ -306,12 +311,12 @@ def lumley_plot(results, config):
     cases = ['CBFS13700', 'PH10595', 'CD12600']
 
     for case in cases:
-
-        config['task']['dataset']['name'] = case
+        tmp_config = config.copy()
+        tmp_config['task']['dataset']['name'] = case
 
         filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
 
-        plot_lumley_comparison(results, case, config, filename)
+        plot_lumley_comparison(results, case, tmp_config, filename)
 
 def eval_expression(expression, X):
 
@@ -329,9 +334,9 @@ def eval_expression(expression, X):
 
     return yhat
 
-def case_contourplots(mesh_x, mesh_y, y, yhat, filename):
+def case_contourplots(mesh_x, mesh_y, y, yhat, filename, inv_nrmse):
 
-    inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-yhat)**2))/np.std(y))
+    # inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-yhat)**2))/np.std(y))
 
     yhat = np.reshape(yhat, mesh_x.shape, order='F')
     y = np.reshape(y, mesh_x.shape, order='F')
@@ -339,7 +344,7 @@ def case_contourplots(mesh_x, mesh_y, y, yhat, filename):
     ymin = np.min(y)
     ymax = np.max(y)
 
-    fig, ax = plt.subplots(2, figsize=(15,10), dpi=250)
+    fig, ax = plt.subplots(2, figsize=(15, 10), dpi=250)
     fig.tight_layout()
     ax0 = ax[0].contourf(mesh_x, mesh_y, y, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
     ax[0].set_title('Target', y=1.05, pad=-14)
@@ -386,20 +391,31 @@ def contourplot_results_scalar(results, config):
     cases = ['PH10595', 'CD12600', 'CBFS13700']
 
     for case in cases:
-        config['task']['dataset']['name'] = case
-        X, y = load_frozen_RANS_dataset(config['task'])
+        tmp_config = config['task']['dataset'].copy()
+        tmp_config['name'] = case
+        X, y = load_frozen_RANS_dataset(tmp_config)
+        # get yhat reduced field (used for training)
+        yhat, _ = results['program'].execute(X)
+        inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-yhat)**2))/np.std(y))
 
+        # reload data, now containing all points for plotting
+        tmp_config['skip_wall'] = False
+        X, y = load_frozen_RANS_dataset(tmp_config)
+
+        # get yhat full field
+        yhat, _ = results['program'].execute(X)
+
+        # get mesh data
         frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
         data_i = frozen['data_i']
 
         mesh_x = data_i['meshRANS'][0, :, :]
         mesh_y = data_i['meshRANS'][1, :, :]
 
-        yhat, _ = results['program'].execute(X)
 
         filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
 
-        case_contourplots(mesh_x, mesh_y, y, yhat, filename)
+        case_contourplots(mesh_x, mesh_y, y, yhat, filename, inv_nrmse)
 
 def retrospecitvely_plot_contours(logdir, with_sparta=True):
     with open(logdir + '/config.json', encoding='utf-8') as f:
@@ -409,7 +425,9 @@ def retrospecitvely_plot_contours(logdir, with_sparta=True):
 
     for case in cases:
         config['task']['dataset']['name'] = case
-        X, y = load_frozen_RANS_dataset(config['task'])
+        config['task']['dataset']['skip_wall'] = False
+
+        X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
         ysparta = 2*1.4*X[:,0]*X[:,1]
 

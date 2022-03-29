@@ -35,7 +35,7 @@ def hof_work(p):
 
     return [p.r, p.base_r, p.count, repr(p.sympy_expr), repr(p), p.evaluate]
 
-def learn(session, controller, pool, tensor_dsr,
+def learn(session, controller, pool, tensor_dsr, dataset_name,
           logdir="./log", n_epochs=None, n_samples=1e6,
           batch_size=1000, dataset_batch_size=10, complexity="length", complexity_weight=0.001,
           const_optimizer="minimize", const_params=None,
@@ -164,13 +164,13 @@ def learn(session, controller, pool, tensor_dsr,
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
     #Create dummy program to find names of tokens in library
-    tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
-    token_names = tmp_program.library.names
+    # tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
+    token_names = Program.library.names
     if dataset_batch_size:
         if not tensor_dsr:
-            tmp_program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
-        tmp_program.task.rotate_batch(dataset_batch_size)
-    del tmp_program
+            Program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
+        Program.task.rotate_batch(dataset_batch_size, rotate=False)
+    # del tmp_program
 
     # Create log files and dirs
     hof_output_file, batch_dir, controller_dir = setup_output_files(logdir, output_file, token_names,
@@ -201,6 +201,9 @@ def learn(session, controller, pool, tensor_dsr,
     r_best = -np.inf
     r_max_full = 0
     r_best_full = 0
+    r_max_PH = 0
+    r_max_CD = 0
+    r_max_CBFS = 0
 
     loss_pg = 1
     prev_r_best = None
@@ -412,7 +415,7 @@ def learn(session, controller, pool, tensor_dsr,
             p_max.full_set = True
             r_max_full = p_max.r
 
-            # rotate batch
+            # rotate batch to select next batch for training
             Program.task.rotate_batch(dataset_batch_size)
 
             # update new best program
@@ -449,6 +452,23 @@ def learn(session, controller, pool, tensor_dsr,
             prev_r_best = r_best
             prev_base_r_best = base_r_best
 
+        if dataset_name in ['PH10595', 'CBFS13700', 'CD12600']:
+            # when using turbulence data, asses programs on all cases
+
+            p_max = programs[np.argmax(r)]
+
+            Program.task.rotate_batch(None, data_set='PH')
+            r_max_PH = p_max.task.reward_function(p_max)
+
+            Program.task.rotate_batch(None, data_set='CD')
+            r_max_CD = p_max.task.reward_function(p_max)
+
+            Program.task.rotate_batch(None, data_set='CBFS')
+            r_max_CBFS = p_max.task.reward_function(p_max)
+
+            # reselect required batch for traing
+            Program.task.rotate_batch(dataset_batch_size, rotate=False)
+
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
             wall_duration = time.time() - wall_start
@@ -463,6 +483,9 @@ def learn(session, controller, pool, tensor_dsr,
                          r_best,
                          r_max,
                          programs[np.argmax(r)].sympy_expr,
+                         r_max_PH,
+                         r_max_CD,
+                         r_max_CBFS,
                          r_avg_full,
                          r_avg_sub,
                          l_avg_full,

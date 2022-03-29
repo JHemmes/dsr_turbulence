@@ -8,6 +8,7 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
+from dsr.utils import load_pickle, save_pickle
 
 def load_benchmark_dataset(config_task):
     if config_task['dataset']['output'] == 'bDelta':
@@ -95,7 +96,6 @@ def calc_sij_rij(grad_u, omega, normalize=True):
     """
     omega = np.maximum(omega, 1e-8)  # make sure omega is not zero
 
-
     # this is some form of limiter is the k-omega-sst model
     tmp = 0.5*(grad_u + np.transpose(grad_u, (1,0,2)))
     omega_lim = np.zeros(omega.shape)
@@ -122,7 +122,6 @@ def calc_tensor_basis(Sij, Rij):
     :param Rij: Mean rotation-rate tensor (3, 3, num_of_points)
     :return: T: Base tensor series (10, 3, 3, num_of_points)
     """
-    # ?? looking to replace this for loop. However it only happens once so does it matter that much?
     num_of_cells = Sij.shape[2]
     T = np.ones([10, 3, 3, num_of_cells]) * np.nan
     for i in range(num_of_cells):
@@ -228,97 +227,178 @@ def broadcast(scalar, flat_bool):
 
 def load_frozen_RANS_dataset(config_task):
 
-    case = config_task['dataset']['name']
+    case = config_task['name']
+    output = config_task['output']
+    inputs = config_task['input']
+    skip_wall = config_task['skip_wall']
 
-    frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
-    data_i = frozen['data_i']
+    pickle_path = f'turbulence/frozen_data/pickled_' + '_'.join([case] + [f'NW_{skip_wall}'] + [output] + inputs) + '.p'
 
-    output = config_task['dataset']['output']
+    try:
+        X, y = load_pickle(pickle_path)
+        # X, y = load_pickle('thisfiledoesntexists.p')
+    except FileNotFoundError:
 
-    y = data_i[output]
+        frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
+        data_i = frozen['data_i']
 
-    inputs = config_task['dataset']['input']
-    n_inputs = len(inputs)
+        if skip_wall:
+            # shorten all variables in frozen dict to only keep relevant data
+            mesh_x = data_i['meshRANS'][0, :, :]
+            n_points_x = mesh_x.shape[0]
+            bool_arr = np.ones(data_i['k'].shape) == 1
 
-    # Check what inputs need to be calculated:
-    grad_tens = False
-    invar = False
-    tens = False
-    flatten = False
+            bool_arr[:skip_wall*n_points_x] = False
+            bool_arr[-skip_wall*n_points_x:] = False
 
-    for input in inputs:
-        if input in ['grad_u_T1', 'grad_u_T2', 'grad_u_T3', 'grad_u_T4', 'grad_u_T5', 'grad_u_T5', 'grad_u_T7', 'grad_u_T8', 'grad_u_T9', 'grad_u_T10']:
-            grad_tens = True
-        if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
-            tens = True
-            flatten = True
-        if input in ['inv1', 'inv2', 'inv3', 'inv4', 'inv5']:
-            invar = True
+            # this should possibly happen outside skip_wall, but for now it remains to ensure plotting receives all data
+            bool_arr[data_i['k'] < 0.00001] = False
+
+            for key in data_i:
+                if isinstance(data_i[key], np.ndarray):
+                    if data_i[key].shape[0] == bool_arr.shape[0]:
+                        data_i[key] = data_i[key][bool_arr]
+                    elif data_i[key].shape[-1] == bool_arr.shape[0]:
+                        data_i[key] = data_i[key][:, :, bool_arr]
 
 
-    # calculate correct values
+        # Check what inputs need to be calculated:
+        grad_tens = False
+        invar = False
+        tens = False
+        flatten = False
 
-    if tens:
-        Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'])
-        Tij = calc_tensor_basis(Sij, Rij)
+        for input in inputs:
+            if input in ['grad_u_T1', 'grad_u_T2', 'grad_u_T3', 'grad_u_T4', 'grad_u_T5', 'grad_u_T5', 'grad_u_T7', 'grad_u_T8', 'grad_u_T9', 'grad_u_T10']:
+                grad_tens = True
+            if input in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                tens = True
+                flatten = True
+            if input in ['inv1', 'inv2', 'inv3', 'inv4', 'inv5']:
+                invar = True
 
-    if grad_tens:
-        Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'])
-        Tij = calc_tensor_basis(Sij, Rij)
-        grad_u = data_i['grad_u']
+        # calculate correct values
 
-    if invar:
-        if 'Sij' not in locals():  # check whether Sij and Rij have been calculated already
+        if tens:
             Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'])
+            Tij = calc_tensor_basis(Sij, Rij)
 
-        invariants = calc_invariants(Sij, Rij)
+        if grad_tens:
+            Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'])
+            Tij = calc_tensor_basis(Sij, Rij)
+            grad_u = data_i['grad_u']
 
-    if flatten:
-        # initialise for flattened tensors
-        X = np.zeros((max(y.shape)*6, n_inputs))
-        y = flatten_tensor(y)
-    else:
-        # initialise for scalars
-        X = np.zeros((max(y.shape), n_inputs))
+        if invar:
+            if 'Sij' not in locals():  # check whether Sij and Rij have been calculated already
+                Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'])
+
+            invariants = calc_invariants(Sij, Rij)
 
 
+        y = data_i[output]
 
-    for index, value in enumerate(inputs):
-        if value in data_i.keys():
-            # input present in frozen data
-            input = data_i[value]
-            if len(input.shape) == 1:
-                # input is a scalar, might need to be broadcasted
-                X[:, index] = broadcast(input, flatten)
-            else:
-                # input is a tensor, needs flattening
-                X[:,index] = flatten_tensor(input)
+        n_inputs = len(inputs)
 
-        elif value in ['grad_u_T1', 'grad_u_T2', 'grad_u_T3', 'grad_u_T4', 'grad_u_T5',
-                     'grad_u_T5', 'grad_u_T7', 'grad_u_T8', 'grad_u_T9', 'grad_u_T10']:
-            # input is a product of base tensors and grad_u
-            tensor_idx = int(value[value.find('_u_T') + 4:]) - 1
-            input = np.zeros(grad_u.shape[-1])
-            for ii in range(grad_u.shape[-1]):
-                input[ii] = np.tensordot(grad_u[:, :, ii], Tij[tensor_idx, :, :, ii])
-            X[:,index] = broadcast(input, flatten)
-        elif value in ['inv1', 'inv2', 'inv3', 'inv4', 'inv5']:
-            # input is on of pope's base tensor invariants
-            inv_idx = int(value[-1])-1
-            X[:,index] = broadcast(invariants[inv_idx, :], flatten)
-        elif value in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
-            # input is one of the base tensors
-            tensor_idx = int(value[1:]) - 1
-            tensor = Tij[tensor_idx, :, :, :]
-            X[:,index] = flatten_tensor(tensor)
+        if flatten:
+            # initialise for flattened tensors
+            X = np.zeros((max(y.shape)*6, n_inputs))
+            y = flatten_tensor(y)
         else:
-            print(f'{value} as input is currently not supported, might be a typo?')
-            data_i[value] # errors on this statement, is supposed to stop the program
+            # initialise for scalars
+            X = np.zeros((max(y.shape), n_inputs))
+
+        for index, value in enumerate(inputs):
+            if value in data_i.keys():
+                # input present in frozen data
+                input = data_i[value]
+                if len(input.shape) == 1:
+                    # input is a scalar, might need to be broadcasted
+                    X[:, index] = broadcast(input, flatten)
+                else:
+                    # input is a tensor, needs flattening
+                    X[:,index] = flatten_tensor(input)
+
+            elif value in ['grad_u_T1', 'grad_u_T2', 'grad_u_T3', 'grad_u_T4', 'grad_u_T5',
+                         'grad_u_T5', 'grad_u_T7', 'grad_u_T8', 'grad_u_T9', 'grad_u_T10']:
+                # input is a product of base tensors and grad_u
+                tensor_idx = int(value[value.find('_u_T') + 4:]) - 1
+                input = np.zeros(grad_u.shape[-1])
+                for ii in range(grad_u.shape[-1]):
+                    input[ii] = np.tensordot(grad_u[:, :, ii], Tij[tensor_idx, :, :, ii])
+                X[:,index] = broadcast(input, flatten)
+            elif value in ['inv1', 'inv2', 'inv3', 'inv4', 'inv5']:
+                # input is on of pope's base tensor invariants
+                inv_idx = int(value[-1])-1
+                X[:,index] = broadcast(invariants[inv_idx, :], flatten)
+            elif value in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                # input is one of the base tensors
+                tensor_idx = int(value[1:]) - 1
+                tensor = Tij[tensor_idx, :, :, :]
+                X[:,index] = flatten_tensor(tensor)
+            else:
+                print(f'{value} as input is currently not supported, might be a typo?')
+                data_i[value] # errors on this statement, is supposed to stop the program
+
+        # bool_test required for scatters, and needs to be created before X is clipped
+        # bool_test = ~(X == 0).any(axis=1)
+
+        if skip_wall: # delete all points where input vars are zero, only relevant for CBFS case
+            # this should probably not be dependent on skip wall value, but is now used to maintain possibility to return all points
+
+            # base tensors have some zero components, avoid removing those points:
+            cols = np.ones(len(inputs)) == 1
+            for ii in range(len(inputs)):
+                if inputs[ii] in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                    cols[ii] = False
+
+            y = y[~(X[:,cols] == 0).any(axis=1)]
+            X = X[~(X[:,cols] == 0).any(axis=1), :]
+
+        save_pickle(pickle_path, (X,y))
+
+        # # can be used to plot regions of zero pressure gradient:
+        # mesh_x = data_i['meshRANS'][0, :, :]
+        # mesh_y = data_i['meshRANS'][1, :, :]
+        # mesh_x_flat = mesh_x.flatten(order='F').T
+        # mesh_y_flat = mesh_y.flatten(order='F').T
+        # #
+        # k = np.reshape(data_i['k'], mesh_x.shape, order='F')
+        # omega_frozen = np.reshape(data_i['omega_frozen'], mesh_x.shape, order='F')
+        # nut_frozen = np.reshape(data_i['nut_frozen'], mesh_x.shape, order='F')
+        #
+        # import matplotlib
+        # matplotlib.use('tkagg')
+        #
+        # mesh_x_flat_keep = mesh_x_flat[bool_arr]
+        # mesh_y_flat_keep = mesh_y_flat[bool_arr]
+        # mesh_x_flat_keep = mesh_x_flat_keep[bool_test]
+        # mesh_y_flat_keep = mesh_y_flat_keep[bool_test]
+        #
+        # for ii in range(len(inputs)):
+        #     var = inputs[ii]
+        #     mesh_x_short = mesh_x_flat_keep[X[:, ii] == 0]
+        #     mesh_y_short = mesh_y_flat_keep[X[:, ii] == 0]
+        #     plt.figure()
+        #     plt.scatter(mesh_x_short, mesh_y_short)
+        #     plt.title(var)
+        #
+        # for ii in range(len(inputs)):
+        #     var = inputs[ii]
+        #     # mesh_x_short = mesh_x_flat_keep[X[:, ii] == 0]
+        #     # mesh_y_short = mesh_y_flat_keep[X[:, ii] == 0]
+        #     plt.figure()
+        #     plt.scatter(mesh_x_flat_keep, mesh_y_flat_keep)
+        #     plt.title(var)
+        #
+        # plt.show()
+        #
+        #
+        # plt.figure()
+        # plt.scatter(mesh_x_flat_keep, mesh_y_flat_keep)
+        # plt.show()
 
 
     return (X, y)
-
-
 
 
 def scatter_results_directory(logdir, X, y, plot_sparta=True):
