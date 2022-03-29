@@ -237,6 +237,7 @@ def plot_lumley_comparison(results, case, config, filename):
     # with open('config_bDelta.json', encoding='utf-8') as f:
     #     config = json.load(f)
 
+    #first calculate reward on dataset used fro training (without walls)
     X, y = load_frozen_RANS_dataset(config['task']['dataset'])
 
     if isinstance(results, str):
@@ -250,6 +251,19 @@ def plot_lumley_comparison(results, case, config, filename):
         return
 
     inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-dsr_bDelta)**2))/np.std(y))
+
+    # now load full dataset with walls for plotting
+    config['task']['dataset']['skip_wall'] = False
+    X, y = load_frozen_RANS_dataset(config['task']['dataset'])
+
+    if isinstance(results, str):
+        dsr_bDelta = eval_string(results, X)
+        # evaluate string
+    else:
+        dsr_bDelta, _ = results['program'].execute(X)
+
+    # set all nan values to zero to avoid errors in plotting
+    dsr_bDelta[np.isnan(dsr_bDelta)] = 0
 
     dsr_bDelta = de_flatten_tensor(dsr_bDelta)
     dsr_bDelta = np.moveaxis(dsr_bDelta, -1, 0)
@@ -272,6 +286,7 @@ def plot_lumley_comparison(results, case, config, filename):
     # ax[0].set_aspect('equal')
     ax[1].axison = False
     # ax[1].set_aspect('equal')
+
     plt.savefig(f'{filename}.png', bbox_inches='tight', pad_inches=0)
 
 

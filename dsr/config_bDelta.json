@@ -9,6 +9,7 @@
          "noise": null,
          "input": ["T1", "T2", "T3", "T4", "k", "inv1", "inv2", "inv3", "inv4", "inv5"],
          "output": "bDelta",
+         "skip_wall": 2,
          "dataset_size_multiplier": 1.0
       },
       "metric" : "inv_nrmse",
@@ -52,7 +53,7 @@
            "gtol": 1e-5
         },
         "save_batch": false,
-        "save_controller": true
+        "save_controller": false
    },
    "controller": {
       "cell": "lstm",

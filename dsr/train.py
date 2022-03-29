@@ -164,13 +164,13 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
     assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
     #Create dummy program to find names of tokens in library
-    tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
-    token_names = tmp_program.library.names
+    # tmp_program = from_tokens(np.array([0]), optimize=False, skip_cache=True)
+    token_names = Program.library.names
     if dataset_batch_size:
         if not tensor_dsr:
-            tmp_program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
-        tmp_program.task.rotate_batch(dataset_batch_size)
-    del tmp_program
+            Program.task.data_shuffle(int(output_file.split('.')[0].split('_')[-1]))
+        Program.task.rotate_batch(dataset_batch_size, rotate=False)
+    # del tmp_program
 
     # Create log files and dirs
     hof_output_file, batch_dir, controller_dir = setup_output_files(logdir, output_file, token_names,
@@ -204,9 +204,6 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
     r_max_PH = 0
     r_max_CD = 0
     r_max_CBFS = 0
-    r_max_PH_NW = 0
-    r_max_CD_NW = 0
-    r_max_CBFS_NW = 0
 
     loss_pg = 1
     prev_r_best = None
@@ -455,7 +452,6 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
             prev_r_best = r_best
             prev_base_r_best = base_r_best
 
-
         if dataset_name in ['PH10595', 'CBFS13700', 'CD12600']:
             # when using turbulence data, asses programs on all cases
 
@@ -469,22 +465,9 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
 
             Program.task.rotate_batch(None, data_set='CBFS')
             r_max_CBFS = p_max.task.reward_function(p_max)
-            #
-            # Program.task.rotate_batch(None, data_set='PH_NW')
-            # r_max_PH_NW = p_max.task.reward_function(p_max)
-            #
-            # Program.task.rotate_batch(None, data_set='CD_NW')
-            # r_max_CD_NW = p_max.task.reward_function(p_max)
-            #
-            # Program.task.rotate_batch(None, data_set='CBFS_NW')
-            # r_max_CBFS_NW = p_max.task.reward_function(p_max)
 
-            Program.task.rotate_batch(dataset_batch_size)
-
-            # test = np.array([ 9,  9, 11,  1,  0,  7,  7,  1,  5, 13])
-            # p_test = from_tokens(test, optimize=optim_opt_sub, skip_cache=True)
-            # p_test.traversal[-1].value[0] = 0.054435153499558075
-            # print(p_test.task.reward_function(p_test))
+            # reselect required batch for traing
+            Program.task.rotate_batch(dataset_batch_size, rotate=False)
 
         if output_file is not None:
             proc_duration = time.process_time() - proc_start
@@ -503,9 +486,6 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
                          r_max_PH,
                          r_max_CD,
                          r_max_CBFS,
-                         r_max_PH_NW,
-                         r_max_CD_NW,
-                         r_max_CBFS_NW,
                          r_avg_full,
                          r_avg_sub,
                          l_avg_full,

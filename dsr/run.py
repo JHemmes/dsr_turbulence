@@ -58,7 +58,7 @@ def train_dsr(name_and_seed, config):
         print("One or more libraries not found")
         raise ModuleNotFoundError
     except ImportError:
-        # Have we already imported tf? If so, this is the error we want to dodge. 
+        # Is TF imported already? If so this error needs to be dodged
         if 'tf' in globals():
             pass
         else:
@@ -227,8 +227,8 @@ if __name__ == "__main__":
     """
 
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
+    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=4)
+    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=4)
 
 
 

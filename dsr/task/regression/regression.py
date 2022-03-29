@@ -101,46 +101,19 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
     X_train_full = X_train
     y_train_full = y_train
 
-    cases = {}
     if dataset_info['name'] in ['PH10595', 'CBFS13700', 'CD12600']:
-        # set up datasets for program evaluation on all cases
-        # sets = [['PH10595', False],
-        #         ['PH10595', 3],
-        #         ['CBFS13700', False],
-        #         ['CBFS13700', 3],
-        #         ['CD12600', False],
-        #         ['CD12600', 3]]
+
         dummy_config = dataset_info.copy()
         dummy_config['name'] = 'PH10595'
-        dummy_config['skip_wall'] = False
         X_train_PH, y_train_PH = load_frozen_RANS_dataset(dummy_config)
 
         dummy_config = dataset_info.copy()
         dummy_config['name'] = 'CBFS13700'
-        dummy_config['skip_wall'] = False
         X_train_CBFS, y_train_CBFS = load_frozen_RANS_dataset(dummy_config)
 
         dummy_config = dataset_info.copy()
         dummy_config['name'] = 'CD12600'
-        dummy_config['skip_wall'] = False
         X_train_CD, y_train_CD = load_frozen_RANS_dataset(dummy_config)
-        # #
-        # sw = dataset_info['skip_wall']
-        # dummy_config = dataset_info.copy()
-        # dummy_config['name'] = 'PH10595'
-        # dummy_config['skip_wall'] = sw
-        # X_train_PH_SW, y_train_PH_SW = load_frozen_RANS_dataset(dummy_config)
-        #
-        # dummy_config = dataset_info.copy()
-        # dummy_config['name'] = 'CBFS13700'
-        # dummy_config['skip_wall'] = sw
-        # X_train_CBFS_SW, y_train_CBFS_SW = load_frozen_RANS_dataset(dummy_config)
-        #
-        # dummy_config = dataset_info.copy()
-        # dummy_config['name'] = 'CD12600'
-        # dummy_config['skip_wall'] = sw
-        # X_train_CD_SW, y_train_CD_SW = load_frozen_RANS_dataset(dummy_config)
-
 
     if function_set is None:
         print("WARNING: Function set not provided. Using default set.")
@@ -176,7 +149,7 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
         X_train_full = X_train_full[idx, :]
         y_train_full = y_train_full[idx]
 
-    def rotate_batch(batch_size, data_set=None):
+    def rotate_batch(batch_size, data_set=None, rotate=True):
         """
 
         :param batch_size: int or None
@@ -186,7 +159,6 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
         :return:
             Nothing is returned, X_train and y_train are changed non locally
         """
-
 
         nonlocal X_train, y_train, ad_metric_traversal, X_train_full, y_train_full
 
@@ -207,45 +179,20 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
             nonlocal X_train_CBFS, y_train_CBFS
             X_train = X_train_CBFS
             y_train = y_train_CBFS
-        #
-        # if data_set == 'PH_NW':
-        #     # switch to PH
-        #     nonlocal X_train_PH_SW, y_train_PH_SW
-        #     X_train = X_train_PH_SW
-        #     y_train = y_train_PH_SW
-        #
-        # elif data_set == 'CD_NW':
-        #     # switch to CD
-        #     nonlocal X_train_CD_SW, y_train_CD_SW
-        #     X_train = X_train_CD_SW
-        #     y_train = y_train_CD_SW
-        #
-        # elif data_set == 'CBFS_NW':
-        #     # switch to CBFS
-        #     nonlocal X_train_CBFS_SW, y_train_CBFS_SW
-        #     X_train = X_train_CBFS_SW
-        #     y_train = y_train_CBFS_SW
 
         else:
             # set up train batch
+            if batch_size:
+                if rotate:  # rotate full dataset so next selection is of new points
+                    X_train_full = np.roll(X_train_full, -batch_size, axis=0)
+                    y_train_full = np.roll(y_train_full, -batch_size)
+
             X_train = X_train_full[:batch_size, :]
             y_train = y_train_full[:batch_size]
             ad_metric_traversal[-2] = AD_PlaceholderConstant(value=y_train, name='y')
 
-            # rotate full dataset
-            if batch_size:
-                X_train_full = np.roll(X_train_full, -batch_size, axis=0)
-                y_train_full = np.roll(y_train_full, -batch_size)
-
     def reward(p):
 
-        # from dsr.utils import load_pickle, save_pickle
-        # save_pickle('xy_PHBASE.p', (X_train, y_train))
-        # X_train_saved, y_train_saved = load_pickle('xy_PHBASE.p')
-        #
-        # from dsr.utils import load_pickle, save_pickle
-        # save_pickle('xy_CBFSBASE.p', (X_train, y_train))
-        #
         # Compute estimated values
         y_hat, invalid_indices = p.execute(X_train)
 
@@ -270,8 +217,9 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
             y_hat += rng.normal(loc=0, scale=scale, size=y_hat.shape)
 
         # Compute metric
-        r = 1 / (1 + np.sqrt(np.mean((y_train - y_hat) ** 2) / np.var(y_train)))
-        # r = metric(y_train, y_hat)
+        # r = 1 / (1 + np.sqrt(np.mean((y_train - y_hat) ** 2) / np.var(y_train)))
+        # note, y_train always be the first entry otherwies the variance of the wrong set is used
+        r = metric(y_train, y_hat)
 
         ### Direct reward noise
         # For reward_noise_type == "r", success can for ~max_reward metrics be
@@ -416,7 +364,7 @@ def make_regression_task(name, function_set, enforce_sum, dataset, dataset_info,
                          extra_info=extra_info)
 
     return task
-
+#
 # def update_metric(name, y_train, *args):
 
 def make_regression_metric(name, y_train, *args):
@@ -466,13 +414,13 @@ def make_regression_metric(name, y_train, *args):
         # Negative normalized mean squared error
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
-        "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
+        "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/np.var(y),
                         0),
 
         # Negative normalized root mean squared error
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
-        "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
+        "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/np.var(y)),
                         0),
 
         # (Protected) negative log mean squared error
@@ -490,13 +438,13 @@ def make_regression_metric(name, y_train, *args):
         # (Protected) inverse normalized mean squared error
         # Range: [0, 1]
         # Value = 1/(1 + args[0]) when y_hat == mean(y)
-        "inv_nmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.mean((y - y_hat)**2)/var_y),
+        "inv_nmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.mean((y - y_hat)**2)/np.var(y)),
                         1),
 
         # (Protected) inverse normalized root mean squared error
         # Range: [0, 1]
         # Value = 1/(1 + args[0]) when y_hat == mean(y)
-        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y)),
+        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/np.var(y))),
                         1),
 
         # Fraction of predicted points within p0*abs(y) + p1 band of the true value
@@ -530,11 +478,11 @@ def make_regression_metric(name, y_train, *args):
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
         "neg_mse" : -np.inf,   # used to be -var_y
-        "neg_rmse" : -np.sqrt(var_y),
+        "neg_rmse" : -np.sqrt(np.var(y_train)),
         "neg_nmse" : -1.0,
         "neg_nrmse" : -1.0,
-        "neglog_mse" : -np.log(1 + var_y),
-        "inv_mse" : 0.0, #1/(1 + args[0]*var_y),
+        "neglog_mse" : -np.log(1 + np.var(y_train)),
+        "inv_mse" : 0.0, #1/(1 + args[0]*np.var(y_train)),
         "inv_nmse" : 0.0, #1/(1 + args[0]),
         "inv_nrmse" : 0.0, #1/(1 + args[0]),
         "fraction" : 0.0,

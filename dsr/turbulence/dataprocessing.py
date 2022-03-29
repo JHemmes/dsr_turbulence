@@ -96,7 +96,6 @@ def calc_sij_rij(grad_u, omega, normalize=True):
     """
     omega = np.maximum(omega, 1e-8)  # make sure omega is not zero
 
-
     # this is some form of limiter is the k-omega-sst model
     tmp = 0.5*(grad_u + np.transpose(grad_u, (1,0,2)))
     omega_lim = np.zeros(omega.shape)
@@ -123,7 +122,6 @@ def calc_tensor_basis(Sij, Rij):
     :param Rij: Mean rotation-rate tensor (3, 3, num_of_points)
     :return: T: Base tensor series (10, 3, 3, num_of_points)
     """
-    # ?? looking to replace this for loop. However it only happens once so does it matter that much?
     num_of_cells = Sij.shape[2]
     T = np.ones([10, 3, 3, num_of_cells]) * np.nan
     for i in range(num_of_cells):
@@ -238,54 +236,31 @@ def load_frozen_RANS_dataset(config_task):
 
     try:
         X, y = load_pickle(pickle_path)
+        # X, y = load_pickle('thisfiledoesntexists.p')
     except FileNotFoundError:
 
         frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
         data_i = frozen['data_i']
 
-        y = data_i[output]
+        if skip_wall:
+            # shorten all variables in frozen dict to only keep relevant data
+            mesh_x = data_i['meshRANS'][0, :, :]
+            n_points_x = mesh_x.shape[0]
+            bool_arr = np.ones(data_i['k'].shape) == 1
 
-        n_inputs = len(inputs)
+            bool_arr[:skip_wall*n_points_x] = False
+            bool_arr[-skip_wall*n_points_x:] = False
 
-        #
-        # import matplotlib
-        # matplotlib.use('tkagg')
-        # #
-        # # # x_to_remove = data_i['meshRANS'][0, :, [0,1 ,-2,-1]]
-        # # # y_to_remove = data_i['meshRANS'][1, :, [0,1 ,-2,-1]]
-        # # # mesh_x = data_i['meshRANS'][0, :, skip_wall:-skip_wall]
-        # # # mesh_y = data_i['meshRANS'][1, :, skip_wall:-skip_wall]
-        # mesh_x = data_i['meshRANS'][0, :, :]
-        # mesh_y = data_i['meshRANS'][1, :, :]
-        # mesh_x_flat = mesh_x.flatten(order='F').T
-        # mesh_y_flat = mesh_y.flatten(order='F').T
-        # #
-        # plt.figure() # mesh_x = data_i['meshRANS'][0, :, [0,1 ,-2,-1]]
-        # plt.scatter(mesh_x_flat[260:-260], mesh_y_flat[260:-260])
-        # plt.show()
-        # #
-        # plt.figure()
-        # plt.scatter(mesh_x,mesh_y)
-        # plt.show()
-        # plt.scatter(mesh_x[:, 2:-2],mesh_y[:, 2:-2])
-        # plt.show()
-        # plt.figure()
-        # plt.contourf(np.reshape(mesh_x_flat[240:-240], mesh_x.shape, order='F'),
-        #             np.reshape(mesh_y_flat[240:-240], mesh_x.shape, order='F'),
-        #             np.reshape(data_i['k'][240:-240], mesh_x.shape, order='F'), levels=30, cmap='Reds')
-        # plt.show()
-        #
-        #
-        # plt.figure()
-        # plt.contourf(np.reshape(mesh_x_flat[240:-240], (120, 130-4), order='F'),
-        #             np.reshape(mesh_y_flat[240:-240], (120, 130-4), order='F'),
-        #             np.reshape(data_i['k'][240:-240], (120, 130-4), order='F'), levels=30, cmap='Reds')
-        # plt.show()
-        #
-        # omega_frozen = data_i['omega_frozen']
-        # omega_frozenNW = omega_frozen[240:-240]
-        #
-        # omega_reshaped = np.reshape(omega_frozen, mesh_x.shape, order='F')
+            # this should possibly happen outside skip_wall, but for now it remains to ensure plotting receives all data
+            bool_arr[data_i['k'] < 0.00001] = False
+
+            for key in data_i:
+                if isinstance(data_i[key], np.ndarray):
+                    if data_i[key].shape[0] == bool_arr.shape[0]:
+                        data_i[key] = data_i[key][bool_arr]
+                    elif data_i[key].shape[-1] == bool_arr.shape[0]:
+                        data_i[key] = data_i[key][:, :, bool_arr]
+
 
         # Check what inputs need to be calculated:
         grad_tens = False
@@ -318,6 +293,11 @@ def load_frozen_RANS_dataset(config_task):
                 Sij, Rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'])
 
             invariants = calc_invariants(Sij, Rij)
+
+
+        y = data_i[output]
+
+        n_inputs = len(inputs)
 
         if flatten:
             # initialise for flattened tensors
@@ -359,16 +339,66 @@ def load_frozen_RANS_dataset(config_task):
                 print(f'{value} as input is currently not supported, might be a typo?')
                 data_i[value] # errors on this statement, is supposed to stop the program
 
-        if skip_wall:
-            mesh_x = data_i['meshRANS'][0, :, :]
-            n_points = mesh_x.shape[0]
-            X = X[skip_wall*n_points:-skip_wall * n_points, :]
-            y = y[skip_wall * n_points:-skip_wall * n_points]
+        # bool_test required for scatters, and needs to be created before X is clipped
+        # bool_test = ~(X == 0).any(axis=1)
+
+        if skip_wall: # delete all points where input vars are zero, only relevant for CBFS case
+            # this should probably not be dependent on skip wall value, but is now used to maintain possibility to return all points
+
+            # base tensors have some zero components, avoid removing those points:
+            cols = np.ones(len(inputs)) == 1
+            for ii in range(len(inputs)):
+                if inputs[ii] in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10']:
+                    cols[ii] = False
+
+            y = y[~(X[:,cols] == 0).any(axis=1)]
+            X = X[~(X[:,cols] == 0).any(axis=1), :]
 
         save_pickle(pickle_path, (X,y))
 
-    return (X, y)
+        # # can be used to plot regions of zero pressure gradient:
+        # mesh_x = data_i['meshRANS'][0, :, :]
+        # mesh_y = data_i['meshRANS'][1, :, :]
+        # mesh_x_flat = mesh_x.flatten(order='F').T
+        # mesh_y_flat = mesh_y.flatten(order='F').T
+        # #
+        # k = np.reshape(data_i['k'], mesh_x.shape, order='F')
+        # omega_frozen = np.reshape(data_i['omega_frozen'], mesh_x.shape, order='F')
+        # nut_frozen = np.reshape(data_i['nut_frozen'], mesh_x.shape, order='F')
+        #
+        # import matplotlib
+        # matplotlib.use('tkagg')
+        #
+        # mesh_x_flat_keep = mesh_x_flat[bool_arr]
+        # mesh_y_flat_keep = mesh_y_flat[bool_arr]
+        # mesh_x_flat_keep = mesh_x_flat_keep[bool_test]
+        # mesh_y_flat_keep = mesh_y_flat_keep[bool_test]
+        #
+        # for ii in range(len(inputs)):
+        #     var = inputs[ii]
+        #     mesh_x_short = mesh_x_flat_keep[X[:, ii] == 0]
+        #     mesh_y_short = mesh_y_flat_keep[X[:, ii] == 0]
+        #     plt.figure()
+        #     plt.scatter(mesh_x_short, mesh_y_short)
+        #     plt.title(var)
+        #
+        # for ii in range(len(inputs)):
+        #     var = inputs[ii]
+        #     # mesh_x_short = mesh_x_flat_keep[X[:, ii] == 0]
+        #     # mesh_y_short = mesh_y_flat_keep[X[:, ii] == 0]
+        #     plt.figure()
+        #     plt.scatter(mesh_x_flat_keep, mesh_y_flat_keep)
+        #     plt.title(var)
+        #
+        # plt.show()
+        #
+        #
+        # plt.figure()
+        # plt.scatter(mesh_x_flat_keep, mesh_y_flat_keep)
+        # plt.show()
 
+
+    return (X, y)
 
 
 def scatter_results_directory(logdir, X, y, plot_sparta=True):
