@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "_bDelta",
+      "name" : "_bDel",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : true,
       "dataset" : {
@@ -19,7 +19,7 @@
       "reward_noise" : 0.0
    },
    "prior": {
-      "length" : {"min_" : 3, "max_" : 15},
+      "length" : {"min_" : 1, "max_" : 15},
       "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},

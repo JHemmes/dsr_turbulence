@@ -218,13 +218,6 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
     print(f"Time limit set to {t_lim}h")
 
     for step in range(n_epochs):
-        # if step%100 == 0:
-        #     plot_prob_dists(controllers, step, token_names)
-
-        # if output_file
-        # this can be used to test performance on fixed set of actions:
-        # if step == 0 and int(output_file.split('.')[0].split('_')[-1]) == 1:
-        #     test_fixed_actions(logdir, from_tokens)
 
         proc_start = time.process_time()
         wall_start = time.time()

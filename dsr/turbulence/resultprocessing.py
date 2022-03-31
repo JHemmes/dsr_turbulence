@@ -334,21 +334,29 @@ def eval_expression(expression, X):
 
     return yhat
 
-def case_contourplots(mesh_x, mesh_y, y, yhat, filename, inv_nrmse):
+def case_contourplots(mesh_x, mesh_y, y, yhat, filename, inv_nrmse, skip_wall):
 
     # inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-yhat)**2))/np.std(y))
 
     yhat = np.reshape(yhat, mesh_x.shape, order='F')
     y = np.reshape(y, mesh_x.shape, order='F')
 
-    ymin = np.min(y)
-    ymax = np.max(y)
+    ymin = np.min(y[:,skip_wall:-skip_wall])
+    ymax = np.max(y[:,skip_wall:-skip_wall])
+
+    levels = np.linspace(ymin, ymax, 30)
+
+    if levels[-1] < np.max(y):
+        levels = np.append(levels, np.max(y))
+    if levels[0] > np.min(y):
+        levels = np.insert(levels, 0, np.min(y))
+
 
     fig, ax = plt.subplots(2, figsize=(15, 10), dpi=250)
     fig.tight_layout()
-    ax0 = ax[0].contourf(mesh_x, mesh_y, y, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+    ax0 = ax[0].contourf(mesh_x, mesh_y, y, levels=levels, vmin=ymin, vmax=ymax, cmap='Reds')
     ax[0].set_title('Target', y=1.05, pad=-14)
-    ax1 = ax[1].contourf(mesh_x, mesh_y, yhat, levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+    ax1 = ax[1].contourf(mesh_x, mesh_y, yhat, levels=levels, vmin=ymin, vmax=ymax, cmap='Reds')
     ax[1].set_title(f'DSR model, inv_nrmse = {inv_nrmse}', y=1.05, pad=-14)
     ax[0].axison = False
     ax[1].axison = False
@@ -415,7 +423,7 @@ def contourplot_results_scalar(results, config):
 
         filename = f'{logdir}/dsr_{name}_{seed}_contour_{case}'
 
-        case_contourplots(mesh_x, mesh_y, y, yhat, filename, inv_nrmse)
+        case_contourplots(mesh_x, mesh_y, y, yhat, filename, inv_nrmse, config['task']['dataset']['skip_wall'])
 
 def retrospecitvely_plot_contours(logdir, with_sparta=True):
     with open(logdir + '/config.json', encoding='utf-8') as f:

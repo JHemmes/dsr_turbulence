@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "_base_settings",
+      "name" : "_kdef_",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -9,7 +9,7 @@
          "noise": null,
          "input": ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"],
          "output": "kDeficit",
-         "skip_wall": 2,
+         "skip_wall": 15,
          "dataset_size_multiplier": 1.0
       },
       "metric" : "inv_nrmse",
@@ -28,7 +28,7 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 600000,
+        "n_samples": 1000,
         "batch_size": 1000,
         "dataset_batch_size": null,
         "complexity": "length",
