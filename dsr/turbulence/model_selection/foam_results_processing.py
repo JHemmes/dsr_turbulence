@@ -6,7 +6,7 @@ matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import numpy as np
 import fluidfoam
-
+import scipy.interpolate as interp
 
 
 
@@ -175,12 +175,66 @@ def read_and_plot_PH():
     # plt.scatter(mesh_x_flat[:exclude*n_points], mesh_y_flat[:exclude*n_points], c='Black')
     # plt.scatter(mesh_x_flat[-exclude*n_points:], mesh_y_flat[-exclude*n_points:], c='Black')
 
+def interpolate_CBFS():
+    # needs work to avoid interpolating outside flow domain.
+    # create line from lower and upper boundaries (extract the one row of points)
+    # then interpolate the x station of lines to that lower and upper edge,
+    # Then create linspace using those values as limits.
+
+    # ["x/H", "y/H", "p", "u/U_in", "v/U_in", "w/U_in", "uu/U_in^2", "vv/U_in^2", "ww/U_in^2", "uv/U_in^2", "uw/U_in^2", "vw/U_in^2", "k/U_in^2"]
+    with open(
+            r"C:\Users\Jasper\Documents\Afstuderen\Code\inversion\DATA\CBFS-Bentaleb\data\curvedbackstep_vel_stress.dat") as f:
+        data = f.readlines()
+
+    data_numbers = []
+    for line in data:
+        line = line[:-2]
+        line = line.split(' ')
+        line.pop(0)
+        if len(line) > 2:
+            try:
+                data_numbers.append([eval(val) for val in line])
+            except:
+                pass
+
+    data = np.array(data_numbers)
+
+    mesh_x = np.reshape(data[:, 0], (768, 160), order='F')
+    mesh_y = np.reshape(data[:, 1], (768, 160), order='F')
+    cols = ["u/U_in", "v/U_in"]
+
+    # These are the x and y velocities: "u/U_in", "v/U_in"
+    for ii in range(len(cols)):
+        uu = np.reshape(data[:, ii], (768, 160), order='F')
+        plt.figure()
+        plt.title(cols[ii])
+        plt.tight_layout()
+        plt.contourf(mesh_x, mesh_y, uu, levels=30, cmap='Reds')
+        # plt.contourf(mesh_x, mesh_y, , levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
+        plt.colorbar()
+
+    x_stations = np.arange(-2, 13)
+
+    y_stations = np.linspace(0, 9.5, 100)
+
+    mesh_x, mesh_y = np.meshgrid(x_stations, y_stations)
+
+    test = interp.griddata((data[:, 0].flatten(), data[:, 1].flatten()),
+                           data[:, 3].flatten(), (mesh_x.flatten(), mesh_y.flatten()), method='nearest')
+
+    plt.scatter(data[:, 0].flatten(), data[:, 1].flatten())
+    # seems to still contain points below wall
+    uinterpolated = np.reshape(test, mesh_x.shape, order='A')
+
+    plt.contourf(mesh_x, mesh_y, uinterpolated, levels=30, cmap='Reds')
+
+
 
 if __name__ == '__main__':
 
-    read_and_plot_PH()
+    # read_and_plot_PH()
 
-
+    matplotlib.use('tkagg')
 
     print('end')
     print('end')

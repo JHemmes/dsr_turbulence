@@ -649,7 +649,7 @@ def compare_dicts(bsl, run):
     else:
         return diff
 
-def plot_sensitivity_results(logdir):
+def plot_sensitivity_results(logdir, plot_mode='all'):
     try:
         shutil.rmtree(os.path.join(logdir, 'results'))
     except FileNotFoundError:
@@ -736,32 +736,30 @@ def plot_sensitivity_results(logdir):
             if parameter in key:
                 all_results[key]['varied'].append(parameter)
 
-    plot_dict = {key: [baseline] if baseline else [] for key in parameters}
-    plot_dict['baseline'] = []
-    plot_dict['all'] = all_results.keys()
+    plot_dict = {}
 
-    # if logdir.split('_')[-1] == 'kDeficit':
-    #     plot_dict['compare'] = ['OW_baseline',
-    #                             'M18_initializer_uniform_learning_rate_0.01',
-    #                             'OW_initializer_normal_learning_rate_0.01',
-    #                             'OW_learning_rate_0.01',
-    #                             'M18_num_units_128_initializer_normal_learning_rate_0.01',
-    #                             'OW_num_units_256_initializer_normal_learning_rate_0.01',
-    #                             'OW_num_units_256',
-    #                             'OW_entropy_weight_0.0025',
-    #                             'M3_initializer_normal']
-    # else:
-    #     plot_dict['compare'] = ['OW_baseline',
-    #                             'M15_learning_rate_0.01',
-    #                             'M18_learning_rate_0.01',
-    #                             'OW_initializer_normal_learning_rate_0.01',
-    #                             'M3_num_units_64_initializer_normal_learning_rate_0.01',
-    #                             'OW_num_units_256']
+    if plot_mode == 'all':
+        plot_dict = {key: [baseline] if baseline else [] for key in parameters}
+        plot_dict['baseline'] = []
+        plot_dict['all'] = all_results.keys()
 
-    for parameter in parameters:
+        for parameter in parameters:
+            for run in all_results:
+                if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
+                    plot_dict[parameter].append(run)
+
+    elif plot_mode == 'parameters':
+        for parameter in parameters:
+            plot_dict[parameter] = [baseline]
+            for run in all_results:
+                if parameter in all_results[run]['varied'] and len(all_results[run]['varied']) == 1:
+                    plot_dict[parameter].append(run)
+        # plot all runs where only one parameter was varied WRT baseline
+
+    if plot_mode in parameters:
         for run in all_results:
-            if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
-                plot_dict[parameter].append(run)
+            if plot_mode in all_results[run]['varied'] and len(all_results[run]['varied']) == 1:
+                plot_dict[plot_mode].append(run)
 
     for key in plot_dict:
         plot_dir = os.path.join(logdir, 'results', key)
