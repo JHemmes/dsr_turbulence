@@ -3,6 +3,11 @@ import os
 import platform
 import json
 import numpy as np
+from sympy.physics.units import Dimension
+from sympy.physics.units.systems.si import dimsys_SI
+from sympy import log, exp
+
+import pandas as pd
 
 from dsr.turbulence.resultprocessing import load_iterations
 
@@ -49,131 +54,136 @@ def fetch_iteration_metrics(logdir, finished=True):
 
     return plot_dict
 
+def check_expression_dim(expression, dim_dict):
+    try:
+        expr_dim = eval(expression, dim_dict)
+    except NameError:
+        # sometimes the expressions contain faulty symbols
+        # in that case return different "dimension", investigate if the rewards of these expressions are very good
+        return (9, 9, 9, 9, 9, 9, 9)
 
+
+    try:
+        dims = dimsys_SI.get_dimensional_dependencies(expr_dim)
+    except TypeError:
+        return (10, 10, 10, 10, 10, 10, 10)
+
+    #process dims: [mass, lenght, time, temp, quantity, current, luminousintensity]
+    OF_dims = [0, 0, 0, 0, 0, 0, 0]
+    for key in dims:
+        # note only length and time implemented currently
+        if key == 'time':
+            OF_dims[2] = dims[key]
+        elif key == 'length':
+            OF_dims[1] = dims[key]
+
+    return tuple(OF_dims)
 
 def summarise_results(logdir):
 
     dirlist = os.listdir(logdir)
+    try:
+        dirlist.remove('results.csv')
+    except ValueError:
+        pass
 
+    dim_dict = {'exp': exp,
+                'log': log}
 
-    dirlist.remove('config_baseline.json')
-    # ratios used to scale duration
-    #
-    #
-    # try:  # remove existing results file since new will be created.
-    #     os.remove(os.path.join(logdir, 'results', 'results.csv'))
-    # except FileNotFoundError:
-    #     pass
-    # parameters = []
+    m = Dimension('length')
+    s = Dimension('time')
 
-    all_results = {}
+    input_dims = {"grad_u_T1": 1 / s,
+                  "grad_u_T2": 1 / s,
+                  "grad_u_T3": 1 / s,
+                  "grad_u_T4": 1 / s,
+                  "k": (m ** 2) / (s ** 2),
+                  "inv1": m / m,
+                  "inv2": m / m,
+                  "T1": m / m,
+                  "T2": m / m,
+                  "T3": m / m,
+                  "T4": m / m}
+
+    df_results = pd.DataFrame()
+
     for run in dirlist:
         run_dir = os.path.join(logdir, run)
+        print(f'Working on: {run}')
+        with open(os.path.join(run_dir, 'config.json'), encoding='utf-8') as f:
+            config_run = json.load(f)
 
-        # with open(os.path.join(run_dir, 'config.json'), encoding='utf-8') as f:
-        #     config_run = json.load(f)
-        #
-        # machine_name = config_run['task']['name'].split('_')[0]
-        # diff = compare_dicts(config_bsl, config_run)
-        # run_name = machine_name
-        # if diff[0] == 'baseline':
-        #     run_name += '_baseline'
-        #     baseline = run_name
-        #     parameters.append('baseline')
-        # else:
-        #     for item in diff:
-        #         run_name += f'_{item[0]}_{item[1]}'
-        #         if item[0] not in parameters:
-        #             parameters.append(item[0])
-#
-#
-#         run_dict = fetch_iteration_metrics(os.path.join(logdir, run), finished=False)
-#
-#         result_col = ['run_name']
-#         result_val = [run_name]
-#
-#         tmp_arr = np.array(run_dict['proc_time'])
-#         result_col.append('adjusted_avg_proc_duration')
-#         result_val.append(round(np.mean(np.sum(tmp_arr, axis=1)) * machine_dur_ratios[machine_name]))
-#
-#         save_dict = {}
-#
-#         for key in run_dict:
-#             tmp_arr = np.array(run_dict[key])
-#             save_dict[key] = {}
-#             save_dict[key]['mean'] = np.mean(tmp_arr, axis=0)
-#             save_dict[key]['std'] = np.std(tmp_arr, axis=0)
-#             save_dict[key]['max'] = np.max(tmp_arr, axis=0)
-#             tmp_arr = np.sort(tmp_arr, axis=0)
-#             save_dict[key]['5max'] = np.mean(tmp_arr[-5:, :], axis=0)
-#             result_col.extend(['_'.join([mode, key]) for mode in save_dict[key].keys()])
-#             result_val.extend([save_dict[key][mode][-1] for mode in save_dict[key].keys()])
-#
-#         # write results to csv:
-#         df_append = pd.DataFrame([result_val], columns=result_col)
-#         df_append.to_csv(os.path.join(logdir, 'results', 'results.csv'), mode='a', header=first_write, index=False)
-#
-#         if first_write:  # used to only write header once
-#             first_write = False
-#
-#         all_results[run_name] = save_dict
-#
-#     for key in all_results:
-#         all_results[key]['varied'] = []
-#         for parameter in parameters:
-#             if parameter in key:
-#                 all_results[key]['varied'].append(parameter)
-#
-#     plot_dict = {key: [baseline] if baseline else [] for key in parameters}
-#     plot_dict['baseline'] = []
-#     plot_dict['all'] = all_results.keys()
-#
-#     # if logdir.split('_')[-1] == 'kDeficit':
-#     #     plot_dict['compare'] = ['OW_baseline',
-#     #                             'M18_initializer_uniform_learning_rate_0.01',
-#     #                             'OW_initializer_normal_learning_rate_0.01',
-#     #                             'OW_learning_rate_0.01',
-#     #                             'M18_num_units_128_initializer_normal_learning_rate_0.01',
-#     #                             'OW_num_units_256_initializer_normal_learning_rate_0.01',
-#     #                             'OW_num_units_256',
-#     #                             'OW_entropy_weight_0.0025',
-#     #                             'M3_initializer_normal']
-#     # else:
-#     #     plot_dict['compare'] = ['OW_baseline',
-#     #                             'M15_learning_rate_0.01',
-#     #                             'M18_learning_rate_0.01',
-#     #                             'OW_initializer_normal_learning_rate_0.01',
-#     #                             'M3_num_units_64_initializer_normal_learning_rate_0.01',
-#     #                             'OW_num_units_256']
-#
-#     for parameter in parameters:
-#         for run in all_results:
-#             if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
-#                 plot_dict[parameter].append(run)
-#
-#     for key in plot_dict:
-#         plot_dir = os.path.join(logdir, 'results', key)
-#         os.makedirs(plot_dir, exist_ok=True)
-#         create_plots(all_results, plotmode='mean', plotlist=plot_dict[key], plot_dir=plot_dir)
-#         create_plots(all_results, plotmode='max', plotlist=plot_dict[key], plot_dir=plot_dir)
-#         create_plots(all_results, plotmode='5max', plotlist=plot_dict[key], plot_dir=plot_dir)
-#
-# def create_plots(all_results, plotmode, plotlist, plot_dir):
-#
-#     for metric in all_results[list(all_results.keys())[0]]:
-#         if metric == 'varied':
-#             pass
-#         else:
-#             plt.figure(figsize=(12,10))
-#             for run in plotlist:
-#                 plt.plot(all_results[run][metric][plotmode])
-#             plt.xlabel('iterations')
-#             plt.ylabel(' '.join([plotmode, metric]))
-#             plt.legend(plotlist)
-#             plt.grid('both')
-#             plt.savefig(f'{plot_dir}/{metric}_{plotmode}.png')
-#             plt.close('all')
-#
+        output = config_run['task']['dataset']['output'][:4]
+        case = ''.join([letter for letter in config_run['task']['dataset']['name'] if not letter.isnumeric()])
+        sw = config_run['task']['dataset']['skip_wall']
+        ntok = config_run['prior']['length']['max_']
+
+        run_name = f'{output}_{case}_sw{sw}_{ntok}tokens'
+
+        results = load_iterations(os.path.join(logdir, run))
+
+        df_joined = pd.DataFrame()
+
+        for key in results:
+            df_joined = pd.concat([df_joined, results[key]], axis=0, ignore_index=True)
+
+        inputs = config_run['task']['dataset']['input']
+        for ii in range(len(inputs)):
+            dim_dict[f'x{ii+1}'] = input_dims[inputs[ii]]
+
+        df_joined['dimensions'] = df_joined.apply(lambda x: check_expression_dim(x['batch_r_max_expression'], dim_dict), axis=1)
+
+        df_joined['r_sum'] = df_joined.apply(lambda x: x['r_max_PH'] + x['r_max_CD'] + x['r_max_CBFS'], axis=1)
+
+        if output == 'kDef':
+            target_dim = (0, 2, -3, 0, 0, 0, 0)
+        if output == 'bDel':
+            target_dim = (0, 0, 0, 0, 0, 0, 0)
+
+        df_joined = df_joined.drop_duplicates(subset=['batch_r_max_expression'])
+        df_joined['name'] = run_name
+        df_joined['output'] = output
+        df_joined['training_case'] = case
+        df_joined['skip_wall'] = sw
+        df_joined['ntokens'] = ntok
+
+        df_right_dim = df_joined[df_joined['dimensions'] == target_dim]
+        df_right_dim = df_right_dim.drop_duplicates(subset=['batch_r_max_expression'])
+        df_right_dim['correct_dim'] = True
+
+        # add best on all cases
+        df_best = df_right_dim.sort_values('r_sum', ascending=False).head(5)
+        df_best['rank'] = np.arange(len(df_best))
+        df_best['ranked_by'] = 'r_sum'
+        df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+
+        # add best on all cases
+        df_best = df_right_dim.sort_values(f'r_max_{case}', ascending=False).head(5)
+        df_best['rank'] = np.arange(len(df_best))
+        df_best['ranked_by'] = f'r_max_{case}'
+        df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+
+        df_wrong_dim = df_joined[df_joined['dimensions'] != target_dim]
+        df_wrong_dim = df_wrong_dim.drop_duplicates(subset=['batch_r_max_expression'])
+        df_wrong_dim['correct_dim'] = False
+
+        # add best on all cases
+        df_best = df_wrong_dim.sort_values('r_sum', ascending=False).head(5)
+        df_best['rank'] = np.arange(len(df_best))
+        df_best['ranked_by'] = 'r_sum'
+        df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+
+        # add best on all cases
+        df_best = df_wrong_dim.sort_values(f'r_max_{case}', ascending=False).head(5)
+        df_best['rank'] = np.arange(len(df_best))
+        df_best['ranked_by'] = f'r_max_{case}'
+        df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+
+
+    save_cols = ['name','rank', 'ranked_by', 'r_max_PH', 'r_max_CD', 'r_max_CBFS', 'r_sum', 'batch_r_max_expression',
+                 'dimensions', 'training_case', 'skip_wall', 'ntokens', 'correct_dim']
+    df_save = df_results[save_cols]
+    df_save.to_csv(os.path.join(logdir, 'results.csv'),index=False)
 
 if __name__ == "__main__":
 
@@ -183,26 +193,31 @@ if __name__ == "__main__":
     else:
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
-    ############################################################################
-    # #use function below to plot the contours when the logs are already written
-    # retrospecitvely_plot_contours('../logs_completed/log_2021-04-28-152005_kdeficit_10msamples')
-    # retrospecitvely_plot_contours('./log/log_2021-08-25-170231', False)
-    #
-    # print('end')
-
-    # logdir = '../logs_completed/log_2021-06-04-130021_2M_bDelta'
-    # logdir = '../logs_completed/log_comparison_of_metrics/reg_mspe'
-    # logdir = '../logs_completed/log_2021-07-14-163737_10M_run'
-    # logdir = './log/log_2021-11-24-153425'
-    # logdir = './log/log_2021-08-25-170231'
-
-    # plot_iterations_metrics(logdir, finished=True)
-
-
-    # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
-    # logdir = '../logs_completed/sensitivity_analysis_bDelta'
-    logdir = '../logs_completed/compare_iterlim_optimisation'
+    logdir = '../logs_completed/all_PH'
     summarise_results(logdir)
+
+    # # dimensional analysis
+    # m = Dimension('length')
+    # s = Dimension('time')
+    #
+    # ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"]
+    #
+    # x1 = 1/s
+    # x2 = 1/s
+    # x3 = 1/s
+    # x4 = 1/s
+    # x5 = (m**2)/(s**2)
+    # x6 = m/m
+    # x7 = m/m
+    #
+    # kDef  = 0.0021907169381726471 * x1 / x6
+    # kDef = 0.0417881707666945*x1*x5/x6
+    #
+    #
+    # dimsys_SI.get_dimensional_dependencies(kDef)
+
+
+
 
     print('end')
 
