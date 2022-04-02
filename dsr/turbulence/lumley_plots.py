@@ -271,9 +271,9 @@ def plot_lumley_comparison(results, case, config, filename):
                  np.linspace(0,1,mesh_x_flat.shape[0]),
                  edgecolors='none', cmap=cmap_space_dsr, shading='gouraud')
     ax[1].set_title(f'DSR model, inv_nrmse = {round(inv_nrmse, 5)}', y=1.05, pad=-14)
-    ax[0].axison = False
+    # ax[0].axison = False
     # ax[0].set_aspect('equal')
-    ax[1].axison = False
+    # ax[1].axison = False
     # ax[1].set_aspect('equal')
 
     plt.savefig(f'{filename}.png', bbox_inches='tight', pad_inches=0)

@@ -5,8 +5,10 @@ import matplotlib
 matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import numpy as np
-
 import fluidfoam
+
+
+
 
 def read_case_results(case_dir):
     dirlist_case = os.listdir(case_dir)
@@ -66,9 +68,7 @@ def reshape_to_mesh(array):
     else:
         print('Unknown mesh')
 
-
-
-if __name__ == '__main__':
+def read_and_plot_PH():
     # change the working directory to dir with the openFOAM results
     os.chdir('/home/jasper/OpenFOAM/jasper-7/PeriodicHill-SpaRTA')
 
@@ -174,6 +174,12 @@ if __name__ == '__main__':
     # exclude = 15
     # plt.scatter(mesh_x_flat[:exclude*n_points], mesh_y_flat[:exclude*n_points], c='Black')
     # plt.scatter(mesh_x_flat[-exclude*n_points:], mesh_y_flat[-exclude*n_points:], c='Black')
+
+
+if __name__ == '__main__':
+
+    read_and_plot_PH()
+
 
 
     print('end')

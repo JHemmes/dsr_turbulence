@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "_bDel",
+      "name" : "OW_bDel_10TOK",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : true,
       "dataset" : {
@@ -9,7 +9,7 @@
          "noise": null,
          "input": ["T1", "T2", "T3", "T4", "inv1", "inv2"],
          "output": "bDelta",
-         "skip_wall": 2,
+         "skip_wall": 15,
          "dataset_size_multiplier": 1.0
       },
       "metric" : "inv_nrmse",
@@ -19,7 +19,7 @@
       "reward_noise" : 0.0
    },
    "prior": {
-      "length" : {"min_" : 1, "max_" : 15},
+      "length" : {"min_" : 1, "max_" : 10},
       "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},
@@ -63,11 +63,11 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.01,
+      "learning_rate": 0.005,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.005,
+      "entropy_weight": 0.01,
       "invalid_weight": 0,
       "scale_to_pg": true,
       "max_length": 15
