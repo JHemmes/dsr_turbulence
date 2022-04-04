@@ -657,6 +657,11 @@ def plot_sensitivity_results(logdir, plot_mode='all'):
 
     dirlist = os.listdir(logdir)
 
+    try:
+        dirlist.remove('report_plots')
+    except ValueError:
+        pass
+
     os.mkdir(os.path.join(logdir, 'results'))
 
     with open(os.path.join(logdir, 'config_baseline.json'), encoding='utf-8') as f:
@@ -748,6 +753,29 @@ def plot_sensitivity_results(logdir, plot_mode='all'):
                 if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
                     plot_dict[parameter].append(run)
 
+        # code to create the single plot of all runs for the report below
+        print('lel')
+        x = np.arange(all_results['M18_learning_rate_0.01']['base_r_best']['max'].shape[0])   # for kDeficit: 'OW_learning_rate_0.01' for bDelta : 'M18_learning_rate_0.01'
+        y = [all_results['M18_learning_rate_0.01']['base_r_best']['max']]
+        colors = ['C0']
+        linewidths = [2]
+        linestyles = ['-']
+        labels = ['Best']
+        for run in all_results:
+            y.append(all_results[run]['base_r_best']['max'])
+            colors.append(None)
+            linewidths.append(1)
+            linestyles.append(':')
+            labels.append(None)
+
+        filename = os.path.join(logdir, 'report_plots', 'all.eps')  # note this errors if the report_plots dir does not exist
+
+        figsize = (12, 9)
+        xlabel = 'Iterations'
+        ylabel = r'$r_{max}(\tau)$'
+
+        report_plot(x, y, labels, colors, xlabel, ylabel, filename, figsize, linewidths, linestyles)
+
     elif plot_mode == 'parameters':
         for parameter in parameters:
             plot_dict[parameter] = [baseline]
@@ -785,6 +813,27 @@ def create_plots(all_results, plotmode, plotlist, plot_dir):
             plt.close('all')
 
 
+def report_plot(x, y, labels, colors, xlabel, ylabel, filename, figsize, linewidths=False, linestyles=False):
+    # defined here to avoid circular imports in report_plotting
+    cm = 1 / 2.54  # centimeters in inches
+
+    if not linewidths:
+        linewidths = [None for val in y]
+
+    if not linestyles:
+        linestyles = ['-' for val in y]
+
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    for ii in range(len(labels)):
+        plt.plot(x, y[ii], label=labels[ii], linewidth=linewidths[ii], linestyle=linestyles[ii], color=colors[ii])
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid('both')
+    plt.legend()
+    # plt.show()    #
+    plt.savefig(filename, format='eps', bbox_inches='tight')
+
+
 if __name__ == "__main__":
 
     dsrpath = os.path.abspath(__file__)
@@ -810,8 +859,8 @@ if __name__ == "__main__":
 
 
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
-    # logdir = '../logs_completed/sensitivity_analysis_bDelta'
-    logdir = '../logs_completed/compare_iterlim_optimisation'
+    logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    # logdir = '../logs_completed/compare_iterlim_optimisation'
     plot_sensitivity_results(logdir)
 
     print('end')
