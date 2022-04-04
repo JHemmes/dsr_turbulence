@@ -2,8 +2,9 @@ import os
 import platform
 import numpy as np
 import json
+import pandas as pd
 
-from dsr.turbulence.resultprocessing import fetch_iteration_metrics, compare_dicts, report_plot
+from dsr.turbulence.resultprocessing import fetch_iteration_metrics, compare_dicts, report_plot, load_iterations
 
 import matplotlib
 matplotlib.use('PS')
@@ -82,10 +83,6 @@ def create_plots_for_increasing_n_iterations():
     plt.legend()
 
     plt.show()
-
-
-
-
 
 
 def contourplot_vars():
@@ -211,65 +208,222 @@ def plot_pretty_sensitivity_results(logdir, parameters):
         # create requirements for plot:
         # legend needs to be sorted, baseline always is C0.
         x = np.arange(results[param]['arrays'][0].shape[0])
+        linestyles = [(0, (5, 1)), (0, (1, 1)), (0, (3, 1, 1, 1)), '-.', (0, (3, 1, 1, 1, 1, 1)), ':']
+        stylecounter = 0
         y = []
         labels = []
-        colors = [f'C{ii}' for ii in range(len(results[param]['par_val']))]
+        colors = [f'C{ii+1}' for ii in range(len(results[param]['par_val']))]
         sorted_colors = []
+        sorted_linestyles = []
         for ii in np.argsort(results[param]['par_val']):
             y.append(results[param]['arrays'][ii])
-            sorted_colors.append(colors[ii])
+            sorted_linestyles.append(linestyles[stylecounter])
+            sorted_colors.append(colors[stylecounter])
+            stylecounter += 1
             labels.append(base_labels_params[param](results[param]['par_val'][ii]))
             if results[param]['par_val'][ii] == bsl_params[param]:
                 labels[-1] = labels[-1] + ' (BSL)'
+                sorted_colors[-1] = 'C0'
+                sorted_linestyles[-1] = '-'
+                stylecounter -= 1
 
         filename = os.path.join(logdir, 'report_plots', f'{logdir.split("_")[-1]}_{param}.eps')
 
-        ########################## below this only bDelta double plot
-        # param = 'num_units' (if the first param is the other one)
-        # results[param]['par_val'] = [bsl_params[param]]
-        #
-        # # write def that return the max given the data/load_iterations result
-        # tmp_arr = np.array(results['baseline']['data']['base_r_best'])
-        # results[param]['arrays'] = [np.max(tmp_arr, axis=0)]
-        # for run in results[param]:
-        #     if 'log' in run:
-        #         results[param]['par_val'].append(results[param][run]['value'])
-        #         data = fetch_iteration_metrics(run)
-        #
-        #         tmp_arr = np.array(data['base_r_best'])
-        #         results[param]['arrays'].append(np.max(tmp_arr, axis=0))
-        #         del tmp_arr
-        #
-        # # create requirements for plot:
-        # # legend needs to be sorted, baseline always is C0.
-        # x = np.arange(results[param]['arrays'][0].shape[0])
-        # # y = []
-        # # labels = []
-        # colors = [f'C{ii}' for ii in range(len(results[param]['par_val']))]
-        # # sorted_colors = []
-        # for ii in np.argsort(results[param]['par_val']):
-        #     y.append(results[param]['arrays'][ii])
-        #     sorted_colors.append(colors[ii])
-        #     labels.append(base_labels_params[param](results[param]['par_val'][ii]))
-        #     if results[param]['par_val'][ii] == bsl_params[param]:
-        #         labels[-1] = labels[-1] + ' (BSL)'
+        ########################## below this only bDelta combined plot
+        param = 'num_units' # (if the first param is learning_rate other one)
+        results[param]['par_val'] = [bsl_params[param]]
+
+        # write def that return the max given the data/load_iterations result
+        tmp_arr = np.array(results['baseline']['data']['base_r_best'])
+        results[param]['arrays'] = [np.max(tmp_arr, axis=0)]
+        for run in results[param]:
+            if 'log' in run:
+                results[param]['par_val'].append(results[param][run]['value'])
+                data = fetch_iteration_metrics(run)
+
+                tmp_arr = np.array(data['base_r_best'])
+                results[param]['arrays'].append(np.max(tmp_arr, axis=0))
+                del tmp_arr
+
+        # create requirements for plot:
+        # legend needs to be sorted, baseline always is C0.
+        x = np.arange(results[param]['arrays'][0].shape[0])
+        linestyles = [(0, (5, 1)), (0, (1, 1)), (0, (3, 1, 1, 1)), '-.', (0, (3, 1, 1, 1, 1, 1)), ':']
+        for ii in np.argsort(results[param]['par_val']):
+            y.append(results[param]['arrays'][ii])
+            sorted_linestyles.append(linestyles[stylecounter])
+            sorted_colors.append(colors[stylecounter])
+            stylecounter += 1
+            labels.append(base_labels_params[param](results[param]['par_val'][ii]))
+            if results[param]['par_val'][ii] == bsl_params[param]:
+                labels[-1] = labels[-1] + ' (BSL)'
+                sorted_colors[-1] = 'C0'
+                sorted_linestyles[-1] = '-'
+                stylecounter -= 1
         #
         # sorted_colors[-1] = 'C3'
         #
-        # filename = os.path.join(logdir, 'report_plots', 'bDeltaCombined.eps')
-        ######################### above only for bDelta double plot
+        filename = os.path.join(logdir, 'report_plots', 'bDeltaCombined.eps')
+        ######################### above only for bDelta combined plot
 
         figsize = (12, 9)
         xlabel = 'Iterations'
         ylabel = r'$r_{max}(\tau)$'
 
-        report_plot(x, y, labels, sorted_colors, xlabel, ylabel, filename, figsize)
+        report_plot(x, y, labels, sorted_colors, xlabel, ylabel, filename, figsize,
+                    linewidths=False, linestyles=sorted_linestyles)
 
-    # make the combined bDelta plot:
+    print('here')
+
+def plot_optimise_statistics():
+    logdir = '../logs_completed/log_2022-03-20-182735_optimize_statistics'
+
+    matplotlib.use('tkagg')
+
+    optim_stats = {}
+    for filename in os.listdir(logdir):
+        split = filename.split('_')[-1].split('.')
+        if split[0] == 'stats' and split[1] == 'csv':
+            df_append = pd.read_csv(f'{logdir}/{filename}', header=None)
+            optim_stats[filename] = df_append
+
+    # for key in return_dict:
+
+    all_match_bestperformer = []
+    first_bestperformer = []
+    last_bestperformer = []
+    for key in optim_stats:
+        for value in optim_stats[key].iloc[:,0].values:
+            all_match_bestperformer.append(value)
+
+        for value in optim_stats[key].iloc[:,0].values[:300]:
+            first_bestperformer.append(value)
+
+        for value in optim_stats[key].iloc[:,0].values[300:]:
+            last_bestperformer.append(value)
+
+    all_match_bestperformer = np.array(all_match_bestperformer)
+    print(f"ratio of batches that found best perfromer with less than 100 iters  {np.mean(all_match_bestperformer < 100)}")
 
 
+    bins = np.arange(0, 2000, 10)
+    #
+    plt.figure()
+    plt.hist(x=all_match_bestperformer, bins=bins) #, density=True)
+    plt.xlim([0,200])
+    plt.show()
+    #
+
+    #
+    plt.figure()
+    plt.title('first300')
+    plt.hist(x=first_bestperformer, bins=bins, density=True)
+    plt.xlim([0,200])
+    plt.show()
+    #
+
+    #
+    plt.figure()
+    plt.title('last300')
+
+    plt.hist(x=last_bestperformer, bins=bins, density=True)
+    plt.xlim([0,200])
+    plt.show()
+    #
+    #
+
+    batches_match = np.zeros((optim_stats[list(optim_stats.keys())[0]].shape[0],
+                              optim_stats[list(optim_stats.keys())[0]].shape[1] - 1, len(optim_stats)))
+
+    # all_match_bestperformer = np.array(all_match_bestperformer)
+    # np.mean(all_match_bestperformer < 100)
+
+    for ii in range(len(optim_stats)):
+        key = list(optim_stats.keys())[ii]
+        batches_match[:, :, ii] = optim_stats[key].values[:, 1:]
+
+    mean_batch_match = np.mean(batches_match, axis=-1)
 
 
+    figsize = (12, 9)
+    cm = 1 / 2.54  # centimeters in inches
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    plot_iters = [0, 100, 300, 500]
+    colors = [f'C{ii+1}' for ii in range(len(plot_iters))]
+    colors[-1] = 'C6' # the purple is difficult to see over the blue hist
+    linestyles = ['-',  (0, (5, 1)), (0, (1, 1)), (0, (3, 1, 1, 1)), '-.', (0, (3, 1, 1, 1, 1, 1)) ]
+
+    counter = 0
+    for ii in plot_iters:
+        plt.plot(bins, 100*mean_batch_match[ii, :], label=f'Iter: {ii}', color=colors[counter], linestyle=linestyles[counter], linewidth=2)
+        counter += 1
+    plt.xlabel('Iteration limit')
+    plt.xlim([0,200])
+    plt.xticks(np.arange(0,220, 20))
+    plt.grid('both', linestyle=':')
+    plt.legend()
+
+    ax1 = plt.gca()
+    ax1.set_ylabel('Match percentage')
+    ax2 = ax1.twinx()
+    ax1.set_zorder(10)
+    ax1.patch.set_visible(False)
+    ax2.hist(x=all_match_bestperformer, bins=bins, density=True, zorder=-1, label='All')
+    # opacity doesnt work with eps...
+    # ax2.hist(x=last_bestperformer, bins=bins, density=True, zorder=-1, alpha = 0.5,color ='red', label='Last 300') # not sure if this should be included
+    ax2.set_ylabel('Probability density')
+    # plt.legend(loc='right')
+
+    plt.savefig('../logs_completed/aa_plots/iterlim_prob_dens_batch_match.eps', format='eps', bbox_inches='tight')
+
+
+    plt.show()
+
+    # make plot of duration and max and mean rewards
+
+    logdir = '../logs_completed/compare_iterlim_optimisation/log_2022-01-19-154202_LR01'
+    lim_stats = load_iterations(logdir)
+
+    logdir = '../logs_completed/compare_iterlim_optimisation/log_2022-03-22-105724_unconstrained_optimisation'
+    unlim_stats = load_iterations(logdir)
+
+    lim_base_r_arr = []
+    lim_duration_arr = []
+    for run in lim_stats:
+        lim_base_r_arr.append(lim_stats[run]['base_r_best'].values)
+        lim_duration_arr.append(lim_stats[run]['proc_time'].values)
+
+    lim_base_r_arr = np.array(lim_base_r_arr)
+    lim_duration_arr = np.array(lim_duration_arr)
+
+    unlim_base_r_arr = []
+    unlim_duration_arr = []
+    for run in unlim_stats:
+        unlim_base_r_arr.append(unlim_stats[run]['base_r_best'].values)
+        unlim_duration_arr.append(unlim_stats[run]['proc_time'].values)
+
+    unlim_base_r_arr = np.array(unlim_base_r_arr)
+    unlim_duration_arr = np.array(unlim_duration_arr)
+
+    figsize = (12, 9)
+    cm = 1 / 2.54  # centimeters in inches
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    plt.plot(np.max(lim_base_r_arr, axis=0), label=r'$r_{max}$ Constrained', linewidth = 2, linestyle= '-')
+    plt.plot(np.max(unlim_base_r_arr, axis=0), label=r'$r_{max}$ Unconstrained', linewidth = 2, linestyle= (0, (5, 1)))
+    plt.plot(np.mean(lim_base_r_arr, axis=0), label=r'$r_{mean}$ Constrained', linewidth = 2, linestyle= (0, (1, 1)))
+    plt.plot(np.mean(unlim_base_r_arr, axis=0), label=r'$r_{mean}$ Unconstrained', linewidth = 2, linestyle= (0, (3, 1, 1, 1)))
+    plt.xlim([0,600])
+    plt.legend(loc='lower right')
+    plt.grid('both', linestyle = ':')
+    plt.xlabel('Iterations')
+    plt.ylabel( r'$r\;(\tau)$')
+    plt.savefig('../logs_completed/aa_plots/iterlim_rewards.eps', format='eps', bbox_inches='tight')
+
+    clipped_lim_duration_arr = lim_duration_arr[:, :600]
+    np.mean(np.sum(clipped_lim_duration_arr, axis=1))
+    np.mean(np.sum(unlim_duration_arr, axis=1))
+
+    print(np.mean(np.sum(clipped_lim_duration_arr, axis=1)) / np.mean(np.sum(unlim_duration_arr, axis=1)))
 
     print('here')
 
@@ -284,12 +438,19 @@ if __name__ == "__main__":
 
 
     # create_plots_for_increasing_n_iterations()
-    # logdir = '../logs_completed/compare_iterlim_optimisation'
+    #
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
-    logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    # plot_pretty_sensitivity_results(logdir, ['entropy_weight', 'learning_rate', 'initializer', 'num_layers' , 'num_units'])
 
+    logdir = '../logs_completed/sensitivity_analysis_bDelta'
     plot_pretty_sensitivity_results(logdir, ['learning_rate', 'num_units'])
+
+
     # plot_pretty_sensitivity_results(logdir, ['initializer'])
+
+    # plot_optimise_statistics()
+
+
 
     print('end')
     print('end')
