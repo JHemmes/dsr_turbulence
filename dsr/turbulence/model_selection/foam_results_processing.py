@@ -272,7 +272,123 @@ def interpolate_CBFS():
     #
     # plt.contourf(mesh_x_test, mesh_y_test, u_test, levels=30, cmap='Reds')
 
+def interpolate_PH():
 
+    #
+    # # no interpolation for full field, just rewrite frozen data into right format!
+    #
+    frozen_path = '/home/jasper/OpenFOAM/jasper-7/run/PH/common/01Frozen'
+    data, name = read_case_results(frozen_path)
+    #
+    mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh(frozen_path)
+    #
+    mesh_x = reshape_to_mesh(mesh_x_flat)
+    mesh_y = reshape_to_mesh(mesh_y_flat)
+    #
+    u_les = data['U_LES'][0, :]
+    v_les = data['U_LES'][1, :]
+    #
+    to_save = np.zeros((mesh_x_flat.shape[0], 4))
+    to_save[:,0] = mesh_x_flat
+    to_save[:,1] = mesh_y_flat
+    to_save[:,2] = u_les
+    to_save[:,3] = v_les
+    #
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/PH/common/LES_interpolated_field.csv', to_save, delimiter=',')
+
+    list_x = []
+    list_y = []
+    list_u = []
+    list_v = []
+
+
+    for ii in range(9):
+        key = f'singleGraph_x{int(ii)}'
+        list_x.append(data['pp'][key]['line_U_LES'][:, 0])
+        list_y.append(data['pp'][key]['line_U_LES'][:, 1])
+        list_u.append(data['pp'][key]['line_U_LES'][:, 3])
+        list_v.append(data['pp'][key]['line_U_LES'][:, 4])
+
+    x_arr = np.concatenate(list_x)
+    y_arr = np.concatenate(list_y)
+    u_arr = np.concatenate(list_u)
+    v_arr = np.concatenate(list_v)
+
+
+    to_save = np.zeros((x_arr.shape[0], 4))
+    to_save[:, 0] = x_arr
+    to_save[:, 1] = y_arr
+    to_save[:, 2] = u_arr
+    to_save[:, 3] = v_arr
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/PH/common/LES_interpolated_lines.csv', to_save, delimiter=',')
+
+    #
+    # # new interpolated data
+    # path = '/home/jasper/Documents/afstuderen/python/inversion/DATA/PH-Breuer/data/Re_10595/Hill_Breuer.csv'
+    # data = np.genfromtxt(path, delimiter=',')
+    # data = data[1:, :-1]
+    # shape = (281, 234)
+    # shape = (234, 281)
+    # mesh_x = np.reshape(data[:, 0], shape, order='A').T
+    # mesh_y = np.reshape(data[:, 1], shape, order='A').T
+    # mesh_u = np.reshape(data[:, 2], shape, order='A').T
+    # mesh_v = np.reshape(data[:, 3], shape, order='A').T
+    # bot_x = mesh_x[:, 0]
+    # bot_y = mesh_y[:, 0]
+    # top_x = mesh_x[:, -1]
+    # top_y = np.max(mesh_y, axis=1) # hack because the mesh is in strange shape
+    #
+    #
+    # ftop = interp.interp1d(top_x, top_y)
+    #
+    # fbot = interp.interp1d(bot_x, bot_y)
+    #
+    # x_stations = np.arange(0, 9)
+    # x_stations[0] = 1e-6  # this is also the case in the openFoam postprocessing
+    #
+    # y_top = ftop(x_stations)
+    # y_bot = fbot(x_stations)
+    #
+    # n_points = 150
+    # mesh_x_target = []
+    # mesh_y_target = []
+    #
+    # for ii in range(len(x_stations)):
+    #     mesh_x_target.append(x_stations[ii] * np.ones(n_points))
+    #     mesh_y_target.append(np.linspace(y_bot[ii], y_top[ii], n_points))
+    #
+    # mesh_x_target = np.moveaxis(np.array(mesh_x_target), -1, 0)
+    # mesh_y_target = np.moveaxis(np.array(mesh_y_target), -1, 0)
+    #
+    # x_flat = mesh_x_target.flatten()
+    # y_flat = mesh_y_target.flatten()
+    #
+    # u_lines = interp.griddata((data[:, 0], data[:, 1]), data[:, 2], (x_flat, y_flat), method='nearest')
+    #
+    # v_lines = interp.griddata((data[:, 0], data[:, 1]), data[:, 3], (x_flat, y_flat), method='nearest')
+    #
+    # to_save = np.zeros((x_flat.shape[0], 4))
+    # to_save[:, 0] = x_flat
+    # to_save[:, 1] = y_flat
+    # to_save[:, 2] = u_lines
+    # to_save[:, 3] = v_lines
+    #
+    # np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/PH/common/LES_interpolated_lines.csv', to_save, delimiter=',')
+    #
+    # # also interpolate to full mesh:
+    # mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh('/home/jasper/OpenFOAM/jasper-7/run/PH/PH_simplefoam_kOmegaSST/')
+    #
+    # u_field = interp.griddata((data[:, 0], data[:, 1]), data[:, 2], (mesh_x_flat, mesh_y_flat), method='nearest')
+    #
+    # v_field = interp.griddata((data[:, 0], data[:, 1]), data[:, 3], (mesh_x_flat, mesh_y_flat), method='nearest')
+    #
+    # to_save = np.zeros((mesh_x_flat.shape[0], 4))
+    # to_save[:, 0] = mesh_x_flat
+    # to_save[:, 1] = mesh_y_flat
+    # to_save[:, 2] = u_field
+    # to_save[:, 3] = v_field
+    #
+    # np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/PH/common/LES_interpolated_field.csv', to_save, delimiter=',')
 
 def interpolate_CD():
     # needs work to avoid interpolating outside flow domain.
@@ -317,12 +433,12 @@ def interpolate_CD():
     y_top = ftop(x_stations)
     y_bot = fbot(x_stations)
 
-    n_points = 200
+    n_points = 150
     mesh_x_target = []
     mesh_y_target = []
 
     for ii in range(len(x_stations)):
-        mesh_x_target.append(x_stations[ii] * np.ones(200))
+        mesh_x_target.append(x_stations[ii] * np.ones(n_points))
         mesh_y_target.append(np.linspace(y_bot[ii], y_top[ii], n_points))
 
     mesh_x_target = np.moveaxis(np.array(mesh_x_target), -1, 0)
@@ -415,11 +531,16 @@ def read_and_plot_cases(base_dir):
     # reshape interpolated data.
     n_lines = np.unique(hifi_data_lines[:, 0]).shape[0]
     n_points = int(hifi_data_lines.shape[0]/n_lines)
+    #
+    # lines = {'mesh_x': np.reshape(hifi_data_lines[:, 0], (n_points, n_lines), order='A'),
+    #          'mesh_y': np.reshape(hifi_data_lines[:, 1], (n_points, n_lines), order='A'),
+    #          'u': np.reshape(hifi_data_lines[:, 2], (n_points, n_lines), order='A'),
+    #          'v': np.reshape(hifi_data_lines[:, 3], (n_points, n_lines), order='A')}
 
-    lines = {'mesh_x': np.reshape(hifi_data_lines[:, 0], (n_points, n_lines), order='A'),
-             'mesh_y': np.reshape(hifi_data_lines[:, 1], (n_points, n_lines), order='A'),
-             'u': np.reshape(hifi_data_lines[:, 2], (n_points, n_lines), order='A'),
-             'v': np.reshape(hifi_data_lines[:, 3], (n_points, n_lines), order='A')}
+    lines = {'mesh_x': hifi_data_lines[:, 0],
+             'mesh_y': hifi_data_lines[:, 1],
+             'u': hifi_data_lines[:, 2],
+             'v': hifi_data_lines[:, 3]}
 
     # plt.contourf(lines['mesh_x'], lines['mesh_y'], lines['v'], levels=30, cmap='Reds')
 
@@ -500,11 +621,11 @@ def read_and_plot_cases(base_dir):
     # mesh_y = reshape_to_mesh(mesh_y_flat)
     n_points = mesh_x.shape[0]
 
-    # check if number of lines in interpolated data matches the openFoam pp folder
-    ppkeys = list(results[list(results.keys())[0]]['pp'].keys())
-    ppkeys.pop(ppkeys.index('residuals'))
-    if len(ppkeys) != n_lines:
-        raise ValueError('The interpolated high fidelity data contains a different number of lines than the OF results')
+    # # check if number of lines in interpolated data matches the openFoam pp folder
+    # ppkeys = list(results[list(results.keys())[0]]['pp'].keys())
+    # ppkeys.pop(ppkeys.index('residuals'))
+    # if len(ppkeys) != n_lines:
+    #     raise ValueError('The interpolated high fidelity data contains a different number of lines than the OF results')
 
     plt.figure()
     plt.plot(mesh_x_flat[:n_points], mesh_y_flat[:n_points], c='Black')
@@ -517,9 +638,10 @@ def read_and_plot_cases(base_dir):
     # add LES results:
     u_scale = 1
 
-    for x in np.unique(hifi_data_lines[:, 0]):
-        plt.plot(x + lines['u'][lines['mesh_x']==x],
-                 lines['mesh_y'][lines['mesh_x']==x], c='Black', marker='o', markevery=5, label=label)
+    for x in np.unique(hifi_data_lines[:, 0].round()):
+        plot_bool = (lines['mesh_x'] > x - 0.01) & (lines['mesh_x'] < x + 0.01)
+        plt.plot(x + lines['u'][plot_bool],
+                 lines['mesh_y'][plot_bool], c='Black', marker='o', markevery=5, label=label)
         if label:
             label = None
 
@@ -563,9 +685,11 @@ if __name__ == '__main__':
     matplotlib.use('tkagg')
     #
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
+    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
     read_and_plot_cases(base_dir)
 
+    # interpolate_PH()
     # interpolate_CBFS()
     # interpolate_CD()
 

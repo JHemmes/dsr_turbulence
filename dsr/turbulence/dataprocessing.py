@@ -230,6 +230,7 @@ def load_frozen_RANS_dataset(config_task):
     case = config_task['name']
     output = config_task['output']
     inputs = config_task['input']
+    skip_wall = False
     if config_task['skip_wall']:
         # set skip wall to right value depending on dataset:
         if 'PH' in case:

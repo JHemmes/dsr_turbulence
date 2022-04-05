@@ -193,7 +193,7 @@ if __name__ == "__main__":
     else:
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
-    logdir = '../logs_completed/all_PH'
+    logdir = '../logs_completed/PH_SW_sweep'
     summarise_results(logdir)
 
     # # dimensional analysis

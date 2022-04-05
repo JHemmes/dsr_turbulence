@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "_kdef_",
+      "name" : "_kDef",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -28,7 +28,7 @@
    "training": {
       "logdir": "./log",
         "n_epochs": null,
-        "n_samples": 1000,
+        "n_samples": 600000,
         "batch_size": 1000,
         "dataset_batch_size": null,
         "complexity": "length",
@@ -63,11 +63,11 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.01,
+      "learning_rate": 0.005,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.005,
+      "entropy_weight": 0.01,
       "invalid_weight": 0,
       "scale_to_pg": true,
       "max_length": 30
