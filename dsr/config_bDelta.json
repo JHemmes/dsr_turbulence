@@ -9,7 +9,7 @@
          "noise": null,
          "input": ["T1", "T2", "T3", "T4", "inv1", "inv2"],
          "output": "bDelta",
-         "skip_wall": 15,
+         "skip_wall": true,
          "dataset_size_multiplier": 1.0
       },
       "metric" : "inv_nrmse",

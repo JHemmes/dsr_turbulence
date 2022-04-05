@@ -230,7 +230,14 @@ def load_frozen_RANS_dataset(config_task):
     case = config_task['name']
     output = config_task['output']
     inputs = config_task['input']
-    skip_wall = config_task['skip_wall']
+    if config_task['skip_wall']:
+        # set skip wall to right value depending on dataset:
+        if 'PH' in case:
+            skip_wall = 15
+        elif 'CD' in case:
+            skip_wall = 2
+        elif 'CBFS' in case:
+            skip_wall = 6
 
     pickle_path = f'turbulence/frozen_data/pickled_' + '_'.join([case] + [f'NW_{skip_wall}'] + [output] + inputs) + '.p'
 

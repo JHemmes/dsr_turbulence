@@ -9,7 +9,7 @@
          "noise": null,
          "input": ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"],
          "output": "kDeficit",
-         "skip_wall": 15,
+         "skip_wall": true,
          "dataset_size_multiplier": 1.0
       },
       "metric" : "inv_nrmse",

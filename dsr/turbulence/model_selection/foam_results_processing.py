@@ -180,8 +180,7 @@ def interpolate_CBFS():
     # Then create linspace using those values as limits.
 
     # ["x/H", "y/H", "p", "u/U_in", "v/U_in", "w/U_in", "uu/U_in^2", "vv/U_in^2", "ww/U_in^2", "uv/U_in^2", "uw/U_in^2", "vw/U_in^2", "k/U_in^2"]
-    with open(
-            r"C:\Users\Jasper\Documents\Afstuderen\Code\inversion\DATA\CBFS-Bentaleb\data\curvedbackstep_vel_stress.dat") as f:
+    with open('/home/jasper/Documents/afstuderen/python/inversion/DATA/CBFS-Bentaleb/data/curvedbackstep_vel_stress.dat') as f:
         data = f.readlines()
 
     data_numbers = []
@@ -199,32 +198,79 @@ def interpolate_CBFS():
 
     mesh_x = np.reshape(data[:, 0], (768, 160), order='F')
     mesh_y = np.reshape(data[:, 1], (768, 160), order='F')
-    cols = ["u/U_in", "v/U_in"]
 
-    # These are the x and y velocities: "u/U_in", "v/U_in"
-    for ii in range(len(cols)):
-        uu = np.reshape(data[:, ii], (768, 160), order='F')
-        plt.figure()
-        plt.title(cols[ii])
-        plt.tight_layout()
-        plt.contourf(mesh_x, mesh_y, uu, levels=30, cmap='Reds')
-        # plt.contourf(mesh_x, mesh_y, , levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-        plt.colorbar()
+    top_x = mesh_x[:, -1]
+    top_y = mesh_y[:, -1]
+    ftop = interp.interp1d(top_x, top_y)
 
-    x_stations = np.arange(-2, 13)
+    bot_x = mesh_x[:, 0]
+    bot_y = mesh_y[:, 0]
+    fbot = interp.interp1d(bot_x, bot_y)
 
-    y_stations = np.linspace(0, 9.5, 100)
+    x_stations = np.arange(0, 11)
+    x_stations[0] = 1e-6  # this is also the case in the openFoam postprocessing
 
-    mesh_x, mesh_y = np.meshgrid(x_stations, y_stations)
+    y_top = ftop(x_stations)
+    y_bot = fbot(x_stations)
 
-    test = interp.griddata((data[:, 0].flatten(), data[:, 1].flatten()),
-                           data[:, 3].flatten(), (mesh_x.flatten(), mesh_y.flatten()), method='nearest')
+    n_points = 150
+    mesh_x_target = []
+    mesh_y_target = []
 
-    plt.scatter(data[:, 0].flatten(), data[:, 1].flatten())
-    # seems to still contain points below wall
-    uinterpolated = np.reshape(test, mesh_x.shape, order='A')
+    for ii in range(len(x_stations)):
+        mesh_x_target.append(x_stations[ii] * np.ones(n_points))
+        mesh_y_target.append(np.linspace(y_bot[ii], y_top[ii], n_points))
 
-    plt.contourf(mesh_x, mesh_y, uinterpolated, levels=30, cmap='Reds')
+    mesh_x_target = np.moveaxis(np.array(mesh_x_target), -1, 0)
+    mesh_y_target = np.moveaxis(np.array(mesh_y_target), -1, 0)
+
+    x_flat = mesh_x_target.flatten()
+    y_flat = mesh_y_target.flatten()
+
+    U = interp.griddata((data[:, 0], data[:, 1]),
+                         data[:, 3], (x_flat, y_flat), method='nearest')
+
+    uinterpolated = np.reshape(U, mesh_x_target.shape, order='A')
+
+    V = interp.griddata((data[:, 0], data[:, 1]),
+                         data[:, 4], (x_flat, y_flat), method='nearest')
+
+    vinterpolated = np.reshape(V, mesh_x_target.shape, order='A')
+
+    # plt.figure()
+    # plt.contourf(mesh_x_target, mesh_y_target, uinterpolated, levels=30, cmap='Reds')
+    # plt.scatter(mesh_x_target, mesh_y_target)
+
+    to_save = np.zeros((x_flat.shape[0], 4))
+    to_save[:,0] = x_flat
+    to_save[:,1] = y_flat
+    to_save[:,2] = U
+    to_save[:,3] = V
+
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/CBFS/common/LES_interpolated_lines.csv', to_save, delimiter=',')
+
+    # also interpolate to full mesh:
+    mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh('/home/jasper/OpenFOAM/jasper-7/run/CBFS/CBFS_simpleFoam_kOmegaSST/')
+
+    u_full_field = interp.griddata((data[:, 0], data[:, 1]),
+                                    data[:, 3], (mesh_x_flat, mesh_y_flat), method='nearest')
+
+    v_full_field = interp.griddata((data[:, 0], data[:, 1]),
+                                    data[:, 4], (mesh_x_flat, mesh_y_flat), method='nearest')
+
+    to_save = np.zeros((mesh_x_flat.shape[0], 4))
+    to_save[:,0] = mesh_x_flat
+    to_save[:,1] = mesh_y_flat
+    to_save[:,2] = u_full_field
+    to_save[:,3] = v_full_field
+
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/CBFS/common/LES_interpolated_field.csv', to_save, delimiter=',')
+
+    # mesh_x_test = reshape_to_mesh(mesh_x_flat)
+    # mesh_y_test = reshape_to_mesh(mesh_y_flat)
+    # u_test = reshape_to_mesh(u_full_field)
+    #
+    # plt.contourf(mesh_x_test, mesh_y_test, u_test, levels=30, cmap='Reds')
 
 
 
@@ -368,7 +414,7 @@ def read_and_plot_cases(base_dir):
 
     # reshape interpolated data.
     n_lines = np.unique(hifi_data_lines[:, 0]).shape[0]
-    n_points = int(hifi_data_lines.shape[0]/13)
+    n_points = int(hifi_data_lines.shape[0]/n_lines)
 
     lines = {'mesh_x': np.reshape(hifi_data_lines[:, 0], (n_points, n_lines), order='A'),
              'mesh_y': np.reshape(hifi_data_lines[:, 1], (n_points, n_lines), order='A'),
@@ -377,9 +423,49 @@ def read_and_plot_cases(base_dir):
 
     # plt.contourf(lines['mesh_x'], lines['mesh_y'], lines['v'], levels=30, cmap='Reds')
 
+    if 'CBFS' in base_dir:
+        # clip domain for MSE caluculation:
+        xmin = 0
+        xmax = 9
+        ymin = 0
+        ymax = 3
+        x = hifi_data_field[:, 0]
+        y = hifi_data_field[:, 1]
+
+        keep_points = (x > xmin) & (x < xmax) & (y > ymin) & (y < ymax)
+    else:
+        keep_points = np.ones(hifi_data_field[:, 0].shape) == 1
+        # new_x = x[bools]
+        # new_y = y[bools]
+        #
+        #
+        # x_mesh = reshape_to_mesh(x)
+        # y_mesh = reshape_to_mesh(y)
+        # ukomg_mesh = reshape_to_mesh(u_kOmegaSST[0, :])
+        # vkomg_mesh = reshape_to_mesh(u_kOmegaSST[1, :])
+        # y_mesh = reshape_to_mesh(y)
+        # uhifi_mesh = reshape_to_mesh(u_hifi[0, :])
+        # vhifi_mesh = reshape_to_mesh(u_hifi[1, :])
+        # # plt.scatter(x_mesh[:, 0], y_mesh[:, 0])
+        # plt.contourf(x_mesh, y_mesh, ukomg_mesh, levels=30, cmap='Reds')
+        # plt.figure()
+        # plt.contourf(x_mesh, y_mesh, uhifi_mesh, levels=30, cmap='Reds')
+        #
+        # ukomg_mesh = reshape_to_mesh(u_kOmegaSST[0, bools])
+        # vkomg_mesh = reshape_to_mesh(u_kOmegaSST[1, bools])
+        # y_mesh = reshape_to_mesh(y)
+        # uhifi_mesh = reshape_to_mesh(u_hifi[0, bools])
+        # vhifi_mesh = reshape_to_mesh(u_hifi[1, bools])
+        # # plt.scatter(x_mesh[:, 0], y_mesh[:, 0])
+        # plt.contourf(x_mesh, y_mesh, ukomg_mesh, levels=30, cmap='Reds')
+        # plt.figure()
+        # plt.contourf(x_mesh, y_mesh, uhifi_mesh, levels=30, cmap='Reds')
+        #
+
+
     # calc error of k_omega and LES
-    u_kOmegaSST = results['kOmegaSST']['U'][:2, :]
-    u_hifi = np.moveaxis(hifi_data_field[:, 2:], 0, -1)
+    u_kOmegaSST = results['kOmegaSST']['U'][:2, keep_points]
+    u_hifi = np.moveaxis(hifi_data_field[keep_points, 2:], 0, -1)
 
     mse_komg = sum(sum((u_hifi - u_kOmegaSST)**2))/(u_hifi.shape[0]*u_hifi.shape[1])
 
@@ -393,12 +479,12 @@ def read_and_plot_cases(base_dir):
     best_sparta = None
 
     for run in runs:
-        u = results[run]['U'][:2, :]
+        u = results[run]['U'][:2, keep_points]
         mse = sum(sum((u_hifi - u) ** 2)) / (u_hifi.shape[0] * u_hifi.shape[1])
         norm_mse = mse/mse_komg
         results[run]['norm_mse'] = norm_mse
         if norm_mse < best_mse_DSR:
-            if 'DSR' in run:
+            if 'DSR' in run or 'SW' in run:
                 best_dsr = run
                 best_mse_DSR = norm_mse
         if norm_mse < best_mse_sparta:
@@ -465,25 +551,22 @@ def read_and_plot_cases(base_dir):
                 label = None
 
     plt.legend()
-    # # add DSR results:
-    # for line in results['DSR:0.07654184023911788*grad_u_T1*k/inv1']['pp']:
-    #     if 'single' in line:
-    #         data = results['DSR:0.07654184023911788*grad_u_T1*k/inv1']['pp'][line]['line_U']
-    #         plt.plot(data[:, 0] + u_scale*data[:, 3], data[:, 1], c='C2', linestyle='-', markevery=5)
-    #
-    # exclude = 15
-    # plt.scatter(mesh_x_flat[:exclude*n_points], mesh_y_flat[:exclude*n_points], c='Black')
-    # plt.scatter(mesh_x_flat[-exclude*n_points:], mesh_y_flat[-exclude*n_points:], c='Black')
+
+    exclude = 6
+    plt.scatter(mesh_x_flat[:exclude*n_points], mesh_y_flat[:exclude*n_points], c='Black')
+    plt.scatter(mesh_x_flat[-exclude*n_points:], mesh_y_flat[-exclude*n_points:], c='Black')
 
 
 if __name__ == '__main__':
 
     # read_and_plot_PH()
     matplotlib.use('tkagg')
-
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
+    #
+    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     read_and_plot_cases(base_dir)
 
+    # interpolate_CBFS()
     # interpolate_CD()
 
     print('end')
