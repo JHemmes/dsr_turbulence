@@ -507,7 +507,8 @@ def learn(session, controller, pool, tensor_dsr, dataset_name,
                          np.round(n_unq_tokens_avg_full, 3),
                          np.round(n_unq_tokens_avg_sub, 3),
                          np.round(wall_duration, 2),
-                         np.round(proc_duration, 2)
+                         np.round(proc_duration, 2),
+                         programs[np.argmax(r)].tokens
                          ]]  # changed this array to a list, changed save routine to pandas to allow expression string
             stats[0] += list(np.round(token_occur_avg_full, 2))
             stats[0] += list(np.round(token_occur_avg_sub, 2))

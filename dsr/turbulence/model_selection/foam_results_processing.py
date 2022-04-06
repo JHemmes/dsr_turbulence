@@ -691,9 +691,9 @@ if __name__ == '__main__':
     # read_and_plot_PH()
     matplotlib.use('tkagg')
     #
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
-    # # # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
-    # # # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
+    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
+    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
     read_and_plot_cases(base_dir)
 
     # interpolate_PH()
