@@ -249,7 +249,7 @@ def interpolate_CBFS():
     to_save[:,2] = U
     to_save[:,3] = V
 
-    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/CBFS/common/LES_interpolated_lines.csv', to_save, delimiter=',')
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/CBFS_lines.csv', to_save, delimiter=',')
 
     # also interpolate to full mesh:
     mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh('/home/jasper/OpenFOAM/jasper-7/run/CBFS/CBFS_simpleFoam_kOmegaSST/')
@@ -266,7 +266,7 @@ def interpolate_CBFS():
     to_save[:,2] = u_full_field
     to_save[:,3] = v_full_field
 
-    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/CBFS/common/LES_interpolated_field.csv', to_save, delimiter=',')
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/CBFS_field.csv', to_save, delimiter=',')
 
     # mesh_x_test = reshape_to_mesh(mesh_x_flat)
     # mesh_y_test = reshape_to_mesh(mesh_y_flat)
@@ -378,7 +378,7 @@ def interpolate_PH():
     to_save[:, 2] = u_lines
     to_save[:, 3] = v_lines
 
-    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/PH/common/LES_interpolated_lines.csv', to_save, delimiter=',')
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/PH_lines.csv', to_save, delimiter=',')
 
     # also interpolate to full mesh:
     mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh('/home/jasper/OpenFOAM/jasper-7/run/PH/PH_simplefoam_kOmegaSST/')
@@ -393,7 +393,7 @@ def interpolate_PH():
     to_save[:, 2] = u_field
     to_save[:, 3] = v_field
 
-    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/PH/common/LES_interpolated_field.csv', to_save, delimiter=',')
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/PH_field.csv', to_save, delimiter=',')
 
 def interpolate_CD():
     # needs work to avoid interpolating outside flow domain.
@@ -490,7 +490,7 @@ def interpolate_CD():
     to_save[:,2] = U
     to_save[:,3] = V
 
-    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/CD/common/DNS_interpolated_lines.csv', to_save, delimiter=',')
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/CD_lines.csv', to_save, delimiter=',')
 
     # also interpolate to full mesh:
     mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh('/home/jasper/OpenFOAM/jasper-7/run/CD/CD_simplefoam_kOmegaSST/')
@@ -508,7 +508,7 @@ def interpolate_CD():
     to_save[:,2] = u_full_field
     to_save[:,3] = v_full_field
 
-    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/CD/common/DNS_interpolated_field.csv', to_save, delimiter=',')
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/CD_field.csv', to_save, delimiter=',')
 
 
 def read_and_plot_cases(base_dir):
@@ -691,11 +691,11 @@ if __name__ == '__main__':
     # read_and_plot_PH()
     matplotlib.use('tkagg')
     #
-    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CD'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
+    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
     read_and_plot_cases(base_dir)
-
+    #
     # interpolate_PH()
     # interpolate_CBFS()
     # interpolate_CD()

@@ -54,6 +54,29 @@ def fetch_iteration_metrics(logdir, finished=True):
 
     return plot_dict
 
+def convert_expression(expression, inputs):
+
+    c_names = {
+        'grad_u_T1': 'grad_u_T1',
+        'grad_u_T2': 'grad_u_T2',
+        'grad_u_T3': 'grad_u_T3',
+        'grad_u_T4': 'grad_u_T4',
+        'k': 'k_',
+        'inv1': 'inv1',
+        'inv2': 'inv2',
+        'T1': 'T1',
+        'T2': 'T2',
+        'T3': 'T3',
+        'T4': 'T4'
+    }
+
+    for ii in range(len(inputs)):
+        expression = expression.replace(f'x{ii+1}', c_names[inputs[ii]])
+
+    return expression
+
+
+
 def check_expression_dim(expression, dim_dict):
     try:
         expr_dim = eval(expression, dim_dict)
@@ -141,6 +164,9 @@ def summarise_results(logdir):
             target_dim = (0, 0, 0, 0, 0, 0, 0)
 
         df_joined = df_joined.drop_duplicates(subset=['batch_r_max_expression'])
+
+        df_joined['converted_expression'] = df_joined.apply(lambda x: convert_expression(x['batch_r_max_expression'], inputs), axis=1)
+
         df_joined['name'] = run_name
         df_joined['output'] = output
         df_joined['training_case'] = case
@@ -181,7 +207,7 @@ def summarise_results(logdir):
 
 
     save_cols = ['name','rank', 'ranked_by', 'r_max_PH', 'r_max_CD', 'r_max_CBFS', 'r_sum', 'batch_r_max_expression',
-                 'dimensions', 'training_case', 'skip_wall', 'ntokens', 'correct_dim']
+                 'dimensions', 'training_case', 'skip_wall', 'ntokens', 'correct_dim', 'converted_expression']
     df_save = df_results[save_cols]
     df_save.to_csv(os.path.join(logdir, 'results.csv'),index=False)
 
