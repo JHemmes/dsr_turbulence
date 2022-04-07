@@ -102,6 +102,17 @@ def check_expression_dim(expression, dim_dict):
 
     return tuple(OF_dims)
 
+def count_tokens(token_str, ntok):
+    if isinstance(token_str, str):
+        token_str = token_str.replace('[', '')
+        token_str = token_str.replace(']', '')
+        split_str = token_str.split(' ')
+        tokens = [val for val in split_str if val.isnumeric()]
+        return len(tokens)
+    else:
+        return ntok
+
+
 def summarise_results(logdir):
 
     dirlist = os.listdir(logdir)
@@ -171,20 +182,24 @@ def summarise_results(logdir):
         df_joined['output'] = output
         df_joined['training_case'] = case
         df_joined['skip_wall'] = sw
-        df_joined['ntokens'] = ntok
+
+        if 'tokens' in df_joined.columns:
+            df_joined['ntokens'] = df_joined.apply(lambda x: count_tokens(x['tokens'], ntok), axis=1)
+        else:
+            df_joined['ntokens'] = ntok
 
         df_right_dim = df_joined[df_joined['dimensions'] == target_dim]
         df_right_dim = df_right_dim.drop_duplicates(subset=['batch_r_max_expression'])
         df_right_dim['correct_dim'] = True
 
         # add best on all cases
-        df_best = df_right_dim.sort_values('r_sum', ascending=False).head(5)
+        df_best = df_right_dim.sort_values('r_sum', ascending=False).head(30)
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = 'r_sum'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
 
         # add best on all cases
-        df_best = df_right_dim.sort_values(f'r_max_{case}', ascending=False).head(5)
+        df_best = df_right_dim.sort_values(f'r_max_{case}', ascending=False).head(30)
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = f'r_max_{case}'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
@@ -194,13 +209,13 @@ def summarise_results(logdir):
         df_wrong_dim['correct_dim'] = False
 
         # add best on all cases
-        df_best = df_wrong_dim.sort_values('r_sum', ascending=False).head(5)
+        df_best = df_wrong_dim.sort_values('r_sum', ascending=False).head(30)
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = 'r_sum'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
 
         # add best on all cases
-        df_best = df_wrong_dim.sort_values(f'r_max_{case}', ascending=False).head(5)
+        df_best = df_wrong_dim.sort_values(f'r_max_{case}', ascending=False).head(30)
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = f'r_max_{case}'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
@@ -261,13 +276,13 @@ if __name__ == "__main__":
     else:
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
+    #
+    #
+    # models_path = '../logs_completed/all_PH/selected_models.csv'
+    # write_selected_models_to_C(models_path)
 
-
-    models_path = '../logs_completed/all_PH/selected_models.csv'
-    write_selected_models_to_C(models_path)
-
-    # logdir = '../logs_completed/PH_SW_sweep'
-    # summarise_results(logdir)
+    logdir = '../logs_completed/all_PH'
+    summarise_results(logdir)
 
     print('end')
 
