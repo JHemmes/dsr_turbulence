@@ -1,7 +1,7 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "OW_kDef_PH_20tok",
+      "name" : "OW_kDef_PH_20tok_seed50",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
@@ -19,7 +19,7 @@
       "reward_noise" : 0.0
    },
    "prior": {
-      "length" : {"min_" : 1, "max_" : 7},
+      "length" : {"min_" : 1, "max_" : 20},
       "repeat" : {"tokens" : "const", "max_" : 20},
       "inverse" : {},
       "trig" : {},
@@ -63,11 +63,11 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.005,
+      "learning_rate": 0.01,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,
-      "entropy_weight": 0.01,
+      "entropy_weight": 0.005,
       "invalid_weight": 0,
       "scale_to_pg": true,
       "max_length": 30

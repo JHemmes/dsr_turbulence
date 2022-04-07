@@ -211,6 +211,48 @@ def summarise_results(logdir):
     df_save = df_results[save_cols]
     df_save.to_csv(os.path.join(logdir, 'results.csv'),index=False)
 
+def write_OF_model_file(expression, model_nr):
+
+    example_file = '../logs_completed/models/model0000.C'
+
+    with open(example_file) as f:
+        lines = f.readlines()
+
+    header_lines = lines[:-2]
+
+    header_lines.append(f'    Info << "Using DSR model {model_nr}" << endl;\n')
+
+    if 'x' in expression:
+        # needs replacing
+        print('Make sure you got the right inputs!!!!!')
+        inputs = ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"] ## kDeficit
+        expression = convert_expression(expression, inputs)
+
+    header_lines.append(f'    kDeficit_ = {expression};\n')
+
+    with open(f'../logs_completed/models/model{model_nr:04d}.C', 'w') as newfile:
+        for line in header_lines:
+            newfile.write(line)
+
+    newfile.close()
+
+def write_selected_models_to_C(path):
+
+    df_selected_models = pd.read_csv(path)
+
+    for index, row in df_selected_models.iterrows():
+
+        filename = f'model_{row["model_nr"]}'
+        row.to_csv(os.path.join('../logs_completed/models/model_info_files', filename), header=False)
+
+        write_OF_model_file(row['batch_r_max_expression'], row['model_nr'])
+
+    for index, row in df_selected_models.iterrows():
+        print(f'    else if (model_nr_.value() == {row["model_nr"]}) {{')
+        print(f'        #include "model{row["model_nr"]:04d}.C"')
+        print('    }')
+
+
 if __name__ == "__main__":
 
     dsrpath = os.path.abspath(__file__)
@@ -219,31 +261,13 @@ if __name__ == "__main__":
     else:
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
-    logdir = '../logs_completed/PH_SW_sweep'
-    summarise_results(logdir)
-
-    # # dimensional analysis
-    # m = Dimension('length')
-    # s = Dimension('time')
-    #
-    # ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"]
-    #
-    # x1 = 1/s
-    # x2 = 1/s
-    # x3 = 1/s
-    # x4 = 1/s
-    # x5 = (m**2)/(s**2)
-    # x6 = m/m
-    # x7 = m/m
-    #
-    # kDef  = 0.0021907169381726471 * x1 / x6
-    # kDef = 0.0417881707666945*x1*x5/x6
-    #
-    #
-    # dimsys_SI.get_dimensional_dependencies(kDef)
 
 
+    models_path = '../logs_completed/all_PH/selected_models.csv'
+    write_selected_models_to_C(models_path)
 
+    # logdir = '../logs_completed/PH_SW_sweep'
+    # summarise_results(logdir)
 
     print('end')
 
