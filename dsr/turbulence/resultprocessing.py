@@ -67,7 +67,10 @@ def scatter_results_scalar(results, config):
             dummy_config['dataset']['skip_wall'] = False
             k, _ = load_frozen_RANS_dataset(dummy_config['dataset'])
 
-        Rsparta = 2*k*grad_u_T1*1.4
+        Rsparta = 2*k*grad_u_T1*0.93
+        # sparta_inrmse = 1 / (1 + np.sqrt(np.mean((y-Rsparta)**2))/np.std(y))
+        # print(sparta_inrmse)
+        #
 
         yhat, _ = results['program'].execute(X)
 

@@ -142,6 +142,10 @@ def summarise_results(logdir):
     df_results = pd.DataFrame()
 
     for run in dirlist:
+
+        if '.csv' in run:
+            continue
+
         run_dir = os.path.join(logdir, run)
         print(f'Working on: {run}')
         with open(os.path.join(run_dir, 'config.json'), encoding='utf-8') as f:
@@ -278,14 +282,10 @@ if __name__ == "__main__":
 
     #
     #
-    # models_path = '../logs_completed/all_PH/selected_models.csv'
+    # models_path = '../logs_completed/all_CBFS/kDef_CBFS_selected_models.csv'
     # write_selected_models_to_C(models_path)
 
-    logdir = '../logs_completed/all_PH'
+    logdir = '../logs_completed/all_CD'
     summarise_results(logdir)
 
     print('end')
-
-
-
-

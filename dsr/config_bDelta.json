@@ -1,11 +1,11 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "OW_bDel_10TOK",
+      "name" : "OW_bDel_CD_10TOK",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : true,
       "dataset" : {
-         "name" : "PH10595",
+         "name" : "CD12600",
          "noise": null,
          "input": ["T1", "T2", "T3", "T4", "inv1", "inv2"],
          "output": "bDelta",

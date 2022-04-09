@@ -115,7 +115,7 @@ def main_custom(config_template="config.json",
     runs *= mc
     seeds = (np.arange(mc) + seed_shift).repeat(len(unique_runs)).tolist()
     names_and_seeds = list(zip(runs, seeds))
-    names_and_seeds = names_and_seeds[50:]
+
     # Edit n_cores_task and/or n_cores_batch
     if n_cores_task == -1:
         n_cores_task = multiprocessing.cpu_count()
@@ -227,8 +227,8 @@ if __name__ == "__main__":
     """
 
 
-    main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=12)
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
+    # main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
+    main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=4)
 
 
 

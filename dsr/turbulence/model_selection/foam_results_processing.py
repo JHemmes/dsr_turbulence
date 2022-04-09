@@ -2,6 +2,8 @@ import os
 import sys
 
 import matplotlib
+import pandas as pd
+import platform
 matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import numpy as np
@@ -99,9 +101,9 @@ def find_model_info(dir):
 
     return name, model_info
 
-def process_OF_results(base_dir):
-    # change the working directory to dir with the openFOAM results
+def process_OF_results(selected_model_file=False):
 
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
     dirlist = os.listdir(base_dir)
     dirlist.pop(dirlist.index('common'))
     dirlist.pop(dirlist.index('base_dir_no_dimension_check'))
@@ -116,7 +118,6 @@ def process_OF_results(base_dir):
 
     for case in cases:
         # get baseline kOmegaSST data
-
         case_result, final_iteration = read_case_results(os.path.join(base_dir, 'kOmegaSST', case))
         kOmegaSST[case] = case_result
 
@@ -142,11 +143,29 @@ def process_OF_results(base_dir):
         hifi_data[case]['U'] = np.moveaxis(hifi_data[case]['field'][hifi_data[case]['keep'], 2:], -1, 0)
         hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
                                                kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
+    save_lists = {
+        'model_order': [],
+        'PH_mse': [],
+        'PH_iter': [],
+        'CD_mse': [],
+        'CD_iter': [],
+        'CBFS_mse': [],
+        'CBFS_iter': []
+    }
+
+    # load selected models file:
+    if selected_model_file:
+        df_models = pd.read_csv(selected_model_file)
 
     results = {}
     for dir in dirlist:
 
         name, model_info = find_model_info(os.path.join(base_dir, dir))
+
+        if len(model_info) > 10:
+            if int(model_info['model_nr']) not in df_models['model_nr'].values:
+                continue
+
 
         results[name] = {'model_info': model_info}
 
@@ -154,7 +173,7 @@ def process_OF_results(base_dir):
 
             case_result, final_iteration = read_case_results(os.path.join(base_dir, dir, case))
             if case_result == 'Diverged':
-                results[name][case] = {'norm_mse': case_result,
+                results[name][case] = {'norm_mse': 1000000,
                                        'final_iteration': final_iteration}
             else:
                 results[name][case] = {'norm_mse': mse(hifi_data[case]['U'],
@@ -162,53 +181,151 @@ def process_OF_results(base_dir):
                                        'final_iteration': final_iteration}
                 results[name][case]['norm_mse'] = results[name][case]['norm_mse']/hifi_data[case]['mse_kOmegaSST']
 
-    # best_cases = {}
-    # for case in cases:
-    #     best_cases[case] = {
-    #         'dsr': {
-    #             'name': [],
-    #             'norm_mse': []
-    #         },
-    #         'sparta': {
-    #             'name': [],
-    #             'norm_mse': []
-    #         }
-    #     }
-    #
-    # for model in results:
-    #     results[model]['norm_mse'] = {}
-    #     for case in cases:
-    #         if results[model][case] == 'Diverged':
-    #             pass
-    #         else:
-    #             U_case = results[model][case]['U']
-    #             if U_case.shape == (3, 1):
-    #                 results[model]['norm_mse'][case] = 'Diverged'
-    #             else:
-    #                 results[model]['norm_mse'][case] = mse(hifi_data[case]['U'],
-    #                                                        U_case[:2, hifi_data[case]['keep']])
-    #
-    #                 results[model]['norm_mse'][case] = results[model]['norm_mse'][case]/hifi_data[case]['mse_kOmegaSST']
-    #                 if 'sparta' in model:
-    #                     model_type = 'sparta'
-    #                 else:
-    #                     model_type = 'dsr'
-    #
-    #                 best_cases[case][model_type]['norm_mse'].append(results[model]['norm_mse'][case])
-    #                 best_cases[case][model_type]['name'].append(model)
-    #
-    # results['best'] = best_cases
+        if len(model_info) > 10:
+            if int(model_info['model_nr']) in df_models['model_nr'].values:
+                save_lists['model_order'].append(int(model_info['model_nr']))
+                for case in cases:
+                    save_lists[f'{case}_mse'].append(results[name][case]['norm_mse'])
+                    save_lists[f'{case}_iter'].append(results[name][case]['final_iteration'])
+
+    if selected_model_file:
+        # perform additional check to ensure the right data is with the right model:
+        df_models['model_check'] = [x for _,x in sorted(zip(save_lists['model_order'],
+                                                            [f'{ii}' for ii in save_lists['model_order']]))]
+
+        for case in cases:
+            df_models[f'{case}_nmse'] = [x for _, x in sorted(zip(save_lists['model_order'],
+                                                                  save_lists[f'{case}_mse']))]
+            df_models[f'{case}_iter'] = [x for _, x in sorted(zip(save_lists['model_order'],
+                                                                  save_lists[f'{case}_iter']))]
+
+        file_name = selected_model_file.split('.')[0] + '_CFD_results.csv'
+        df_models.to_csv(file_name, index=False)
 
     return results, hifi_data
 
-def results_scatter(base_dir):
-    results, hifi_data = process_OF_results(base_dir)
+def add_scatter(x, df, plot_col, color, markersize, lw, label_once):
 
-    cases = ['CD', 'PH', 'CBFS']
+    first_label = True
+    for ii in range(len(x)):
+        label = None
+        if df['correct_dim'].values[ii]:
+            face_col = color
+            if first_label:
+                label = label_once
+                first_label = False
+        else:
+            face_col = 'none'
+        plt.scatter(x[ii], df[plot_col].values[ii], c=face_col, edgecolors=color, s=markersize, linewidth=lw, label=label)
 
-    # scatter all points based on what training case, separated by whether the dimensions are correct and number of tokens
 
-    print('end')
+def results_scatter(selected_model_file):
+
+    df_models = pd.read_csv(selected_model_file)
+
+    if len(df_models['training_case'].unique()) == 1:
+        training_case = df_models['training_case'].unique()[0]
+
+    if training_case == 'PH':
+        sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+        sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+    elif training_case == 'CD':
+        sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+        sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+    else:
+        sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+        sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+
+    for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+        df_models.loc[df_models[col] == 'Diverged', col] = 1000
+        df_models.loc[df_models[col] > 1000, col] = 1000
+
+    df_sorted = df_models.sort_values(sort_by_CFD,
+                                      ascending=[True, True, True])
+
+    x = np.arange(df_sorted.shape[0]) + 1
+
+    best_sparta = {
+        'CD': 0.20815854090881197,
+        'PH': 0.16591760527490615,
+        'CBFS': 0.46520543797084507
+    }
+
+    # prepare info for filename:
+    if len(np.unique([name[:4] for name in df_sorted['name'].values])) == 1:
+        model_type = np.unique([name[:4] for name in df_sorted['name'].values])[0]
+    else:
+        ValueError('Too many models in the input file')
+    if len(df_sorted['training_case'].unique()) == 1:
+        training_case = df_sorted['training_case'].unique()[0]
+    else:
+        ValueError('Too many models in the input file')
+
+
+    markersize = 30
+    lw = 1.5
+    figsize = (24, 6)
+    cm = 1 / 2.54  # centimeters in inches
+
+    # plot CFD errors:
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    add_scatter(x, df_sorted, 'PH_nmse', 'C0', markersize, lw, r'$PH_{10595}$')
+    add_scatter(x, df_sorted, 'CD_nmse', 'C1', markersize, lw, r'$CD_{12600}$')
+    add_scatter(x, df_sorted, 'CBFS_nmse', 'C2', markersize, lw, r'$CBFS_{13700}$')
+
+    plt.ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
+    plt.xlabel('Models')
+    plt.ylim([0,1])
+    ax = plt.gca()
+    ax.xaxis.grid(linestyle=':')
+    plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+                label='Incorrect dimensionality')
+    plt.axhline(y=best_sparta['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+    plt.axhline(y=best_sparta['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+    plt.axhline(y=best_sparta['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+    plt.legend(prop={'size': 8})
+    plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_CFDerror.eps', format='eps', bbox_inches='tight')
+
+
+    # sort by training reward.
+
+    df_sorted = df_models.sort_values(sort_by_r_max,
+                                      ascending=[False, False, False])
+
+    markersize = 25
+    lw = 1.5
+    figsize = (20, 5)
+    cm = 1 / 2.54  # centimeters in inches
+
+    x = np.arange(df_sorted.shape[0]) + 1
+
+    best_sparta = {'kDef':{
+        'CD': 0.4489642308683687,
+        'PH': 0.5462239021080454,
+        'CBFS': 0.5369412002533871
+    }}
+
+    # plot inv_NRMSE errors:
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    add_scatter(x, df_sorted, 'r_max_PH', 'C0', markersize, lw, r'$PH_{10595}$')
+    add_scatter(x, df_sorted, 'r_max_CD', 'C1', markersize, lw, r'$CD_{12600}$')
+    add_scatter(x, df_sorted, 'r_max_CBFS', 'C2', markersize, lw, r'$CBFS_{13700}$')
+
+    plt.ylabel(r'$r_{max}$')
+    plt.xlabel('Models')
+    plt.ylim([0.4,0.9])
+    ax = plt.gca()
+    ax.xaxis.grid(linestyle=':')
+    plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+                label='Incorrect dimensionality')
+    plt.axhline(y=best_sparta[model_type]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+    plt.axhline(y=best_sparta[model_type]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+    plt.axhline(y=best_sparta[model_type]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+    plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.3, 0.5))
+    # plt.legend(prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=7)
+    plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_r_max.eps', format='eps', bbox_inches='tight')
+
+
 
 
 def plot_selection(plot_list):
@@ -287,24 +404,32 @@ def plot_selection(plot_list):
 
 if __name__ == '__main__':
 
+    dsrpath = os.path.abspath(__file__)
+    if platform.system() == 'Windows':
+        os.chdir(dsrpath[:dsrpath.find('\\dsr\\')+4]) # change the working directory to main dsr dir
+    else:
+        os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
+
     # read_and_plot_PH()
     matplotlib.use('tkagg')
     #
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
-    # process_OF_results(base_dir)
-
-    results_scatter(base_dir)
-
-    # plot_selection([['PH_kDef_7', 'CBFS'],
-    #                 ['PH_kDef_20', 'PH']])
-
-
     #
-    # interpolate_PH()
-    # interpolate_CBFS()
-    # interpolate_CD()
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_PH/kDef_PH_selected_models.csv'
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CD/kDef_CD_selected_models.csv'
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CBFS/kDef_CBFS_selected_models.csv'
+    # process_OF_results(selected_model_file)
+
+    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_PH/selected_models_CFD_results.csv'
+    results_scatter(selected_model_file)
+
+    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CD/kDef_CD_selected_models_CFD_results.csv'
+    results_scatter(selected_model_file)
+
+    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
+    results_scatter(selected_model_file)
+
 
     print('end')
     print('end')
