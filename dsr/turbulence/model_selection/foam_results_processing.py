@@ -241,14 +241,13 @@ def results_scatter(selected_model_file):
         df_models.loc[df_models[col] > 1000, col] = 1000
 
     df_sorted = df_models.sort_values(sort_by_CFD,
-                                      ascending=[True, True, True])
+                                      ascending=[True, True, True], ignore_index=True)
 
     x = np.arange(df_sorted.shape[0]) + 1
 
-    best_sparta = {
-        'CD': 0.20815854090881197,
-        'PH': 0.16591760527490615,
-        'CBFS': 0.46520543797084507
+    best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.46520543797084507},
+                   'CD': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.46520543797084507},
+                   'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.499579335406}
     }
 
     # prepare info for filename:
@@ -276,29 +275,25 @@ def results_scatter(selected_model_file):
     plt.ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
     plt.xlabel('Models')
     plt.ylim([0,1])
+    plt.xticks(np.arange(0,100,10))
     ax = plt.gca()
     ax.xaxis.grid(linestyle=':')
     plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
                 label='Incorrect dimensionality')
-    plt.axhline(y=best_sparta['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
-    plt.axhline(y=best_sparta['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
-    plt.axhline(y=best_sparta['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+    plt.axhline(y=best_sparta[training_case]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+    plt.axhline(y=best_sparta[training_case]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+    plt.axhline(y=best_sparta[training_case]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
     plt.legend(prop={'size': 8})
     plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_CFDerror.eps', format='eps', bbox_inches='tight')
 
-
     # sort by training reward.
-
     df_sorted = df_models.sort_values(sort_by_r_max,
-                                      ascending=[False, False, False])
-
+                                      ascending=[False, False, False], ignore_index=True)
     markersize = 25
     lw = 1.5
     figsize = (20, 5)
     cm = 1 / 2.54  # centimeters in inches
-
     x = np.arange(df_sorted.shape[0]) + 1
-
     best_sparta = {'kDef':{
         'CD': 0.4489642308683687,
         'PH': 0.5462239021080454,
@@ -314,6 +309,7 @@ def results_scatter(selected_model_file):
     plt.ylabel(r'$r_{max}$')
     plt.xlabel('Models')
     plt.ylim([0.4,0.9])
+    plt.xticks(np.arange(0,100,10))
     ax = plt.gca()
     ax.xaxis.grid(linestyle=':')
     plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
@@ -325,13 +321,14 @@ def results_scatter(selected_model_file):
     # plt.legend(prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=7)
     plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_r_max.eps', format='eps', bbox_inches='tight')
 
-
-
-
 def plot_selection(plot_list):
     base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
+
+    # best_sparta = {'PH': }
+
+
     results, hifi_data = process_OF_results(base_dir)
 
 
@@ -415,20 +412,29 @@ if __name__ == '__main__':
     #
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
-    #
+
+
+    plot_selection([])
+
+
+
+
+    ####################### lines below used to add CFD results to selected_models file
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_PH/kDef_PH_selected_models.csv'
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CD/kDef_CD_selected_models.csv'
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CBFS/kDef_CBFS_selected_models.csv'
     # process_OF_results(selected_model_file)
 
-    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_PH/selected_models_CFD_results.csv'
-    results_scatter(selected_model_file)
 
-    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CD/kDef_CD_selected_models_CFD_results.csv'
-    results_scatter(selected_model_file)
-
-    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
-    results_scatter(selected_model_file)
+    #################### lines below used to make scatter plots of error in CFD and training rewards.
+    # selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
+    #
+    # selected_model_file = '../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
+    #
+    # selected_model_file = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
 
 
     print('end')
