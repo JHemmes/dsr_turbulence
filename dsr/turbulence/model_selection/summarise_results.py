@@ -471,7 +471,7 @@ def scatter_ntokens_r_max(logdir):
     ax.set_axisbelow(True)
     plt.grid('both', linestyle=':')
     plt.scatter(tokens, r_max, s=markersize)
-    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_max.eps', format='eps', bbox_inches='tight')
+    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_max.pdf', format='pdf', bbox_inches='tight')
 
 
     plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
@@ -483,7 +483,7 @@ def scatter_ntokens_r_max(logdir):
     ax.set_axisbelow(True)
     plt.grid('both', linestyle=':')
     plt.scatter(tokens, r_sum, s=markersize)
-    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_sum.eps', format='eps', bbox_inches='tight')
+    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_sum.pdf', format='pdf', bbox_inches='tight')
 
 def search_tokens(df_row, df_joined):
 

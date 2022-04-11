@@ -94,6 +94,8 @@ def find_model_info(dir):
 
     if len(model_info) == 1:  # no model info found
         name = dir.split('/')[-1]
+        if name[:7] == 'Re37000':
+            name = name[8:]
     else:
         model_type = model_info['name'].split('_')[0]
         name = f'{model_info["training_case"]}_{model_type}_{model_info["model_nr"]}'
@@ -321,33 +323,107 @@ def results_scatter(selected_model_file):
     # plt.legend(prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=7)
     plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_r_max.eps', format='eps', bbox_inches='tight')
 
-def plot_selection(plot_list):
+def plot_selection(plot_list, cases):
+
     base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
-    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
-    # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
 
-    # best_sparta = {'PH': }
+    kOmegaSST = {}  # will contain standard kOmegaSST results
+    hifi_data = {}
 
+    mse = lambda x, y: sum(sum((x - y) ** 2)) / (x.shape[0] * x.shape[1])
 
-    results, hifi_data = process_OF_results(base_dir)
+    for case in cases:
+        # get baseline kOmegaSST data
+        case_result, final_iteration = read_case_results(os.path.join(base_dir, 'kOmegaSST', case))
+        kOmegaSST[case] = case_result
 
+        # get high fidelity data
+        hifi_data[case] = {
+            'field': np.genfromtxt(os.path.join(base_dir, 'common', f'{case}_field.csv'), delimiter=','),
+            'lines': np.genfromtxt(os.path.join(base_dir, 'common', f'{case}_lines.csv'), delimiter=',')
+        }
 
-    for plot_case in plot_list:
-        case = plot_case[1]
-        model = plot_case[0]
+        if case == 'CBFS':
+            # clip domain for MSE caluculation:
+            xmin = 0
+            xmax = 9
+            ymin = 0
+            ymax = 3
+            x = hifi_data[case]['field'][:, 0]
+            y = hifi_data[case]['field'][:, 1]
+            keep_points = (x > xmin) & (x < xmax) & (y > ymin) & (y < ymax)
+        else:
+            keep_points = np.ones(hifi_data[case]['field'][:, 0].shape) == 1
+
+        hifi_data[case]['keep'] = keep_points
+        hifi_data[case]['U'] = np.moveaxis(hifi_data[case]['field'][hifi_data[case]['keep'], 2:], -1, 0)
+        hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
+                                               kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
+
+    results = {}
+    for dir in plot_list:
+
+        name, model_info = find_model_info(os.path.join(base_dir, dir))
+
+        results[name] = {'model_info': model_info}
+
+        for case in cases:
+            case_result, final_iteration = read_case_results(os.path.join(base_dir, dir, case))
+
+            results[name][case] = case_result
+
+    dsr1 = None
+    dsr2 = None
+    dsr3 = None
+
+    for key in results.keys():
+        if key.split('_')[-1][0] == '1':
+            dsr1 = key
+        if key.split('_')[-1][0] == '2':
+            dsr2 = key
+        if key.split('_')[-1][0] == '3':
+            dsr3 = key
+
+    if None in [dsr1, dsr2, dsr3]:
+        raise FileNotFoundError('did not manage to find correct models')
+
+    for case in cases:
+        if case == 'PH':
+            best_sparta = 'sparta_model1'
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            label = 'LES'
+            xlim = ylim = [None, None]
+            best_dsr = dsr1
+            dsr_label = r'$M^{(1)}_{dsr}$'
+
+        elif case == 'CD':
+            best_sparta = 'sparta_model3'
+            sparta_label = r'$M^{(3)}_{SpaRTA}$'
+            label = 'DNS'
+            xlim = [5.5, 12.5]
+            ylim = [None, None]
+            best_dsr = dsr2
+            dsr_label = r'$M^{(2)}_{dsr}$'
+
+            print('Best sparta on CD is model 2 which is not implemented yet, plotted against model 3 for now')
+        elif case == 'CBFS':
+            label = 'LES'
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            best_sparta = 'sparta_model1'
+            xlim = [0, 9]
+            ylim = [0, 3]
+            best_dsr = dsr3
+            dsr_label = r'$M^{(3)}_{dsr}$'
 
         mesh_x_flat, mesh_y_flat = hifi_data[case]['field'][:, 0],  hifi_data[case]['field'][:, 1]
         mesh_x = reshape_to_mesh(mesh_x_flat)
         # mesh_y = reshape_to_mesh(mesh_y_flat)
         n_points = mesh_x.shape[0]
 
-        # # # check if number of lines in interpolated data matches the openFoam pp folder
-        # ppkeys = list(results[list(results.keys())[0]]['pp'].keys())
-        # ppkeys.pop(ppkeys.index('residuals'))
-        # if len(ppkeys) != n_lines:
-        #     raise ValueError('The interpolated high fidelity data contains a different number of lines than the OF results')
+        figsize = (26, 9)
+        cm = 1 / 2.54  # centimeters in inches
+        plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
 
-        plt.figure()
         plt.plot(mesh_x_flat[:n_points], mesh_y_flat[:n_points], c='Black')
         plt.plot(mesh_x_flat[-n_points:], mesh_y_flat[-n_points:], c='Black')
         plt.plot([mesh_x_flat[0], mesh_x_flat[-n_points]], [mesh_y_flat[0], mesh_y_flat[-n_points]], c='Black')
@@ -359,45 +435,114 @@ def plot_selection(plot_list):
         u_scale = 1
 
         for x in np.unique(hifi_data[case]['lines'][:, 0].round()):
-            plot_bool = (lines['mesh_x'] > x - 0.1) & (lines['mesh_x'] < x + 0.1)
-            plt.plot(x + lines['u'][plot_bool],
-                     lines['mesh_y'][plot_bool], c='Black', marker='o', markevery=5, label=label)
+            plot_bool = (hifi_data[case]['lines'][:, 0] > x - 0.1) & (hifi_data[case]['lines'][:, 0] < x + 0.1)
+            plt.plot(x + hifi_data[case]['lines'][:, 2][plot_bool],
+                     hifi_data[case]['lines'][:, 1][plot_bool], c='Black', marker='o', markevery=7, label=label)
             if label:
                 label = None
 
-        label = r'$k-\omega$ SST'
-        # add baseline kOmegaSST results:
-        for line in results['kOmegaSST']['pp']:
+        linewidth = 2
+        add_u_profile(results[best_dsr][case]['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, u_scale, linewidth)
+        add_u_profile(results[best_sparta][case]['pp'], 'C1', '--', sparta_label, u_scale, linewidth)
+        add_u_profile(results['kOmegaSST'][case]['pp'], 'C2', ':', r'$k-\omega$ SST', u_scale, linewidth)
+        # add_u_profile(results[dsr2][case]['pp'], 'C1', ':', r'$M^{(2)}_{dsr}$', u_scale, linewidth)
+        # add_u_profile(results[dsr3][case]['pp'], 'C2', ':', r'$M^{(3)}_{dsr}$', u_scale, linewidth)
+        plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+        ax = plt.gca()
+        ax.set_xticks(np.arange(8), minor=True)
+        ax.xaxis.grid(True, which='both', linestyle=':')
+        # plt.grid('minor', linestyle=":")
+
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+
+        plt.savefig(f'../logs_completed/aa_plots/{case}_Ux.eps', format='eps', bbox_inches='tight')
+
+def plot_experimental():
+
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
+    plot_list = ['Re37000_dsr_146', 'Re37000_sparta_model1', 'Re37000_sparta_model3', 'Re37000_kOmegaSST']
+    best_dsr = 'Re37000_dsr_146'
+
+    hifi_data = {}
+
+    # get high fidelity data
+    hifi_data['PH'] = {
+        'field': np.genfromtxt(os.path.join(base_dir, 'common', f'PH_field.csv'), delimiter=','),
+        'lines': np.genfromtxt(os.path.join(base_dir, 'common', f'PH_exp.csv'), delimiter=',')}
+
+    case = 'PH'
+    results = {}
+    for dir in plot_list:
+
+        name, model_info = find_model_info(os.path.join(base_dir, dir))
+
+        results[name] = {'model_info': model_info}
+
+        case_result, final_iteration = read_case_results(os.path.join(base_dir, dir))
+
+        results[name][case] = case_result
+
+        if dir == best_dsr:
+            best_dsr = name
+
+    best_sparta = 'sparta_model1'
+    sparta_label = r'$M^{(1)}_{SpaRTA}$'
+    dsr_label = r'$M^{(1)}_{dsr}$'
+
+    mesh_x_flat, mesh_y_flat = hifi_data[case]['field'][:, 0], hifi_data[case]['field'][:, 1]
+    mesh_x = reshape_to_mesh(mesh_x_flat)
+    # mesh_y = reshape_to_mesh(mesh_y_flat)
+    n_points = mesh_x.shape[0]
+
+    figsize = (26, 9)
+    cm = 1 / 2.54  # centimeters in inches
+    plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+
+    plt.plot(mesh_x_flat[:n_points], mesh_y_flat[:n_points], c='Black')
+    plt.plot(mesh_x_flat[-n_points:], mesh_y_flat[-n_points:], c='Black')
+    plt.plot([mesh_x_flat[0], mesh_x_flat[-n_points]], [mesh_y_flat[0], mesh_y_flat[-n_points]], c='Black')
+    plt.plot([mesh_x_flat[n_points - 1], mesh_x_flat[-1]], [mesh_y_flat[n_points - 1], mesh_y_flat[-1]], c='Black')
+
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    # add LES results:
+    u_scale = 1
+
+    label = 'Experimental'
+    for x in np.unique(hifi_data[case]['lines'][:, 0].round()):
+        plot_bool = (hifi_data[case]['lines'][:, 0] > x - 0.1) & (hifi_data[case]['lines'][:, 0] < x + 0.1)
+        plt.plot(x + hifi_data[case]['lines'][:, 2][plot_bool],
+                 hifi_data[case]['lines'][:, 1][plot_bool], c='Black', marker='o', markevery=7, label=label)
+        if label:
+            label = None
+
+    linewidth = 2
+    add_u_profile(results[best_dsr][case]['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, u_scale, linewidth)
+    add_u_profile(results[best_sparta][case]['pp'], 'C1', '--', sparta_label, u_scale, linewidth)
+    add_u_profile(results['kOmegaSST'][case]['pp'], 'C2', ':', r'$k-\omega$ SST', u_scale, linewidth)
+    # add_u_profile(results[dsr2][case]['pp'], 'C1', ':', r'$M^{(2)}_{dsr}$', u_scale, linewidth)
+    # add_u_profile(results[dsr3][case]['pp'], 'C2', ':', r'$M^{(3)}_{dsr}$', u_scale, linewidth)
+    plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+    ax = plt.gca()
+    ax.set_xticks(np.arange(8), minor=True)
+    ax.xaxis.grid(True, which='both', linestyle=':')
+    # plt.grid('minor', linestyle=":")
+
+    plt.savefig(f'../logs_completed/aa_plots/Re37000_Ux.eps', format='eps', bbox_inches='tight')
+
+
+def add_u_profile(lines, color, linestyle, label, u_scale, linewidth):
+
+        for line in lines:
             if 'single' in line:
-                data = results['kOmegaSST']['pp'][line]['line_U']
-                plt.plot(data[:, 0] + u_scale*data[:, 3], data[:, 1], c='C0', linestyle=':', markevery=5, label=label)
+                data = lines[line]['line_U']
+                plt.plot(data[:, 0] + u_scale * data[:, 3], data[:, 1], c=color,
+                         linewidth= linewidth, linestyle=linestyle, markevery=5, label=label)
                 if label:
                     label = None
-
-        # add spaRTA results:
-        label = 'SpaRTA'
-        for line in results[best_sparta]['pp']:
-            if 'single' in line:
-                data = results[best_sparta]['pp'][line]['line_U']
-                plt.plot(data[:, 0] + u_scale*data[:, 3], data[:, 1], c='C1', linestyle='--', markevery=5, label=label)
-                if label:
-                    label = None
-
-        # add DSR results:
-        label = 'DSR'
-        for line in results[best_dsr]['pp']:
-            if 'single' in line:
-                data = results[best_dsr]['pp'][line]['line_U']
-                plt.plot(data[:, 0] + u_scale*data[:, 3], data[:, 1], c='C2', linestyle='-', markevery=5, label=label)
-                if label:
-                    label = None
-
-        plt.legend()
-    #
-    # exclude = 6
-    # plt.scatter(mesh_x_flat[:exclude*n_points], mesh_y_flat[:exclude*n_points], c='Black')
-    # plt.scatter(mesh_x_flat[-exclude*n_points:], mesh_y_flat[-exclude*n_points:], c='Black')
-
 
 if __name__ == '__main__':
 
@@ -413,8 +558,16 @@ if __name__ == '__main__':
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
 
+    plot_experimental()
 
-    plot_selection([])
+
+    #
+    plot_selection(['sparta_model1', 'sparta_model3', 'dsr_146', 'dsr_211', 'dsr_325', 'kOmegaSST'],
+                   ['PH'])
+
+
+    # tmp to plot nutest results
+    # plot_selection(['sparta_model1', 'sparta_model1_fresh_CBFS', 'sparta_model1_wallfunction', 'kOmegaSST'])
 
 
 

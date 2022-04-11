@@ -1,3 +1,4 @@
+import os
 
 import matplotlib
 matplotlib.use('tkagg')
@@ -346,8 +347,80 @@ def interpolate_CD():
     np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/CD_field.csv', to_save, delimiter=',')
 
 
+def parse_piv_file(file):
+    with open(file) as f:
+        lines = f.readlines()
+
+    numbers = []
+    for line in lines:
+        if 'x/h' in line:
+            line = line.strip('\n')
+            x = float(line.split('=')[-1])
+        if '#' in line:
+            continue
+
+        line = line.strip('\n')
+        linesplit = line.split(',')
+        numbers.append([float(val) for val in linesplit])
+
+    data = np.array(numbers)
+
+    return data, x
+
+
+def fetch_save_experimental_data():
+    logdir = "/home/jasper/Documents/afstuderen/python/inversion/DATA/PH-Rapp/data"
+
+    dirlist = os.listdir(logdir)
+
+    x_stations = []
+    y_list = []
+    u_list = []
+    v_list = []
+
+    for file in dirlist:
+        data, x = parse_piv_file(os.path.join(logdir, file))
+        x_stations.append(x)
+        y_list.append(data[:, 0])
+        u_list.append(data[:, 1])
+        v_list.append(data[:, 2])
+
+    # for file in dirlist:
+    x_stations_sorted = sorted(x_stations)
+
+    x_list_sorted = []
+    y_list_sorted = []
+    u_list_sorted = []
+    v_list_sorted = []
+
+    for x in x_stations_sorted:
+        index = x_stations.index(x)
+        x_list_sorted.append(x*np.ones(y_list[index][u_list[index] != 0].shape))
+        y_list_sorted.append(y_list[index][u_list[index] != 0])
+        u_list_sorted.append(u_list[index][u_list[index] != 0])
+        v_list_sorted.append(v_list[index][u_list[index] != 0])
+
+    # plt.figure()
+    # for ii in range(len(x_stations_sorted)):
+    #     # plt.scatter([x_stations[ii] for val in y_list[ii]], y_list[ii])
+    #     plt.plot(x_list_sorted[ii] + u_list_sorted[ii], y_list_sorted[ii] )
+
+    x_arr = np.concatenate(x_list_sorted)
+    y_arr = np.concatenate(y_list_sorted)
+    u_arr = np.concatenate(u_list_sorted)
+    v_arr = np.concatenate(v_list_sorted)
+
+    to_save = np.moveaxis(np.vstack([x_arr, y_arr, u_arr, v_arr]), -1, 0)
+
+    np.savetxt('/home/jasper/OpenFOAM/jasper-7/run/common/PH_exp.csv', to_save, delimiter=',')
+
+
 
 if __name__ == '__main__':
+
+
+    fetch_save_experimental_data()
+
 
     interpolate_PH()
     interpolate_CBFS()
