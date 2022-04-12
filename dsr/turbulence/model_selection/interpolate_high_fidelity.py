@@ -167,10 +167,9 @@ def interpolate_PH():
     # shape = (281, 234)
     shape = (234, 281)
     mesh_x = np.reshape(data[:, 0], shape, order='A').T
-
+    mesh_y = np.reshape(data[:, 1], shape, order='A').T
 
     ########  tauij investigation
-    # mesh_y = np.reshape(data[:, 1], shape, order='A').T
     # # mesh_u = np.reshape(data[:, 2], shape, order='A').T
     # # mesh_v = np.reshape(data[:, 3], shape, order='A').T
     #
@@ -181,9 +180,6 @@ def interpolate_PH():
     # plt.title(f'{col}')
     # plt.plot(mesh_x[:, 0], reshaped[:, 2])
     # plt.scatter(mesh_x[:, 1], mesh_y[:, 1])
-
-
-
 
     bot_x = mesh_x[:, 0]
     bot_y = mesh_y[:, 0]
