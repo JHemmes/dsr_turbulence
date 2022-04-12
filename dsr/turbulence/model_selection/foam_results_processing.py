@@ -9,6 +9,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import fluidfoam
 import scipy.interpolate as interp
+import pickle
+
+
+def custom_readsymmtensor(path):
+
+    with open(path) as f:
+        lines = f.readlines()
+
+    data = []
+    for line in lines:
+        line = line.strip(')\n')
+        line = line.strip('(')
+        split_line = line.split(' ')
+        if len(split_line) == 6:
+            data.append([float(val) for val in split_line])
+
+    return np.array(data)
+
 
 def read_case_results(case_dir):
     dirlist_case = os.listdir(case_dir)
@@ -22,6 +40,7 @@ def read_case_results(case_dir):
 
     sol_files = [f for f in os.listdir(os.path.join(case_dir,last_sol_dir)) if os.path.isfile(os.path.join(case_dir,last_sol_dir, f))]
 
+    tensors = ['tauij']
     vectors = ['U', 'U_LES']
     scalars = ['k', 'k_LES', 'omega', 'nut', 'p', 'phi']
 
@@ -31,7 +50,8 @@ def read_case_results(case_dir):
             results[file] = fluidfoam.readscalar(case_dir, last_sol_dir, file)
         if file in vectors:
             results[file] = fluidfoam.readvector(case_dir, last_sol_dir, file)
-
+        if file in tensors:
+            results[file] = custom_readsymmtensor(os.path.join(case_dir, last_sol_dir, file))
     # get line_results from postprocessing dir:
     pp_dir = os.path.join(case_dir, 'postProcessing')
     post_processed = False
@@ -145,6 +165,13 @@ def process_OF_results(selected_model_file=False):
         hifi_data[case]['U'] = np.moveaxis(hifi_data[case]['field'][hifi_data[case]['keep'], 2:], -1, 0)
         hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
                                                kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
+
+        # keep_points = ~np.any(np.isnan(hifi_data[case]['field']), axis=1)
+        # hifi_data[case]['keep'] = keep_points
+        # hifi_data[case]['U'] = np.moveaxis(hifi_data[case]['field'][hifi_data[case]['keep'], 2:], -1, 0)
+        # hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
+        #                                        kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
+
     save_lists = {
         'model_order': [],
         'PH_mse': [],
@@ -162,6 +189,9 @@ def process_OF_results(selected_model_file=False):
     results = {}
     for dir in dirlist:
 
+        if 'Re37000' in dir:
+            continue
+        
         name, model_info = find_model_info(os.path.join(base_dir, dir))
 
         if len(model_info) > 10:
@@ -179,7 +209,7 @@ def process_OF_results(selected_model_file=False):
                                        'final_iteration': final_iteration}
             else:
                 results[name][case] = {'norm_mse': mse(hifi_data[case]['U'],
-                                                   case_result['U'][:2, hifi_data[case]['keep']]),
+                                                       case_result['U'][:2, hifi_data[case]['keep']]),
                                        'final_iteration': final_iteration}
                 results[name][case]['norm_mse'] = results[name][case]['norm_mse']/hifi_data[case]['mse_kOmegaSST']
 
@@ -206,7 +236,7 @@ def process_OF_results(selected_model_file=False):
 
     return results, hifi_data
 
-def add_scatter(x, df, plot_col, color, markersize, lw, label_once):
+def add_scatter(x, df, plot_col, color, markersize, lw, label_once, marker):
 
     first_label = True
     for ii in range(len(x)):
@@ -218,8 +248,8 @@ def add_scatter(x, df, plot_col, color, markersize, lw, label_once):
                 first_label = False
         else:
             face_col = 'none'
-        plt.scatter(x[ii], df[plot_col].values[ii], c=face_col, edgecolors=color, s=markersize, linewidth=lw, label=label)
-
+        plt.scatter(x[ii], df[plot_col].values[ii], c=face_col, edgecolors=color, s=markersize,
+                    linewidth=lw, label=label, marker=marker)
 
 def results_scatter(selected_model_file):
 
@@ -247,9 +277,9 @@ def results_scatter(selected_model_file):
 
     x = np.arange(df_sorted.shape[0]) + 1
 
-    best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.46520543797084507},
-                   'CD': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.46520543797084507},
-                   'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.499579335406}
+    best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.11572914580634726},
+                   'CD': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.11572914580634726},
+                   'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.23405999738793443}
     }
 
     # prepare info for filename:
@@ -270,9 +300,9 @@ def results_scatter(selected_model_file):
 
     # plot CFD errors:
     plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
-    add_scatter(x, df_sorted, 'PH_nmse', 'C0', markersize, lw, r'$PH_{10595}$')
-    add_scatter(x, df_sorted, 'CD_nmse', 'C1', markersize, lw, r'$CD_{12600}$')
-    add_scatter(x, df_sorted, 'CBFS_nmse', 'C2', markersize, lw, r'$CBFS_{13700}$')
+    add_scatter(x, df_sorted, 'PH_nmse', 'C0', markersize, lw, r'$PH_{10595}$', 'd')
+    add_scatter(x, df_sorted, 'CD_nmse', 'C1', markersize, lw, r'$CD_{12600}$', '^')
+    add_scatter(x, df_sorted, 'CBFS_nmse', 'C2', markersize, lw, r'$CBFS_{13700}$', 'v')
 
     plt.ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
     plt.xlabel('Models')
@@ -304,9 +334,9 @@ def results_scatter(selected_model_file):
 
     # plot inv_NRMSE errors:
     plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
-    add_scatter(x, df_sorted, 'r_max_PH', 'C0', markersize, lw, r'$PH_{10595}$')
-    add_scatter(x, df_sorted, 'r_max_CD', 'C1', markersize, lw, r'$CD_{12600}$')
-    add_scatter(x, df_sorted, 'r_max_CBFS', 'C2', markersize, lw, r'$CBFS_{13700}$')
+    add_scatter(x, df_sorted, 'r_max_PH', 'C0', markersize, lw, r'$PH_{10595}$', 'd')
+    add_scatter(x, df_sorted, 'r_max_CD', 'C1', markersize, lw, r'$CD_{12600}$', '^')
+    add_scatter(x, df_sorted, 'r_max_CBFS', 'C2', markersize, lw, r'$CBFS_{13700}$', 'v')
 
     plt.ylabel(r'$r_{max}$')
     plt.xlabel('Models')
@@ -433,6 +463,9 @@ def plot_selection(plot_list, cases):
         ax.set_aspect('equal')
         # add LES results:
         u_scale = 1
+        ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+        plt.xlabel(r'$U_{x}/U_b + x$')
+        plt.ylabel(r'$y$')
 
         for x in np.unique(hifi_data[case]['lines'][:, 0].round()):
             plot_bool = (hifi_data[case]['lines'][:, 0] > x - 0.1) & (hifi_data[case]['lines'][:, 0] < x + 0.1)
@@ -442,12 +475,17 @@ def plot_selection(plot_list, cases):
                 label = None
 
         linewidth = 2
-        add_u_profile(results[best_dsr][case]['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, u_scale, linewidth)
         add_u_profile(results[best_sparta][case]['pp'], 'C1', '--', sparta_label, u_scale, linewidth)
+        add_u_profile(results[best_dsr][case]['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, u_scale, linewidth)
         add_u_profile(results['kOmegaSST'][case]['pp'], 'C2', ':', r'$k-\omega$ SST', u_scale, linewidth)
         # add_u_profile(results[dsr2][case]['pp'], 'C1', ':', r'$M^{(2)}_{dsr}$', u_scale, linewidth)
         # add_u_profile(results[dsr3][case]['pp'], 'C2', ':', r'$M^{(3)}_{dsr}$', u_scale, linewidth)
-        plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+        order = [2, 1, 3, 0]
+
+        handles, labels = ax.get_legend_handles_labels()
+        plt.legend(handles= [handles[idx] for idx in order], labels=[labels[idx] for idx in order],
+            ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
 
         ax = plt.gca()
         ax.set_xticks(np.arange(8), minor=True)
@@ -457,7 +495,7 @@ def plot_selection(plot_list, cases):
         plt.xlim(xlim)
         plt.ylim(ylim)
 
-        plt.savefig(f'../logs_completed/aa_plots/{case}_Ux.eps', format='eps', bbox_inches='tight')
+        plt.savefig(f'../logs_completed/aa_plots/Ux_{case}.eps', format='eps', bbox_inches='tight')
 
 def plot_experimental():
 
@@ -519,17 +557,25 @@ def plot_experimental():
             label = None
 
     linewidth = 2
-    add_u_profile(results[best_dsr][case]['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, u_scale, linewidth)
     add_u_profile(results[best_sparta][case]['pp'], 'C1', '--', sparta_label, u_scale, linewidth)
+    add_u_profile(results[best_dsr][case]['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, u_scale, linewidth)
     add_u_profile(results['kOmegaSST'][case]['pp'], 'C2', ':', r'$k-\omega$ SST', u_scale, linewidth)
     # add_u_profile(results[dsr2][case]['pp'], 'C1', ':', r'$M^{(2)}_{dsr}$', u_scale, linewidth)
     # add_u_profile(results[dsr3][case]['pp'], 'C2', ':', r'$M^{(3)}_{dsr}$', u_scale, linewidth)
-    plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+    # plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
 
     ax = plt.gca()
     ax.set_xticks(np.arange(8), minor=True)
     ax.xaxis.grid(True, which='both', linestyle=':')
     # plt.grid('minor', linestyle=":")
+    ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+    plt.xlabel(r'$U_{x}/U_b + x$')
+    plt.ylabel(r'$y$')
+
+    order = [2, 1, 3, 0]
+    handles, labels = ax.get_legend_handles_labels()
+    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order],
+               ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
 
     plt.savefig(f'../logs_completed/aa_plots/Re37000_Ux.eps', format='eps', bbox_inches='tight')
 
@@ -543,6 +589,347 @@ def add_u_profile(lines, color, linestyle, label, u_scale, linewidth):
                          linewidth= linewidth, linestyle=linestyle, markevery=5, label=label)
                 if label:
                     label = None
+
+def add_k_profile(lines, color, linestyle, label, scale, linewidth):
+
+        for line in lines:
+            if 'single' in line:
+                data = lines[line]['line_p_k_omega_kDeficit']
+                plt.plot(data[:, 0] + scale * data[:, 4], data[:, 1], c=color,
+                         linewidth= linewidth, linestyle=linestyle, markevery=5, label=label)
+                if label:
+                    label = None
+
+
+def interpolate_tauij_field(case_dir, mesh_x_flat, mesh_y_flat):
+
+    x_list = []
+    y_list = []
+    case_result, final_iteration = read_case_results(case_dir)
+
+    for line in case_result['pp']:
+        if line == 'residuals':
+            continue
+
+        x_list.append(case_result['pp'][line]['line_U'][:, 0])
+        y_list.append(case_result['pp'][line]['line_U'][:, 1])
+
+    x_target = np.concatenate(x_list)
+    y_target = np.concatenate(y_list)
+
+    x_target[(x_target < 0.1) & (x_target > -0.01)] = 0.05  # to avoid nans
+
+    tauxy_lines = interp.griddata((mesh_x_flat, mesh_y_flat),
+                                  case_result['tauij'][:, 1], (x_target, y_target), method='linear')
+
+    return tauxy_lines, x_target, y_target
+
+
+def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
+
+    for ii in range(3):
+        if ii == 0:
+            case = 'PH'
+            dsr_model_dir = dsr_PH
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/PH10595_frozen_var.p', 'rb'))
+            set_aspect = True
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            hifi_label = 'LES'
+            xlim = ylim = [None, None]
+            dsr_label = r'$M^{(1)}_{dsr}$'
+
+        if ii == 1:
+            case = 'CD'
+            dsr_model_dir = dsr_CD
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/CD12600_frozen_var.p', 'rb'))
+            set_aspect = False
+
+            sparta_label = r'$M^{(3)}_{SpaRTA}$'
+            hifi_label = 'DNS'
+            xlim = [5.5, 12.5]
+            ylim = [0, 1]
+            dsr_label = r'$M^{(2)}_{dsr}$'
+
+        if ii == 2:
+            case = 'CBFS'
+            dsr_model_dir = dsr_CBFS
+            sparta_model_dir = 'sparta_model3'
+            frozen = pickle.load(open('turbulence/frozen_data/CBFS13700_frozen_var.p', 'rb'))
+            set_aspect = False
+
+            hifi_label = 'LES'
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            xlim = [0, 7]
+            ylim = [0, 1.2]
+            dsr_label = r'$M^{(3)}_{dsr}$'
+
+        case_dir = f'/home/jasper/OpenFOAM/jasper-7/run/{dsr_model_dir}/{case}'
+
+        mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh(case_dir)
+
+        # interpolate tauij
+        dsr_tauxy_lines, dsr_x_target, dsr_y_target = interpolate_tauij_field(case_dir, mesh_x_flat, mesh_y_flat)
+
+        case_dir_sparta = f'/home/jasper/OpenFOAM/jasper-7/run/{sparta_model_dir}/{case}'
+
+        sparta_tauxy_lines, sparta_x_target, sparta_y_target = interpolate_tauij_field(case_dir_sparta, mesh_x_flat, mesh_y_flat)
+
+        case_dir_kOmegaSST = f'/home/jasper/OpenFOAM/jasper-7/run/kOmegaSST/{case}'
+
+        komg_tauxy_lines, komg_x_target, komg_y_target = interpolate_tauij_field(case_dir_kOmegaSST, mesh_x_flat, mesh_y_flat)
+
+        data_i = frozen['data_i']
+        hifi_tauij = data_i['tauij'][0,1,:]
+
+        hifi_tauxy_lines = interp.griddata((mesh_x_flat, mesh_y_flat),
+                                       hifi_tauij, (dsr_x_target, dsr_y_target), method='linear')
+
+        mesh_x = reshape_to_mesh(mesh_x_flat)
+        n_points = mesh_x.shape[0]
+
+
+        ####################### To plot
+        # mesh_um = reshape_to_mesh(data_i['um'])
+        # mesh_vm = reshape_to_mesh(data_i['vm'])
+        #
+        # CBFS_ICx = mesh_um[0,:]
+        # CBFS_ICy = mesh_vm[0,:]
+        #
+        # for ii in range(len(CBFS_ICx)):
+        #     print(f'({CBFS_ICx[ii]} {CBFS_ICy[ii]} 0)')
+
+        ###################### Cf investigation
+        # hifi_tauxy = data_i['tauij'][0, 1, :]
+        # # hifi_tauxy = data_i['grad_u'][0, 1, :]
+        #
+        # # hifi_tauxy = data_i['uv']
+        # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
+        # mesh_y = reshape_to_mesh(mesh_y_flat)
+        #
+        # plt.figure()
+        # plt.contourf(mesh_x, mesh_y, mesh_hifi_tau, levels=30, cmap='Reds')
+        #
+        #
+        # case_result, final_iteration = read_case_results(case_dir)
+        # #
+        # mesh_case_tau = reshape_to_mesh(case_result['tauij'][:,1])
+        #
+        # plt.figure()
+        # # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
+        # plt.plot(mesh_x[:,0], mesh_hifi_tau[:,1])
+        # # plt.plot(mesh_x[:,0], -mesh_case_tau[:,0])
+        #
+        # from dsr.turbulence.dataprocessing import calc_sij_rij
+        #
+        # sij, rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'], True)
+        #
+        # k = data_i['k']
+        # omega = data_i['omega_frozen']
+        # nut_frozen = data_i['nut_frozen']
+        # calc_tau  = -2.0 * k *  nut_frozen / k * omega * sij  #+ bijDelta_ + 1 / 3 * I);
+        # hifi_tauxy = calc_tau[0, 1, :]
+        # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
+        # #
+        # tau_wall = -data_i['uv']
+        # mesh_hifi_tau = reshape_to_mesh(tau_wall)
+        # # # #
+        # # # tau_wall = data_i['grad_u'] * nut_frozen
+        # # # hifi_tauxy = tau_wall[0, 1, :]
+        # # # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
+        # # #
+        # scale = 1
+        # #
+        # plt.figure()
+        # # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
+        # plt.title(f'{scale}')
+        # plt.plot(mesh_x[:,0], -mesh_hifi_tau[:,2])
+        # plt.plot(mesh_x[:,0], -scale*mesh_case_tau[:,0])
+        #
+        #  2.0 * k_int * (- nut() / k_ * omega_ * S + bijDelta_ + 1 / 3 * I);
+
+        figsize = (26, 9)
+        cm = 1 / 2.54  # centimeters in inches
+        plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+
+        plt.plot(mesh_x_flat[:n_points], mesh_y_flat[:n_points], c='Black')
+        plt.plot(mesh_x_flat[-n_points:], mesh_y_flat[-n_points:], c='Black')
+        plt.plot([mesh_x_flat[0], mesh_x_flat[-n_points]], [mesh_y_flat[0], mesh_y_flat[-n_points]], c='Black')
+        plt.plot([mesh_x_flat[n_points - 1], mesh_x_flat[-1]], [mesh_y_flat[n_points - 1], mesh_y_flat[-1]], c='Black')
+
+        ax = plt.gca()
+
+        if set_aspect:
+            ax.set_aspect('equal')
+        ax.set_xticks(np.arange(8), minor=True)
+        ax.xaxis.grid(True, which='both', linestyle=':')
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+
+        first_label = True
+
+        kOmegaSSTlabel = r'$k-\omega$ SST'
+
+        linewidth = 2
+        tau_scale = 20
+        for x in np.unique(np.round(dsr_x_target)):
+            plot_bool = (dsr_x_target > x - 0.1) & (dsr_x_target < x + 0.1)
+            plt.plot(x + tau_scale*hifi_tauxy_lines[plot_bool], dsr_y_target[plot_bool], c='Black', marker='o', markevery=7, label=hifi_label)
+            plt.plot(x + tau_scale*sparta_tauxy_lines[plot_bool], dsr_y_target[plot_bool], color='C1', linestyle='--', label=sparta_label, linewidth=linewidth)
+            plt.plot(x + tau_scale*dsr_tauxy_lines[plot_bool], dsr_y_target[plot_bool], color='C0', linestyle=(0, (3, 1, 1, 1)), label=dsr_label, linewidth=linewidth)
+            plt.plot(x + tau_scale*komg_tauxy_lines[plot_bool], dsr_y_target[plot_bool], color='C2', linestyle=':', label=kOmegaSSTlabel, linewidth=linewidth)
+            if first_label:
+                hifi_label = sparta_label = dsr_label = kOmegaSSTlabel = None
+
+
+        plt.xlabel( f'{tau_scale}' + r'$\tau_{ij} + x$')
+        plt.ylabel(r'$y$')
+
+        order = [2, 1, 3, 0]
+        handles, labels = ax.get_legend_handles_labels()
+        plt.legend(handles= [handles[idx] for idx in order], labels=[labels[idx] for idx in order],
+            ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+        # plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+        plt.savefig(f'../logs_completed/aa_plots/tauxy_{case}.eps', format='eps', bbox_inches='tight')
+
+
+def calc_and_plot_k(dsr_PH, dsr_CD, dsr_CBFS):
+
+    for ii in range(3):
+        if ii == 0:
+            case = 'PH'
+            dsr_model_dir = dsr_PH
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/PH10595_frozen_var.p', 'rb'))
+            set_aspect = True
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            hifi_label = 'LES'
+            xlim = ylim = [None, None]
+            dsr_label = r'$M^{(1)}_{dsr}$'
+            k_scale = 10
+        if ii == 1:
+            case = 'CD'
+            dsr_model_dir = dsr_CD
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/CD12600_frozen_var.p', 'rb'))
+            set_aspect = False
+
+            sparta_label = r'$M^{(3)}_{SpaRTA}$'
+            hifi_label = 'DNS'
+            xlim = [5.5, 12.5]
+            ylim = [0, 1]
+            dsr_label = r'$M^{(2)}_{dsr}$'
+            k_scale = 12
+
+        if ii == 2:
+            case = 'CBFS'
+            dsr_model_dir = dsr_CBFS
+            sparta_model_dir = 'sparta_model3'
+            frozen = pickle.load(open('turbulence/frozen_data/CBFS13700_frozen_var.p', 'rb'))
+            set_aspect = False
+
+            hifi_label = 'LES'
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            xlim = [0, 7]
+            ylim = [0, 1.2]
+            dsr_label = r'$M^{(3)}_{dsr}$'
+            k_scale = 20
+
+        case_dir = f'/home/jasper/OpenFOAM/jasper-7/run/{dsr_model_dir}/{case}'
+
+        mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh(case_dir)
+
+        case_result, final_iteration = read_case_results(case_dir)
+        x_list = []
+        y_list = []
+        for line in case_result['pp']:
+            if line == 'residuals':
+                continue
+
+            x_list.append(case_result['pp'][line]['line_U'][:, 0])
+            y_list.append(case_result['pp'][line]['line_U'][:, 1])
+
+        x_target = np.concatenate(x_list)
+        y_target = np.concatenate(y_list)
+
+        x_target[(x_target < 0.1) & (x_target > -0.01)] = 0.05
+
+        sparta_dir = f'/home/jasper/OpenFOAM/jasper-7/run/{sparta_model_dir}/{case}'
+        sparta_result, final_iteration = read_case_results(sparta_dir)
+
+        komg_dir = f'/home/jasper/OpenFOAM/jasper-7/run/kOmegaSST/{case}'
+        komg_result, final_iteration = read_case_results(komg_dir)
+
+        data_i = frozen['data_i']
+        hifi_k = data_i['k']
+
+        hifi_k_lines = interp.griddata((mesh_x_flat, mesh_y_flat),
+                                        hifi_k, (x_target, y_target), method='linear')
+
+        mesh_x = reshape_to_mesh(mesh_x_flat)
+
+        n_points = mesh_x.shape[0]
+
+        figsize = (26, 9)
+        cm = 1 / 2.54  # centimeters in inches
+        plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+
+        plt.plot(mesh_x_flat[:n_points], mesh_y_flat[:n_points], c='Black')
+        plt.plot(mesh_x_flat[-n_points:], mesh_y_flat[-n_points:], c='Black')
+        plt.plot([mesh_x_flat[0], mesh_x_flat[-n_points]], [mesh_y_flat[0], mesh_y_flat[-n_points]], c='Black')
+        plt.plot([mesh_x_flat[n_points - 1], mesh_x_flat[-1]], [mesh_y_flat[n_points - 1], mesh_y_flat[-1]], c='Black')
+
+        ax = plt.gca()
+
+        if set_aspect:
+            ax.set_aspect('equal')
+        ax.set_xticks(np.arange(8), minor=True)
+        ax.xaxis.grid(True, which='both', linestyle=':')
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+
+        first_label = True
+
+        linewidth = 2
+        for x in np.unique(np.round(x_target)):
+            plot_bool = (x_target > x - 0.1) & (x_target < x + 0.1)
+            plt.plot(x + k_scale * hifi_k_lines[plot_bool], y_target[plot_bool], c='Black', marker='o', markevery=7, label=hifi_label)
+            # plt.plot(x + tau_scale * sparta_tauxy_lines[plot_bool], dsr_y_target[plot_bool], color='C1', linestyle='--',
+            #          label=sparta_label, linewidth=linewidth)
+            # plt.plot(x + tau_scale * dsr_tauxy_lines[plot_bool], dsr_y_target[plot_bool], color='C0',
+            #          linestyle=(0, (3, 1, 1, 1)), label=dsr_label, linewidth=linewidth)
+            # plt.plot(x + tau_scale * komg_tauxy_lines[plot_bool], dsr_y_target[plot_bool], color='C2', linestyle=':',
+            #          label=kOmegaSSTlabel, linewidth=linewidth)
+            if first_label:
+                hifi_label = None
+        #
+        add_k_profile(sparta_result['pp'], 'C1', '--', sparta_label, k_scale, linewidth)
+        add_k_profile(case_result['pp'], 'C0', (0, (3, 1, 1, 1)), dsr_label, k_scale, linewidth)
+        add_k_profile(komg_result['pp'], 'C2', ':', r'$k-\omega$ SST', k_scale, linewidth)
+
+        order = [2, 1, 3, 0]
+
+        plt.xlabel(f'{k_scale}' + r'$k/U_b^2 + x$')
+        plt.ylabel(r'$y$')
+
+        handles, labels = ax.get_legend_handles_labels()
+        plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order],
+                   ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+        # plt.legend(ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+
+        plt.savefig(f'../logs_completed/aa_plots/k_{case}.eps', format='eps', bbox_inches='tight')
+
+        # plt.figure()
+        # # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
+        # plt.plot(mesh_x_flat[:n_points], case_result['tauij'][:n_points, 1])
+        # mesh_hifi_tauij = reshape_to_mesh(hifi_tauij)
+
 
 if __name__ == '__main__':
 
@@ -558,36 +945,37 @@ if __name__ == '__main__':
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
 
-    plot_experimental()
 
+    ################### to plot tauij
+    calc_and_plot_shear_stress('dsr_146', 'dsr_211', 'dsr_351')
+
+    # ################### to plot k
+    # calc_and_plot_k('dsr_146', 'dsr_211', 'dsr_351')
+    #
+    # ################### to plot RE37000 cases
+    # plot_experimental()
+    #
+    # ################### to plot Ux profiles
+    # plot_selection(['sparta_model1', 'sparta_model3', 'dsr_146', 'dsr_211', 'dsr_351', 'kOmegaSST'],
+    #                ['PH', 'CD', 'CBFS'])
 
     #
-    plot_selection(['sparta_model1', 'sparta_model3', 'dsr_146', 'dsr_211', 'dsr_325', 'kOmegaSST'],
-                   ['PH'])
-
-
-    # tmp to plot nutest results
-    # plot_selection(['sparta_model1', 'sparta_model1_fresh_CBFS', 'sparta_model1_wallfunction', 'kOmegaSST'])
-
-
-
-
-    ####################### lines below used to add CFD results to selected_models file
-    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_PH/kDef_PH_selected_models.csv'
-    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CD/kDef_CD_selected_models.csv'
-    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/all_CBFS/kDef_CBFS_selected_models.csv'
+    # ####################### lines below used to add CFD results to selected_models file
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_PH/kDef_PH_selected_models.csv'
+    # # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CD/kDef_CD_selected_models.csv'
+    # # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CBFS/kDef_CBFS_selected_models.csv'
     # process_OF_results(selected_model_file)
-
-
-    #################### lines below used to make scatter plots of error in CFD and training rewards.
-    # selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
-    # results_scatter(selected_model_file)
     #
-    # selected_model_file = '../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv'
-    # results_scatter(selected_model_file)
     #
-    # selected_model_file = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
-    # results_scatter(selected_model_file)
+    # #################### lines below used to make scatter plots of error in CFD and training rewards.
+    selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
+    results_scatter(selected_model_file)
+    #
+    selected_model_file = '../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv'
+    results_scatter(selected_model_file)
+
+    selected_model_file = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
+    results_scatter(selected_model_file)
 
 
     print('end')

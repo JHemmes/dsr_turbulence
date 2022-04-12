@@ -164,12 +164,26 @@ def interpolate_PH():
     path = '/home/jasper/Documents/afstuderen/python/inversion/DATA/PH-Breuer/data/Re_10595/Hill_Breuer.csv'
     data = np.genfromtxt(path, delimiter=',')
     data = data[1:, :-1]
-    shape = (281, 234)
+    # shape = (281, 234)
     shape = (234, 281)
     mesh_x = np.reshape(data[:, 0], shape, order='A').T
-    mesh_y = np.reshape(data[:, 1], shape, order='A').T
-    # mesh_u = np.reshape(data[:, 2], shape, order='A').T
-    # mesh_v = np.reshape(data[:, 3], shape, order='A').T
+
+
+    ########  tauij investigation
+    # mesh_y = np.reshape(data[:, 1], shape, order='A').T
+    # # mesh_u = np.reshape(data[:, 2], shape, order='A').T
+    # # mesh_v = np.reshape(data[:, 3], shape, order='A').T
+    #
+    # col = 9
+    #
+    # reshaped = np.reshape(data[:, col], shape, order='A').T
+    # plt.figure()
+    # plt.title(f'{col}')
+    # plt.plot(mesh_x[:, 0], reshaped[:, 2])
+    # plt.scatter(mesh_x[:, 1], mesh_y[:, 1])
+
+
+
 
     bot_x = mesh_x[:, 0]
     bot_y = mesh_y[:, 0]
@@ -419,7 +433,7 @@ def fetch_save_experimental_data():
 if __name__ == '__main__':
 
 
-    fetch_save_experimental_data()
+    # fetch_save_experimental_data()
 
 
     interpolate_PH()
