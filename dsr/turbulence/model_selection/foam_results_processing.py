@@ -125,11 +125,11 @@ def find_model_info(dir):
 
 def process_OF_results(selected_model_file=False):
 
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models/'
     dirlist = os.listdir(base_dir)
     dirlist.pop(dirlist.index('common'))
-    dirlist.pop(dirlist.index('base_dir_no_dimension_check'))
     dirlist.pop(dirlist.index('base_dir'))
+    # dirlist.pop(dirlist.index('base_dir_no_dimension_check'))
 
     cases = ['CD', 'PH', 'CBFS']
 
@@ -149,20 +149,23 @@ def process_OF_results(selected_model_file=False):
             'lines':np.genfromtxt(os.path.join(base_dir, 'common', f'{case}_lines.csv'), delimiter=',')
         }
 
-        if case == 'CBFS':
-            # clip domain for MSE caluculation:
-            xmin = 0
-            xmax = 9
-            ymin = 0
-            ymax = 3
-            x = hifi_data[case]['field'][:, 0]
-            y = hifi_data[case]['field'][:, 1]
-            keep_points = (x > xmin) & (x < xmax) & (y > ymin) & (y < ymax)
-        else:
-            keep_points = np.ones(hifi_data[case]['field'][:, 0].shape) == 1
-
+        # if case == 'CBFS':
+        #     # clip domain for MSE caluculation:
+        #     xmin = -10 # 0
+        #     xmax = 20  # 9
+        #     ymin = -5  # 0
+        #     ymax = 100 # 3
+        #     x = hifi_data[case]['field'][:, 0]
+        #     y = hifi_data[case]['field'][:, 1]
+        #     keep_points = (x > xmin) & (x < xmax) & (y > ymin) & (y < ymax)
+        # else:
+        #     keep_points = np.ones(hifi_data[case]['field'][:, 0].shape) == 1
+        #
+        U = np.moveaxis(hifi_data[case]['field'][:, 2:], -1, 0)
+        keep_points = ~np.isnan(U).any(axis=0)
         hifi_data[case]['keep'] = keep_points
-        hifi_data[case]['U'] = np.moveaxis(hifi_data[case]['field'][hifi_data[case]['keep'], 2:], -1, 0)
+        hifi_data[case]['U'] = U[:, hifi_data[case]['keep']]
+
         hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
                                                kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
 
@@ -355,7 +358,7 @@ def results_scatter(selected_model_file):
 
 def plot_selection(plot_list, cases):
 
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models'
 
     kOmegaSST = {}  # will contain standard kOmegaSST results
     hifi_data = {}
@@ -947,7 +950,7 @@ if __name__ == '__main__':
 
 
     ################### to plot tauij
-    calc_and_plot_shear_stress('dsr_146', 'dsr_211', 'dsr_351')
+    # calc_and_plot_shear_stress('dsr_146', 'dsr_211', 'dsr_351')
 
     # ################### to plot k
     # calc_and_plot_k('dsr_146', 'dsr_211', 'dsr_351')
@@ -956,26 +959,27 @@ if __name__ == '__main__':
     # plot_experimental()
     #
     # ################### to plot Ux profiles
-    # plot_selection(['sparta_model1', 'sparta_model3', 'dsr_146', 'dsr_211', 'dsr_351', 'kOmegaSST'],
-    #                ['PH', 'CD', 'CBFS'])
+    plot_selection(['sparta_model1', 'sparta_model3', 'dsr_146', 'dsr_211', 'dsr_351', 'kOmegaSST'],
+                   ['PH', 'CD', 'CBFS'])
+
 
     #
     # ####################### lines below used to add CFD results to selected_models file
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_PH/kDef_PH_selected_models.csv'
     # # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CD/kDef_CD_selected_models.csv'
-    # # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CBFS/kDef_CBFS_selected_models.csv'
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CBFS/kDef_CBFS_TMP.csv'
     # process_OF_results(selected_model_file)
     #
     #
-    # #################### lines below used to make scatter plots of error in CFD and training rewards.
-    selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
-    results_scatter(selected_model_file)
+    # # #################### lines below used to make scatter plots of error in CFD and training rewards.
+    # selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
+    # #
+    # selected_model_file = '../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
     #
-    selected_model_file = '../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv'
-    results_scatter(selected_model_file)
-
-    selected_model_file = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
-    results_scatter(selected_model_file)
+    # selected_model_file = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
 
 
     print('end')
