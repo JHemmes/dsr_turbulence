@@ -232,9 +232,9 @@ def summarise_results(logdir):
     df_save = df_results[save_cols]
     df_save.to_csv(os.path.join(logdir, 'results.csv'),index=False)
 
-def scatter_ntokens_CFDerror(result_file):
+def plot_ntokens_CFDerror():
 
-    results = pd.read_csv(result_file)
+    # results = pd.read_csv(result_file)
 
     #
     # markersize = 25
@@ -298,34 +298,96 @@ def scatter_ntokens_CFDerror(result_file):
     n_al += sum((results_CD['ntokens'] > limit)) # number of expression above limit
     n_al_converged += sum((results_CD['ntokens'] > limit) & (results_CD['CFD_sumerr'] < 3))
 
-    print(f'% converged below {limit}: {100* n_bl_converged/n_bl}')
-    print(f'% converged above {limit}: {100* n_al_converged/n_al}')
+    print(f'% converged below {limit}: {100 * n_bl_converged/n_bl}')
+    print(f'% converged above {limit}: {100 * n_al_converged/n_al}')
+
+    tokens_PH = []
+    tokens_CD = []
+    tokens_CBFS = []
+    emin_PH = []
+    emin_CD = []
+    emin_CBFS = []
+
+    for token in sorted(results_PH['ntokens'].unique()):
+        df_token = results_PH[results_PH['ntokens'] == token].reset_index()
+        df_row = df_token.iloc[df_token['PH_nmse'].idxmin()]
+        tokens_PH.append(token)
+        emin_PH.append(df_row['PH_nmse'])
+        # emin_CD.append(df_row['CD_nmse'])
+        # emin_CBFS.append(df_row['CBFS_nmse'])
+
+    for token in sorted(results_CD['ntokens'].unique()):
+        df_token = results_CD[results_CD['ntokens'] == token].reset_index()
+        df_row = df_token.iloc[df_token['CD_nmse'].idxmin()]
+        tokens_CD.append(token)
+        emin_CD.append(df_row['CD_nmse'])
+
+    for token in sorted(results_CBFS['ntokens'].unique()):
+        df_token = results_CBFS[results_CBFS['ntokens'] == token].reset_index()
+        df_row = df_token.iloc[df_token['CBFS_nmse'].idxmin()]
+        tokens_CBFS.append(token)
+        emin_CBFS.append(df_row['CBFS_nmse'])
+
+    tokens_PH = np.array(tokens_PH)
+    tokens_CD = np.array(tokens_CD)
+    tokens_CBFS = np.array(tokens_CBFS)
+    emin_PH = np.array(emin_PH)
+    emin_CD = np.array(emin_CD)
+    emin_CBFS = np.array(emin_CBFS)
+
     markersize = 25
-    lw = 1.5
+    lw = 2
     width = 12
     figsize = (width, 3*width/4)
-    cm = 1 / 2.54  # centimeters in inchesr
+    cm = 1 / 2.54  # centimeters in inches
 
-    plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
-    add_scatter(results_PH['ntokens'].values, results_PH, 'CFD_sumerr', 'C0', markersize, lw, r'$PH_{10595}$')
-    add_scatter(results_CD['ntokens'].values - 1/3, results_CD, 'CFD_sumerr', 'C1', markersize, lw, r'$CD_{12600}$')
-    add_scatter(results_CBFS['ntokens'].values + 1/3, results_CBFS, 'CFD_sumerr', 'C2', markersize, lw, r'$CBFS_{13700}$')
-
-    plt.yticks(np.arange(0, 3, 0.1))
-    plt.xticks(np.arange(0, 25, 5))
-    plt.ylim([0.7, 1.5])
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    plt.xlabel(r"$n_{tokens}$")
+    plt.ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
+    plt.xticks(np.arange(0,25,2))
+    plt.yticks(np.arange(0,1,0.1))
     ax = plt.gca()
     ax.set_axisbelow(True)
     plt.grid('both', linestyle=':')
-    plt.ylabel(r'$\varepsilon _{sum}$')
-    plt.xlabel(r"$n_{tokens}$")
-    plt.axhline(y=0.246319164597 + 0.16591760527490615 + 0.46520543797084507, color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $M^{(1)}$', linewidth = lw) # densely dashed
-    plt.axhline(y=0.246319164597 + 0.16591760527490615 + 0.46520543797084507, color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $M^{(2)}$', linewidth = lw)
-    plt.axhline(y=0.2081585409088 + 0.20329225923 + 0.499579335406, color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $M^{(3)}$', linewidth = lw)
-    plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
-                label='Incorrect dimensionality')
-    plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.55, 0.5))
-    plt.savefig(f'../logs_completed/aa_plots/tokens_vs_CFDerrorsum.eps', format='eps', bbox_inches='tight')
+    plt.plot(tokens_CD[emin_CD < 1], emin_CD[emin_CD < 1], label='$CD_{12600}$', c='C1', linestyle='--', linewidth=lw, marker='^')
+    plt.plot(tokens_CBFS[emin_CBFS < 1], emin_CBFS[emin_CBFS < 1], label='$CBFS_{13700}$', c='C2', linestyle=':', linewidth=lw, marker='v')
+    plt.plot(tokens_PH[emin_PH < 1], emin_PH[emin_PH < 1], label='$PH_{10595}$', c='C0', linestyle=(0, (3, 1, 1, 1)), linewidth=lw, marker='d')
+
+    order = [2, 0, 1]
+    handles, labels = ax.get_legend_handles_labels()
+    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order]) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
+
+    plt.savefig(f'../logs_completed/aa_plots/ntokens_CFD_err.eps', format='eps', bbox_inches='tight')
+
+
+
+    ######## This is the old scatterplot in the report that i was not super happy about.
+    # markersize = 25
+    # lw = 1.5
+    # width = 12
+    # figsize = (width, 3*width/4)
+    # cm = 1 / 2.54  # centimeters in inchesr
+    #
+    # plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+    # add_scatter(results_PH['ntokens'].values, results_PH, 'CFD_sumerr', 'C0', markersize, lw, r'$PH_{10595}$')
+    # add_scatter(results_CD['ntokens'].values - 1/3, results_CD, 'CFD_sumerr', 'C1', markersize, lw, r'$CD_{12600}$')
+    # add_scatter(results_CBFS['ntokens'].values + 1/3, results_CBFS, 'CFD_sumerr', 'C2', markersize, lw, r'$CBFS_{13700}$')
+    #
+    # plt.yticks(np.arange(0, 3, 0.1))
+    # plt.xticks(np.arange(0, 25, 5))
+    # plt.ylim([0.7, 1.5])
+    # ax = plt.gca()
+    # ax.set_axisbelow(True)
+    # plt.grid('both', linestyle=':')
+    # plt.ylabel(r'$\varepsilon _{sum}$')
+    # plt.xlabel(r"$n_{tokens}$")
+    # plt.axhline(y=0.246319164597 + 0.16591760527490615 + 0.46520543797084507, color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $M^{(1)}$', linewidth = lw) # densely dashed
+    # plt.axhline(y=0.246319164597 + 0.16591760527490615 + 0.46520543797084507, color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $M^{(2)}$', linewidth = lw)
+    # plt.axhline(y=0.2081585409088 + 0.20329225923 + 0.499579335406, color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $M^{(3)}$', linewidth = lw)
+    # plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+    #             label='Incorrect dimensionality')
+    # plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.55, 0.5))
+    # plt.savefig(f'../logs_completed/aa_plots/tokens_vs_CFDerrorsum.eps', format='eps', bbox_inches='tight')
 
 
     # analyse convergence of log or exp functions:
@@ -404,13 +466,32 @@ def write_selected_models_to_C(path):
         print(f'        #include "model{row["model_nr"]:04d}.C"')
         print('    }')
 
-def scatter_ntokens_r_max(logdir):
+def plot_ntokens_r_max(logdir):
 
     dirlist = os.listdir(logdir)
 
     tokens = []
-    r_max = []
-    r_sum = []
+    r_max_PH = []
+    r_max_CD = []
+    r_max_CBFS = []
+
+    dim_dict = {'exp': exp,
+                'log': log}
+
+    m = Dimension('length')
+    s = Dimension('time')
+
+    input_dims = {"grad_u_T1": 1 / s,
+                  "grad_u_T2": 1 / s,
+                  "grad_u_T3": 1 / s,
+                  "grad_u_T4": 1 / s,
+                  "k": (m ** 2) / (s ** 2),
+                  "inv1": m / m,
+                  "inv2": m / m,
+                  "T1": m / m,
+                  "T2": m / m,
+                  "T3": m / m,
+                  "T4": m / m}
 
     for run in dirlist:
 
@@ -438,6 +519,19 @@ def scatter_ntokens_r_max(logdir):
 
         df_joined['r_sum'] = df_joined.apply(lambda x: x['r_max_PH'] + x['r_max_CD'] + x['r_max_CBFS'], axis=1)
 
+        inputs = config_run['task']['dataset']['input']
+        for ii in range(len(inputs)):
+            dim_dict[f'x{ii + 1}'] = input_dims[inputs[ii]]
+
+        df_joined['dimensions'] = df_joined.apply(lambda x: check_expression_dim(x['batch_r_max_expression'], dim_dict), axis=1)
+
+        if output == 'kDef':
+            target_dim = (0, 2, -3, 0, 0, 0, 0)
+        if output == 'bDel':
+            target_dim = (0, 0, 0, 0, 0, 0, 0)
+
+        df_joined = df_joined[df_joined['dimensions'] == target_dim]
+
         df_joined['name'] = run_name
         df_joined['output'] = output
         df_joined['training_case'] = case
@@ -449,41 +543,61 @@ def scatter_ntokens_r_max(logdir):
             df_joined['ntokens'] = ntok
 
         tokens.append(df_joined['ntokens'].values)
-        r_max.append(df_joined['r_max_PH'].values)
-        r_sum.append(df_joined['r_sum'].values)
+        r_max_PH.append(df_joined['r_max_PH'].values)
+        r_max_CD.append(df_joined['r_max_CD'].values)
+        r_max_CBFS.append(df_joined['r_max_CBFS'].values)
 
     tokens = np.concatenate(tokens, axis=0)
-    r_max = np.concatenate(r_max, axis=0)
-    r_sum = np.concatenate(r_sum, axis=0)
+    r_max_PH = np.concatenate(r_max_PH, axis=0)
+    r_max_CD = np.concatenate(r_max_CD, axis=0)
+    r_max_CBFS = np.concatenate(r_max_CBFS, axis=0)
+
+    sorted_tokens = []
+    sorted_r_max_PH = []
+    sorted_r_max_CD = []
+    sorted_r_max_CBFS = []
+
+    for token in np.unique(tokens):
+        sorted_tokens.append(token)
+        best_model_PH = np.argmax(r_max_PH[tokens == token])
+        sorted_r_max_PH.append(r_max_PH[tokens == token][best_model_PH])
+        sorted_r_max_CD.append(r_max_CD[tokens == token][best_model_PH])
+        sorted_r_max_CBFS.append(r_max_CBFS[tokens == token][best_model_PH])
 
     markersize = 25
-    lw = 1.5
-    width = 10
+    lw = 2
+    width = 12
     figsize = (width, 3*width/4)
     cm = 1 / 2.54  # centimeters in inches
 
     plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
     plt.xlabel(r"$n_{tokens}$")
-    plt.ylabel(r"$r \;(\tau)$")
+    plt.ylabel(r"$r_{max}$")
     plt.xticks(np.arange(0,25,5))
     plt.yticks(np.arange(0,1,0.05))
     ax = plt.gca()
     ax.set_axisbelow(True)
     plt.grid('both', linestyle=':')
-    plt.scatter(tokens, r_max, s=markersize)
-    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_max.pdf', format='pdf', bbox_inches='tight')
+    plt.plot(sorted_tokens, sorted_r_max_CD, label='$CD_{12600}$', c='C1', linestyle='--', linewidth=lw)
+    plt.plot(sorted_tokens, sorted_r_max_CBFS, label='$CBFS_{13700}$', c='C2', linestyle=':', linewidth=lw)
+    plt.plot(sorted_tokens, sorted_r_max_PH, label='$PH_{10595}$', c='C0', linestyle=(0, (3, 1, 1, 1)), linewidth=lw)
 
+    order = [2, 0, 1]
+    handles, labels = ax.get_legend_handles_labels()
+    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order]) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
 
-    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
-    plt.xlabel(r"$n_{tokens}$")
-    plt.ylabel(r"$r_{sum} \;(\tau)$")
-    plt.xticks(np.arange(0,25,5))
-    plt.yticks(np.arange(0,5,0.5))
-    ax = plt.gca()
-    ax.set_axisbelow(True)
-    plt.grid('both', linestyle=':')
-    plt.scatter(tokens, r_sum, s=markersize)
-    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_sum.pdf', format='pdf', bbox_inches='tight')
+    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_max.eps', format='eps', bbox_inches='tight')
+    #
+    # plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    # plt.xlabel(r"$n_{tokens}$")
+    # plt.ylabel(r"$r_{sum} \;(\tau)$")
+    # plt.xticks(np.arange(0,25,5))
+    # plt.yticks(np.arange(0,5,0.5))
+    # ax = plt.gca()
+    # ax.set_axisbelow(True)
+    # plt.grid('both', linestyle=':')
+    # plt.scatter(tokens, r_sum, s=markersize)
+    # plt.savefig(f'../logs_completed/aa_plots/ntokens_r_sum.pdf', format='pdf', bbox_inches='tight')
 
 def search_tokens(df_row, df_joined):
 
@@ -587,6 +701,7 @@ def categorise_tokens(df, type):
 
 def plot_token_distribution():
 
+    df_models = pd.DataFrame()
     for case in ['PH', 'CD', 'CBFS']:
         file = f'../logs_completed/kDef_{case}/kDef_{case}_selected_models_CFD_results_added_tokens.csv'
         df_case = pd.read_csv(file)
@@ -652,10 +767,9 @@ if __name__ == "__main__":
     # summarise_results(logdir)
     #
     # logdir = '../logs_completed/kDef_PH_ntokens'
-    # scatter_ntokens_r_max(logdir)
+    # plot_ntokens_r_max(logdir)
     #
-    # result_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
-    # scatter_ntokens_CFDerror(result_file)
+    plot_ntokens_CFDerror() # files are hardcoded in the function itself
    #
     plot_token_distribution()
    #  add_tokens(f'../logs_completed/kDef_PH_ntokens',
