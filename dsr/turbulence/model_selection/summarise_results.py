@@ -74,7 +74,6 @@ def convert_expression(expression, inputs):
 
     for ii in range(len(inputs)):
         expression = expression.replace(f'x{ii+1}', c_names[inputs[ii]])
-
     return expression
 
 
@@ -171,18 +170,25 @@ def summarise_results(logdir):
         for ii in range(len(inputs)):
             dim_dict[f'x{ii+1}'] = input_dims[inputs[ii]]
 
-        df_joined['dimensions'] = df_joined.apply(lambda x: check_expression_dim(x['batch_r_max_expression'], dim_dict), axis=1)
+
+        df_joined = df_joined[~df_joined['batch_r_max_expression'].isna()]
 
         df_joined['r_sum'] = df_joined.apply(lambda x: x['r_max_PH'] + x['r_max_CD'] + x['r_max_CBFS'], axis=1)
 
         if output == 'kDef':
+            df_joined['dimensions'] = df_joined.apply(
+                lambda x: check_expression_dim(x['batch_r_max_expression'], dim_dict), axis=1)
+
             target_dim = (0, 2, -3, 0, 0, 0, 0)
         if output == 'bDel':
             target_dim = (0, 0, 0, 0, 0, 0, 0)
+            df_joined['dimensions'] = [(0, 0, 0, 0, 0, 0, 0) for _ in df_joined.index]
 
         df_joined = df_joined.drop_duplicates(subset=['batch_r_max_expression'])
-
-        df_joined['converted_expression'] = df_joined.apply(lambda x: convert_expression(x['batch_r_max_expression'], inputs), axis=1)
+        try:
+            df_joined['converted_expression'] = df_joined.apply(lambda x: convert_expression(x['batch_r_max_expression'], inputs), axis=1)
+        except:
+            print(1)
 
         df_joined['name'] = run_name
         df_joined['output'] = output
@@ -199,37 +205,39 @@ def summarise_results(logdir):
         df_right_dim['correct_dim'] = True
 
         # add best on all cases
-        df_best = df_right_dim.sort_values('r_sum', ascending=False).head(30)
+        df_best = df_right_dim.sort_values('r_sum', ascending=False).head(70)
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = 'r_sum'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
 
         # add best on all cases
-        df_best = df_right_dim.sort_values(f'r_max_{case}', ascending=False).head(30)
+        df_best = df_right_dim.sort_values(f'r_max_{case}', ascending=False).head(70)
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = f'r_max_{case}'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
 
-        df_wrong_dim = df_joined[df_joined['dimensions'] != target_dim]
-        df_wrong_dim = df_wrong_dim.drop_duplicates(subset=['batch_r_max_expression'])
-        df_wrong_dim['correct_dim'] = False
-
-        # add best on all cases
-        df_best = df_wrong_dim.sort_values('r_sum', ascending=False).head(30)
-        df_best['rank'] = np.arange(len(df_best))
-        df_best['ranked_by'] = 'r_sum'
-        df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
-
-        # add best on all cases
-        df_best = df_wrong_dim.sort_values(f'r_max_{case}', ascending=False).head(30)
-        df_best['rank'] = np.arange(len(df_best))
-        df_best['ranked_by'] = f'r_max_{case}'
-        df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+        # df_wrong_dim = df_joined[df_joined['dimensions'] != target_dim]
+        # df_wrong_dim = df_wrong_dim.drop_duplicates(subset=['batch_r_max_expression'])
+        # df_wrong_dim['correct_dim'] = False
+        #
+        # # add best on all cases
+        # df_best = df_wrong_dim.sort_values('r_sum', ascending=False).head(70)
+        # df_best['rank'] = np.arange(len(df_best))
+        # df_best['ranked_by'] = 'r_sum'
+        # df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+        #
+        # # add best on all cases
+        # df_best = df_wrong_dim.sort_values(f'r_max_{case}', ascending=False).head(70)
+        # df_best['rank'] = np.arange(len(df_best))
+        # df_best['ranked_by'] = f'r_max_{case}'
+        # df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
 
 
     save_cols = ['name','rank', 'ranked_by', 'r_max_PH', 'r_max_CD', 'r_max_CBFS', 'r_sum', 'batch_r_max_expression',
                  'dimensions', 'training_case', 'skip_wall', 'ntokens', 'correct_dim', 'converted_expression']
     df_save = df_results[save_cols]
+    df_save = df_save.drop_duplicates(subset=['batch_r_max_expression'])
+
     df_save.to_csv(os.path.join(logdir, 'results.csv'),index=False)
 
 def plot_ntokens_CFDerror():
@@ -763,15 +771,15 @@ if __name__ == "__main__":
     # models_path = '../logs_completed/all_CBFS/kDef_CBFS_selected_models.csv'
     # write_selected_models_to_C(models_path)
     #
-    # logdir = '../logs_completed/all_CD'
-    # summarise_results(logdir)
+    logdir = '../logs_completed/bDel_PH'
+    summarise_results(logdir)
     #
     # logdir = '../logs_completed/kDef_PH_ntokens'
     # plot_ntokens_r_max(logdir)
     #
-    plot_ntokens_CFDerror() # files are hardcoded in the function itself
-   #
-    plot_token_distribution()
+   #  plot_ntokens_CFDerror() # files are hardcoded in the function itself
+   # #
+   #  plot_token_distribution()
    #  add_tokens(f'../logs_completed/kDef_PH_ntokens',
    #             f'../logs_completed/kDef_PH_ntokens/kDef_PH_selected_models_CFD_results_added_tokens.csv')
    #
