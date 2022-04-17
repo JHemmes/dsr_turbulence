@@ -959,16 +959,24 @@ if __name__ == '__main__':
     # plot_experimental()
     #
     # ################### to plot Ux profiles
-    plot_selection(['sparta_model1', 'sparta_model3', 'dsr_146', 'dsr_211', 'dsr_351', 'kOmegaSST'],
-                   ['PH', 'CD', 'CBFS'])
+    # plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'testing', 'dsr_146', 'dsr_211', 'dsr_351', 'kOmegaSST'],
+    #                ['PH', 'CD', 'CBFS'])
 
 
     #
     # ####################### lines below used to add CFD results to selected_models file
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_PH/kDef_PH_selected_models.csv'
-    # # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CD/kDef_CD_selected_models.csv'
-    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CBFS/kDef_CBFS_TMP.csv'
-    # process_OF_results(selected_model_file)
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CD/kDef_CD_selected_models.csv'
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CBFS/kDef_CBFS_selected_models.csv'
+
+    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_PH/bDel_PH_selected_models.csv'
+    process_OF_results(selected_model_file)
+
+    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CD/bDel_CD_selected_models.csv'
+    process_OF_results(selected_model_file)
+
+    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
+    process_OF_results(selected_model_file)
     #
     #
     # # #################### lines below used to make scatter plots of error in CFD and training rewards.

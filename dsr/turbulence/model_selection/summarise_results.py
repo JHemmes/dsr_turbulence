@@ -433,26 +433,34 @@ def plot_ntokens_CFDerror():
     results_CBFS.to_csv('../logs_completed/tmp_cbfs.csv')
 
 
-def write_OF_model_file(expression, model_nr):
+def write_OF_model_file(expression, model_nr, model_type):
 
     example_file = '../logs_completed/models/model0000.C'
+
+    if '**' in expression:
+        print(f'found ** in {model_nr}')
+
+    if model_type == 'bDel':
+        c_name = 'bijDelta'
+        inputs = ["T1", "T2", "T3", "T4", "inv1", "inv2"]
+
+    elif model_type == 'kDef':
+        c_name = 'kDeficit'
+        inputs = ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"]
 
     with open(example_file) as f:
         lines = f.readlines()
 
     header_lines = lines[:-2]
-
-    header_lines.append(f'    Info << "Using DSR model {model_nr}" << endl;\n')
+    header_lines.append(f'    Info << "{c_name}: DSR model {model_nr}" << endl;\n')
 
     if 'x' in expression:
         # needs replacing
-        print('Make sure you got the right inputs!!!!!')
-        inputs = ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"] ## kDeficit
         expression = convert_expression(expression, inputs)
 
-    header_lines.append(f'    kDeficit_ = {expression};\n')
+    header_lines.append(f'    {c_name}_ = {expression};\n')
 
-    with open(f'../logs_completed/models/model{model_nr:04d}.C', 'w') as newfile:
+    with open(f'../logs_completed/models/{model_type}{model_nr:04d}.C', 'w') as newfile:
         for line in header_lines:
             newfile.write(line)
 
@@ -462,16 +470,21 @@ def write_selected_models_to_C(path):
 
     df_selected_models = pd.read_csv(path)
 
+    model_type = np.unique([name[:4] for name in df_selected_models['name'].values])[0]
+
     for index, row in df_selected_models.iterrows():
 
         filename = f'model_{row["model_nr"]}'
         row.to_csv(os.path.join('../logs_completed/models/model_info_files', filename), header=False)
 
-        write_OF_model_file(row['batch_r_max_expression'], row['model_nr'])
+        write_OF_model_file(row['batch_r_max_expression'], row['model_nr'], model_type)
+
+
+
 
     for index, row in df_selected_models.iterrows():
-        print(f'    else if (model_nr_.value() == {row["model_nr"]}) {{')
-        print(f'        #include "model{row["model_nr"]:04d}.C"')
+        print(f'    else if ({model_type}_model_nr_.value() == {row["model_nr"]}) {{')
+        print(f'        #include "{model_type}{row["model_nr"]:04d}.C"')
         print('    }')
 
 def plot_ntokens_r_max(logdir):
@@ -768,11 +781,11 @@ if __name__ == "__main__":
 
     #
     #
-    # models_path = '../logs_completed/all_CBFS/kDef_CBFS_selected_models.csv'
-    # write_selected_models_to_C(models_path)
+    models_path = '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
+    write_selected_models_to_C(models_path)
     #
-    logdir = '../logs_completed/bDel_PH'
-    summarise_results(logdir)
+    # logdir = '../logs_completed/bDel_PH'
+    # summarise_results(logdir)
     #
     # logdir = '../logs_completed/kDef_PH_ntokens'
     # plot_ntokens_r_max(logdir)
