@@ -5,7 +5,7 @@
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
-         "name" : "PH10595",
+         "name" : "CBFS13700",
          "noise": null,
          "input": ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"],
          "output": "kDeficit",

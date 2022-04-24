@@ -147,6 +147,13 @@ def main_custom(config_template="config.json",
         print('Using benchmark dataset')
         X, y = load_benchmark_dataset(config_task)
 
+    # below used to check reward of spaRTA
+    # # sparta_bDelta = 0.1*X[:,0] + 4.09*X[:,1]
+    # sparta_yhat1 = 2*0.39*X[:, 0]*X[:,4]
+    # sparta_yhat2 = 2*1.39*X[:, 0]*X[:,4]
+    # sparta_yhat3 = 2*0.93*X[:, 0]*X[:,4]
+    # inv_nrmse = 1 / (1 + np.sqrt(np.mean((y-sparta_yhat1)**2))/np.std(y))
+
     config["task"]["dataset_info"] = config["task"]["dataset"] # save dataset information for later use
     config["task"]["dataset"] = (X, y)
     config_task = config["task"]      # Set config task again after overwriting dataset
@@ -228,7 +235,7 @@ if __name__ == "__main__":
 
 
     main_custom(config_template="config_kDeficit.json", mc=100, n_cores_task=1)
-    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=4)
+    # main_custom(config_template="config_bDelta.json", mc=100, n_cores_task=1)
 
 
 

@@ -77,8 +77,11 @@ def convert_expression(expression, inputs):
     return expression
 
 
-
 def check_expression_dim(expression, dim_dict):
+
+    if 'E' in expression:
+        expression = expression.replace('E', 'exp(1)')
+
     try:
         expr_dim = eval(expression, dim_dict)
     except NameError:
@@ -185,10 +188,7 @@ def summarise_results(logdir):
             df_joined['dimensions'] = [(0, 0, 0, 0, 0, 0, 0) for _ in df_joined.index]
 
         df_joined = df_joined.drop_duplicates(subset=['batch_r_max_expression'])
-        try:
-            df_joined['converted_expression'] = df_joined.apply(lambda x: convert_expression(x['batch_r_max_expression'], inputs), axis=1)
-        except:
-            print(1)
+        df_joined['converted_expression'] = df_joined.apply(lambda x: convert_expression(x['batch_r_max_expression'], inputs), axis=1)
 
         df_joined['name'] = run_name
         df_joined['output'] = output
@@ -215,6 +215,9 @@ def summarise_results(logdir):
         df_best['rank'] = np.arange(len(df_best))
         df_best['ranked_by'] = f'r_max_{case}'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
+
+        # plt.figure()
+        # plt.hist(df_joined['r_max_PH'], bin=20)
 
         # df_wrong_dim = df_joined[df_joined['dimensions'] != target_dim]
         # df_wrong_dim = df_wrong_dim.drop_duplicates(subset=['batch_r_max_expression'])
@@ -367,8 +370,6 @@ def plot_ntokens_CFDerror():
 
     plt.savefig(f'../logs_completed/aa_plots/ntokens_CFD_err.eps', format='eps', bbox_inches='tight')
 
-
-
     ######## This is the old scatterplot in the report that i was not super happy about.
     # markersize = 25
     # lw = 1.5
@@ -436,6 +437,9 @@ def plot_ntokens_CFDerror():
 def write_OF_model_file(expression, model_nr, model_type):
 
     example_file = '../logs_completed/models/model0000.C'
+
+    if 'E' in expression:
+        expression = expression.replace('E', 'exp(1)')
 
     if '**' in expression:
         print(f'found ** in {model_nr}')
@@ -781,7 +785,9 @@ if __name__ == "__main__":
 
     #
     #
-    models_path = '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
+    models_path = '../logs_completed/bDel_CD/bDel_CD_selected_models.csv'
+    # models_path = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models.csv'
+    # models_path = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models.csv'
     write_selected_models_to_C(models_path)
     #
     # logdir = '../logs_completed/bDel_PH'
@@ -790,7 +796,7 @@ if __name__ == "__main__":
     # logdir = '../logs_completed/kDef_PH_ntokens'
     # plot_ntokens_r_max(logdir)
     #
-   #  plot_ntokens_CFDerror() # files are hardcoded in the function itself
+    plot_ntokens_CFDerror() # files are hardcoded in the function itself
    # #
    #  plot_token_distribution()
    #  add_tokens(f'../logs_completed/kDef_PH_ntokens',

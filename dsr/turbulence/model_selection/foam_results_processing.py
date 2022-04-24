@@ -185,7 +185,6 @@ def process_OF_results(selected_model_file=False):
         'CBFS_iter': []
     }
 
-    # load selected models file:
     if selected_model_file:
         df_models = pd.read_csv(selected_model_file)
 
@@ -239,6 +238,132 @@ def process_OF_results(selected_model_file=False):
 
     return results, hifi_data
 
+def process_combined_models():
+
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models/'
+    dirlist = os.listdir(base_dir)
+    dirlist.pop(dirlist.index('common'))
+    dirlist.pop(dirlist.index('base_dir'))
+    # dirlist.pop(dirlist.index('base_dir_no_dimension_check'))
+
+    cases = ['CD', 'PH', 'CBFS']
+
+    kOmegaSST = {}  # will contain standard kOmegaSST results
+    hifi_data = {}
+
+    mse = lambda x, y: sum(sum((x - y)**2))/(x.shape[0]*x.shape[1])
+
+    for case in cases:
+        # get baseline kOmegaSST data
+        case_result, final_iteration = read_case_results(os.path.join(base_dir, 'kOmegaSST', case))
+        kOmegaSST[case] = case_result
+
+        # get high fidelity data
+        hifi_data[case] = {
+            'field':np.genfromtxt(os.path.join(base_dir, 'common', f'{case}_field.csv'), delimiter=','),
+            'lines':np.genfromtxt(os.path.join(base_dir, 'common', f'{case}_lines.csv'), delimiter=',')
+        }
+
+        # if case == 'CBFS':
+        #     # clip domain for MSE caluculation:
+        #     xmin = -10 # 0
+        #     xmax = 20  # 9
+        #     ymin = -5  # 0
+        #     ymax = 100 # 3
+        #     x = hifi_data[case]['field'][:, 0]
+        #     y = hifi_data[case]['field'][:, 1]
+        #     keep_points = (x > xmin) & (x < xmax) & (y > ymin) & (y < ymax)
+        # else:
+        #     keep_points = np.ones(hifi_data[case]['field'][:, 0].shape) == 1
+
+        U = np.moveaxis(hifi_data[case]['field'][:, 2:], -1, 0)
+        keep_points = ~np.isnan(U).any(axis=0)
+        hifi_data[case]['keep'] = keep_points
+        hifi_data[case]['U'] = U[:, hifi_data[case]['keep']]
+
+        hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
+                                               kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
+
+        # keep_points = ~np.any(np.isnan(hifi_data[case]['field']), axis=1)
+        # hifi_data[case]['keep'] = keep_points
+        # hifi_data[case]['U'] = np.moveaxis(hifi_data[case]['field'][hifi_data[case]['keep'], 2:], -1, 0)
+        # hifi_data[case]['mse_kOmegaSST'] = mse(hifi_data[case]['U'],
+        #                                        kOmegaSST[case]['U'][:2, hifi_data[case]['keep']])
+
+    save_lists = {
+        'model_order': [],
+        'PH_mse': [],
+        'PH_iter': [],
+        'CD_mse': [],
+        'CD_iter': [],
+        'CBFS_mse': [],
+        'CBFS_iter': []
+    }
+
+    results = {}
+    for dir in dirlist:
+
+        if 'Re37000' in dir:
+            continue
+
+        name, model_info = find_model_info(os.path.join(base_dir, dir))
+
+        if len(model_info) > 10:
+            continue
+
+
+        results[name] = {'model_info': model_info}
+
+        for case in cases:
+
+            case_result, final_iteration = read_case_results(os.path.join(base_dir, dir, case))
+            if case_result == 'Diverged':
+                results[name][case] = {'norm_mse': 1000000,
+                                       'final_iteration': final_iteration}
+            else:
+                results[name][case] = {'norm_mse': mse(hifi_data[case]['U'],
+                                                       case_result['U'][:2, hifi_data[case]['keep']]),
+                                       'final_iteration': final_iteration}
+                results[name][case]['norm_mse'] = results[name][case]['norm_mse']/hifi_data[case]['mse_kOmegaSST']
+
+    df_results = pd.DataFrame()
+
+    for model in results:
+        if 'combined' not in model:
+            continue
+
+        df_row = pd.DataFrame()
+        df_row['kDef_model'] = [model.split('_')[1]]
+        df_row['bDel_model'] = [model.split('_')[2]]
+
+        for case in cases:
+            df_row[f'{case}_nmse'] = [results[model][case]['norm_mse']]
+            df_row[f'{case}_iter'] = [results[model][case]['final_iteration']]
+
+        df_results = pd.concat([df_results, df_row], axis=0, ignore_index=True)
+        # file_name = selected_model_file.split('.')[0] + '_CFD_results.csv'
+        # df_models.to_csv(file_name, index=False)
+
+
+
+
+    # if selected_model_file:
+    #     # perform additional check to ensure the right data is with the right model:
+    #     df_models['model_check'] = [x for _,x in sorted(zip(save_lists['model_order'],
+    #                                                         [f'{ii}' for ii in save_lists['model_order']]))]
+    #
+    #     for case in cases:
+    #         df_models[f'{case}_nmse'] = [x for _, x in sorted(zip(save_lists['model_order'],
+    #                                                               save_lists[f'{case}_mse']))]
+    #         df_models[f'{case}_iter'] = [x for _, x in sorted(zip(save_lists['model_order'],
+    #                                                               save_lists[f'{case}_iter']))]
+    #
+    #     file_name = selected_model_file.split('.')[0] + '_CFD_results.csv'
+    #     df_models.to_csv(file_name, index=False)
+    df_results = df_results.sort_values(['kDef_model', 'bDel_model'], ascending=[True, True], ignore_index=True)
+    file_name = '../logs_completed/aa_plots/combined_models_CFD_results.csv'
+    df_results.to_csv(file_name, index=False)
+
 def add_scatter(x, df, plot_col, color, markersize, lw, label_once, marker):
 
     first_label = True
@@ -280,9 +405,9 @@ def results_scatter(selected_model_file):
 
     x = np.arange(df_sorted.shape[0]) + 1
 
-    best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.11572914580634726},
-                   'CD': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.11572914580634726},
-                   'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.23405999738793443}
+    best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.40664727572452286},
+                   'CD': {'CD': 0.22708994859535858, 'PH': 0.25459681231336095, 'CBFS': 0.38039621733135776},
+                   'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.5792927510006327}
     }
 
     # prepare info for filename:
@@ -295,6 +420,240 @@ def results_scatter(selected_model_file):
     else:
         ValueError('Too many models in the input file')
 
+    # df_sorted['CFD_sum'] = df_sorted['PH_nmse'] + df_sorted['CD_nmse'] + df_sorted['CBFS_nmse']
+
+    markersize = 30
+    lw = 1.5
+    figsize = (24, 6)
+    cm = 1 / 2.54  # centimeters in inches
+
+    if model_type == 'bDel':
+        ylim = [0, 3]
+    elif model_type == 'kDef':
+        ylim = [0,1]
+
+    # plot CFD errors:
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    add_scatter(x, df_sorted, 'PH_nmse', 'C0', markersize, lw, r'$PH_{10595}$', 'd')
+    add_scatter(x, df_sorted, 'CD_nmse', 'C1', markersize, lw, r'$CD_{12600}$', '^')
+    add_scatter(x, df_sorted, 'CBFS_nmse', 'C2', markersize, lw, r'$CBFS_{13700}$', 'v')
+
+    plt.ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
+    plt.xlabel('Models')
+    plt.ylim(ylim)
+    plt.xticks(np.arange(0,100,10))
+    ax = plt.gca()
+    ax.xaxis.grid(linestyle=':')
+    # plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+    #             label='Incorrect dimensionality')
+    plt.axhline(y=best_sparta[training_case]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+    plt.axhline(y=best_sparta[training_case]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+    plt.axhline(y=best_sparta[training_case]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+    plt.legend(prop={'size': 8})
+    plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_CFDerror.eps', format='eps', bbox_inches='tight')
+
+    # sort by training reward.
+    df_sorted = df_models.sort_values(sort_by_r_max,
+                                      ascending=[False, False, False], ignore_index=True)
+    markersize = 25
+    lw = 1.5
+    figsize = (20, 5)
+    cm = 1 / 2.54  # centimeters in inches
+    x = np.arange(df_sorted.shape[0]) + 1
+    best_sparta = {'kDef':{
+        'CD': 0.5684797739549532,
+        'PH': 0.5462239021080454,
+        'CBFS': 0.5159889361354046
+    }, 'bDel':{
+        'CD': 0.5690503044684558,
+        'PH': 0.571695779816266,
+        'CBFS': 0.5310863754366221
+    }}
+
+    if model_type == 'bDel':
+        ylim = [0.4, 0.7]
+    elif model_type == 'kDef':
+        ylim = [0.4, 0.9]
+
+    ########## bDel TRAINING REWARDS SPARTA:
+    #           PH                      CD                      CBFS
+    # M1        0.498833622810127       0.4999638861137987      0.4999614012046586
+    # M2        0.571695779816266       0.5690503044684558      0.5310863754366221
+    # M3        0.498833622810127       0.4999638861137987      0.4999614012046586
+
+    ########## kDef TRAINING REWARDS SPARTA:
+    #           PH                      CD                      CBFS
+    # M1        0.546223902108045       0.5385473577589898      0.5072504830064989
+    # M2        0.448964230868368       0.5323072387386726      0.49652636811025874
+    # M3        0.536941200253387       0.5684797739549532      0.5159889361354046
+
+    # plot inv_NRMSE errors:
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    add_scatter(x, df_sorted, 'r_max_PH', 'C0', markersize, lw, r'$PH_{10595}$', 'd')
+    add_scatter(x, df_sorted, 'r_max_CD', 'C1', markersize, lw, r'$CD_{12600}$', '^')
+    add_scatter(x, df_sorted, 'r_max_CBFS', 'C2', markersize, lw, r'$CBFS_{13700}$', 'v')
+
+    plt.ylabel(r'$r_{max}$')
+    plt.xlabel('Models')
+    plt.ylim(ylim)
+    plt.xticks(np.arange(0,100,10))
+    ax = plt.gca()
+    ax.xaxis.grid(linestyle=':')
+    # plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+    #             label='Incorrect dimensionality')
+    plt.axhline(y=best_sparta[model_type]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+    plt.axhline(y=best_sparta[model_type]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+    plt.axhline(y=best_sparta[model_type]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+    plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.3, 0.5))
+    # plt.legend(prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=7)
+    plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_r_max.eps', format='eps', bbox_inches='tight')
+
+
+def bDelta_scatter():
+
+    modelfiles = ['../logs_completed/bDel_PH/bDel_PH_selected_models_CFD_results_full_bDelta.csv',
+                  '../logs_completed/bDel_CD/bDel_CD_selected_models_CFD_results_full_bDelta.csv',
+                  '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv']
+
+    markersize = 30
+    lw = 1.5
+    figsize = (24, 6)
+    cm = 1 / 2.54  # centimeters in inches
+
+    ylim = [0, 3]
+
+    # plot CFD errors:
+    fig = plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    gs = fig.add_gridspec(1, 3, wspace=0.05)
+    axes = gs.subplots(sharey='row')
+
+    for ii in range(len(axes)):
+        ax = axes[ii]
+        selected_model_file = modelfiles[ii]
+
+        df_models = pd.read_csv(selected_model_file)
+
+        if len(df_models['training_case'].unique()) == 1:
+            training_case = df_models['training_case'].unique()[0]
+
+        if training_case == 'PH':
+            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+            xlabel = r'Models trained on $PH_{10595}$'
+        elif training_case == 'CD':
+            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+            xlabel = r'Models trained on $CD_{12600}$'
+        else:
+            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+            xlabel = r'Models trained on $CBFS_{13700}$'
+
+
+        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+            df_models.loc[df_models[col] == 'Diverged', col] = 1000
+            df_models.loc[df_models[col] > 1000, col] = 1000
+
+        df_sorted = df_models.sort_values(sort_by_CFD,
+                                          ascending=[True, True, True], ignore_index=True)
+
+        # df_sorted['sum'] = df_sorted['PH_nmse'] + df_sorted['CD_nmse'] + df_sorted['CBFS_nmse']
+        # sum(df_sorted['sum'] < 1000)
+        df_sorted = df_sorted.head(35)
+        x = np.arange(df_sorted.shape[0]) + 1
+
+        best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.40664727572452286},
+                       'CD': {'CD': 0.22708994859535858, 'PH': 0.25459681231336095, 'CBFS': 0.38039621733135776},
+                       'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.5792927510006327}
+        }
+
+        first_label = True
+        for ii in range(len(x)):
+            label = None
+            if df_sorted['correct_dim'].values[ii]:
+                face_col = 'C0'
+                if first_label:
+                    label = r'$PH_{10595}$'
+                    first_label = False
+            else:
+                face_col = 'none'
+            ax.scatter(x[ii], df_sorted['PH_nmse'].values[ii], c=face_col, edgecolors='C0', s=markersize,
+                        linewidth=lw, label=label, marker='d')
+
+        first_label = True
+        for ii in range(len(x)):
+            label = None
+            if df_sorted['correct_dim'].values[ii]:
+                face_col = 'C1'
+                if first_label:
+                    label = r'$CD_{12600}$'
+                    first_label = False
+            else:
+                face_col = 'none'
+            ax.scatter(x[ii], df_sorted['CD_nmse'].values[ii], c=face_col, edgecolors='C1', s=markersize,
+                        linewidth=lw, label=label, marker='^')
+
+        first_label = True
+        for ii in range(len(x)):
+            label = None
+            if df_sorted['correct_dim'].values[ii]:
+                face_col = 'C2'
+                if first_label:
+                    label = r'$CBFS_{13700}$'
+                    first_label = False
+            else:
+                face_col = 'none'
+            ax.scatter(x[ii], df_sorted['CBFS_nmse'].values[ii], c=face_col, edgecolors='C2', s=markersize,
+                        linewidth=lw, label=label, marker='v')
+
+        # add_scatter(x, df_sorted, 'PH_nmse', 'C0', markersize, lw, r'$PH_{10595}$', 'd')
+        # add_scatter(x, df_sorted, 'CD_nmse', 'C1', markersize, lw, r'$CD_{12600}$', '^')
+        # add_scatter(x, df_sorted, 'CBFS_nmse', 'C2', markersize, lw, r'$CBFS_{13700}$', 'v')
+
+        ax.set_xticks(np.arange(0,len(x),10))
+        # ax = plt.gca()
+        ax.xaxis.grid(linestyle=':')
+        # plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+        #             label='Incorrect dimensionality')
+        ax.axhline(y=best_sparta[training_case]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+        ax.axhline(y=best_sparta[training_case]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+        ax.axhline(y=best_sparta[training_case]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+        ax.set_xlabel(xlabel)
+
+    axes[0].set_ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
+    # plt.xlabel('Models')
+    plt.ylim(ylim)
+    plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.7, 0.5))
+    plt.savefig(f'../logs_completed/aa_plots/bDelta_CFD_err_subplots.eps', format='eps', bbox_inches='tight')
+
+def combined_models_scatter():
+
+    df_20 = pd.read_csv('../logs_completed/aa_plots/combined_models_CFD_results_20_percent.csv')
+    # df_full = pd.read_csv('../logs_completed/aa_plots/combined_models_CFD_results_20_percent.csv')
+    df_full = pd.read_csv('../logs_completed/aa_plots/combined_models_CFD_results_full_bDelta.csv')
+    #
+    # # check differences for training case:
+    # df_full = df_full[(df_full['kDef_model'] >= 300) & (df_full['kDef_model'] < 400)]
+
+
+    df_full['sum'] = df_full['PH_nmse'] + df_full['CD_nmse'] + df_full['CBFS_nmse']
+    df_full['correct_dim'] = True
+
+    sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+
+    for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+        df_20.loc[df_20[col] == 'Diverged', col] = 1000
+        df_20.loc[df_20[col] > 1000, col] = 1000
+        df_full.loc[df_full[col] == 'Diverged', col] = 1000
+        df_full.loc[df_full[col] > 1000, col] = 1000
+
+    df_sorted = df_full.sort_values(['sum'],
+                                    ascending=[True], ignore_index=True)
+
+    x = np.arange(df_sorted.shape[0]) + 1
+
+    # best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.40664727572452286},
+    #                'CD': {'CD': 0.22708994859535858, 'PH': 0.25459681231336095, 'CBFS': 0.38039621733135776},
+    #                'CBFS': {'CD': 0.2081585409088, 'PH': 0.20329225923, 'CBFS': 0.5792927510006327}
+    # }
+    best_sparta = {'PH': 0.16591760527490615, 'CD': 0.2081585409088, 'CBFS': 0.38039621733135776}
 
     markersize = 30
     lw = 1.5
@@ -313,48 +672,14 @@ def results_scatter(selected_model_file):
     plt.xticks(np.arange(0,100,10))
     ax = plt.gca()
     ax.xaxis.grid(linestyle=':')
-    plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
-                label='Incorrect dimensionality')
-    plt.axhline(y=best_sparta[training_case]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
-    plt.axhline(y=best_sparta[training_case]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
-    plt.axhline(y=best_sparta[training_case]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
+    # plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
+    #             label='Incorrect dimensionality')
+    plt.axhline(y=best_sparta['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
+    plt.axhline(y=best_sparta['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
+    plt.axhline(y=best_sparta['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
     plt.legend(prop={'size': 8})
-    plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_CFDerror.eps', format='eps', bbox_inches='tight')
+    plt.savefig(f'../logs_completed/aa_plots/combined_models_CFDerror.eps', format='eps', bbox_inches='tight')
 
-    # sort by training reward.
-    df_sorted = df_models.sort_values(sort_by_r_max,
-                                      ascending=[False, False, False], ignore_index=True)
-    markersize = 25
-    lw = 1.5
-    figsize = (20, 5)
-    cm = 1 / 2.54  # centimeters in inches
-    x = np.arange(df_sorted.shape[0]) + 1
-    best_sparta = {'kDef':{
-        'CD': 0.4489642308683687,
-        'PH': 0.5462239021080454,
-        'CBFS': 0.5369412002533871
-    }}
-
-    # plot inv_NRMSE errors:
-    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
-    add_scatter(x, df_sorted, 'r_max_PH', 'C0', markersize, lw, r'$PH_{10595}$', 'd')
-    add_scatter(x, df_sorted, 'r_max_CD', 'C1', markersize, lw, r'$CD_{12600}$', '^')
-    add_scatter(x, df_sorted, 'r_max_CBFS', 'C2', markersize, lw, r'$CBFS_{13700}$', 'v')
-
-    plt.ylabel(r'$r_{max}$')
-    plt.xlabel('Models')
-    plt.ylim([0.4,0.9])
-    plt.xticks(np.arange(0,100,10))
-    ax = plt.gca()
-    ax.xaxis.grid(linestyle=':')
-    plt.scatter(10, 10, c='none', edgecolors='grey', s=markersize, linewidth=lw,
-                label='Incorrect dimensionality')
-    plt.axhline(y=best_sparta[model_type]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
-    plt.axhline(y=best_sparta[model_type]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
-    plt.axhline(y=best_sparta[model_type]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
-    plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.3, 0.5))
-    # plt.legend(prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=7)
-    plt.savefig(f'../logs_completed/aa_plots/{training_case}_{model_type}_r_max.eps', format='eps', bbox_inches='tight')
 
 def plot_selection(plot_list, cases):
 
@@ -630,6 +955,8 @@ def interpolate_tauij_field(case_dir, mesh_x_flat, mesh_y_flat):
 
 def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
 
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models/'
+
     for ii in range(3):
         if ii == 0:
             case = 'PH'
@@ -668,18 +995,18 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
             ylim = [0, 1.2]
             dsr_label = r'$M^{(3)}_{dsr}$'
 
-        case_dir = f'/home/jasper/OpenFOAM/jasper-7/run/{dsr_model_dir}/{case}'
+        case_dir = os.path.join(base_dir, dsr_model_dir, case)   #f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/{dsr_model_dir}/{case}'
 
         mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh(case_dir)
 
         # interpolate tauij
         dsr_tauxy_lines, dsr_x_target, dsr_y_target = interpolate_tauij_field(case_dir, mesh_x_flat, mesh_y_flat)
 
-        case_dir_sparta = f'/home/jasper/OpenFOAM/jasper-7/run/{sparta_model_dir}/{case}'
+        case_dir_sparta = os.path.join(base_dir, sparta_model_dir, case)
 
         sparta_tauxy_lines, sparta_x_target, sparta_y_target = interpolate_tauij_field(case_dir_sparta, mesh_x_flat, mesh_y_flat)
 
-        case_dir_kOmegaSST = f'/home/jasper/OpenFOAM/jasper-7/run/kOmegaSST/{case}'
+        case_dir_kOmegaSST = os.path.join(base_dir, 'kOmegaSST', case)
 
         komg_tauxy_lines, komg_x_target, komg_y_target = interpolate_tauij_field(case_dir_kOmegaSST, mesh_x_flat, mesh_y_flat)
 
@@ -691,7 +1018,6 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
 
         mesh_x = reshape_to_mesh(mesh_x_flat)
         n_points = mesh_x.shape[0]
-
 
         ####################### To plot
         # mesh_um = reshape_to_mesh(data_i['um'])
@@ -966,27 +1292,49 @@ if __name__ == '__main__':
     #
     # ####################### lines below used to add CFD results to selected_models file
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_PH/kDef_PH_selected_models.csv'
+    # process_OF_results(selected_model_file)
+    #
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CD/kDef_CD_selected_models.csv'
+    # process_OF_results(selected_model_file)
+    #
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/kDef_CBFS/kDef_CBFS_selected_models.csv'
+    # process_OF_results(selected_model_file)
 
-    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_PH/bDel_PH_selected_models.csv'
-    process_OF_results(selected_model_file)
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_PH/bDel_PH_selected_models.csv'
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_PH/bDel_PH_selected_models_TMP.csv'
+    # process_OF_results(selected_model_file)
 
-    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CD/bDel_CD_selected_models.csv'
-    process_OF_results(selected_model_file)
-
-    selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
-    process_OF_results(selected_model_file)
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CD/bDel_CD_selected_models.csv'
+    # process_OF_results(selected_model_file)
     #
+
+
+    # process_combined_models()
+    # combined_models_scatter()
+
+    bDelta_scatter()
+
     #
+    # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
+    # process_OF_results(selected_model_file)
+
     # # #################### lines below used to make scatter plots of error in CFD and training rewards.
     # selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
     # results_scatter(selected_model_file)
-    # #
+    # # #
     # selected_model_file = '../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv'
     # results_scatter(selected_model_file)
     #
     # selected_model_file = '../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv'
+    # results_scatter(selected_model_file)
+    # selected_model_file = '../logs_completed/bDel_PH/bDel_PH_selected_models_CFD_results_full_bDelta.csv'
+    # # selected_model_file = '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_20percent_bDelta_weight.csv'
+    # results_scatter(selected_model_file)
+    # # # #
+    # selected_model_file = '../logs_completed/bDel_CD/bDel_CD_selected_models_CFD_results_full_bDelta.csv'
+    # results_scatter(selected_model_file)
+    # #
+    # selected_model_file = '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv'
     # results_scatter(selected_model_file)
 
 
