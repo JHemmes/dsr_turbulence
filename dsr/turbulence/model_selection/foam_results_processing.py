@@ -194,6 +194,9 @@ def process_OF_results(selected_model_file=False):
         if 'Re37000' in dir:
             continue
         
+        if 'combined' in dir:
+            continue
+
         name, model_info = find_model_info(os.path.join(base_dir, dir))
 
         if len(model_info) > 10:
@@ -730,20 +733,30 @@ def plot_selection(plot_list, cases):
 
             results[name][case] = case_result
 
-    dsr1 = None
-    dsr2 = None
-    dsr3 = None
+            print(f'dir: {dir}')
+            print(f'case: {case}')
+            print(mse(hifi_data[case]['U'], case_result['U'][:2, hifi_data[case]['keep']]) / hifi_data[case]['mse_kOmegaSST'])
+            #
+            # results[name][case] = {'norm_mse':
+            #                                    ,
+            #                        'final_iteration': final_iteration}
+            # results[name][case]['norm_mse'] = results[name][case]['norm_mse'] / hifi_data[case]['mse_kOmegaSST']
+            #
 
-    for key in results.keys():
-        if key.split('_')[-1][0] == '1':
-            dsr1 = key
-        if key.split('_')[-1][0] == '2':
-            dsr2 = key
-        if key.split('_')[-1][0] == '3':
-            dsr3 = key
-
-    if None in [dsr1, dsr2, dsr3]:
-        raise FileNotFoundError('did not manage to find correct models')
+    dsr1 = 'PH_kDef_111'
+    dsr2 = 'PH_kDef_118'
+    dsr3 = 'combined_282_662'
+    #
+    # for key in results.keys():
+    #     if key.split('_')[-1][0] == '1':
+    #         dsr1 = key
+    #     if key.split('_')[-1][0] == '2':
+    #         dsr2 = key
+    #     if key.split('_')[-1][0] == '3':
+    #         dsr3 = key
+    #
+    # if None in [dsr1, dsr2, dsr3]:
+    #     raise FileNotFoundError('did not manage to find correct models')
 
     for case in cases:
         if case == 'PH':
@@ -763,11 +776,10 @@ def plot_selection(plot_list, cases):
             best_dsr = dsr2
             dsr_label = r'$M^{(2)}_{dsr}$'
 
-            print('Best sparta on CD is model 2 which is not implemented yet, plotted against model 3 for now')
         elif case == 'CBFS':
             label = 'LES'
             sparta_label = r'$M^{(1)}_{SpaRTA}$'
-            best_sparta = 'sparta_model1'
+            best_sparta = 'sparta_model2'
             xlim = [0, 9]
             ylim = [0, 3]
             best_dsr = dsr3
@@ -792,8 +804,8 @@ def plot_selection(plot_list, cases):
         # add LES results:
         u_scale = 1
         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
-        plt.xlabel(r'$U_{x}/U_b + x$')
-        plt.ylabel(r'$y$')
+        plt.xlabel(r'$U_{x}/U_b + x/H$')
+        plt.ylabel(r'$y/H$')
 
         for x in np.unique(hifi_data[case]['lines'][:, 0].round()):
             plot_bool = (hifi_data[case]['lines'][:, 0] > x - 0.1) & (hifi_data[case]['lines'][:, 0] < x + 0.1)
@@ -827,9 +839,9 @@ def plot_selection(plot_list, cases):
 
 def plot_experimental():
 
-    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/'
-    plot_list = ['Re37000_dsr_146', 'Re37000_sparta_model1', 'Re37000_sparta_model3', 'Re37000_kOmegaSST']
-    best_dsr = 'Re37000_dsr_146'
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models'
+    plot_list = ['Re37000_dsr_138', 'Re37000_sparta_model1', 'Re37000_kOmegaSST']
+    best_dsr = plot_list[0]
 
     hifi_data = {}
 
@@ -897,8 +909,8 @@ def plot_experimental():
     ax.xaxis.grid(True, which='both', linestyle=':')
     # plt.grid('minor', linestyle=":")
     ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
-    plt.xlabel(r'$U_{x}/U_b + x$')
-    plt.ylabel(r'$y$')
+    plt.xlabel(r'$U_{x}/U_b + x/H$')
+    plt.ylabel(r'$y/H$')
 
     order = [2, 1, 3, 0]
     handles, labels = ax.get_legend_handles_labels()
@@ -1030,53 +1042,68 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
         #     print(f'({CBFS_ICx[ii]} {CBFS_ICy[ii]} 0)')
 
         ###################### Cf investigation
-        # hifi_tauxy = data_i['tauij'][0, 1, :]
-        # # hifi_tauxy = data_i['grad_u'][0, 1, :]
+        bottom_x = np.insert(np.cumsum(np.sqrt(np.diff(mesh_x[:,0])**2 + np.diff(mesh_y[:,0])**2)), 0, 0)
+
+
+        hifi_tauxy = data_i['tauij'][0, 1, :]
+        # hifi_tauxy = data_i['grad_u'][0, 1, :]
+
+        # hifi_tauxy = data_i['uv']
+        mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
+        mesh_y = reshape_to_mesh(mesh_y_flat)
+
+        plt.figure()
+        plt.contourf(mesh_x, mesh_y, mesh_hifi_tau, levels=30, cmap='Reds')
+
+
+        case_result, final_iteration = read_case_results(case_dir)
         #
-        # # hifi_tauxy = data_i['uv']
-        # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
-        # mesh_y = reshape_to_mesh(mesh_y_flat)
+        mesh_case_tau = reshape_to_mesh(case_result['tauij'][:,1])
+
+        case_result_sparta, _ = read_case_results(os.path.join(base_dir, 'sparta_model1', case) )
         #
-        # plt.figure()
-        # plt.contourf(mesh_x, mesh_y, mesh_hifi_tau, levels=30, cmap='Reds')
+        mesh_sparta_tau = reshape_to_mesh(case_result_sparta['tauij'][:,1])
+
+        case_result_kOmegaSST, _ = read_case_results(case_dir_kOmegaSST)
         #
+        mesh_kOmegaSST_tau= reshape_to_mesh(case_result_kOmegaSST['tauij'][:,1])
+
+        plt.figure()
+        # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
+        # plt.plot(mesh_x[:,0], mesh_hifi_tau[:,0])
+        # plt.plot(mesh_x[:,0], mesh_y[:,1])
+        plt.plot(bottom_x, -mesh_kOmegaSST_tau[:,0])
+        plt.plot(bottom_x, -mesh_sparta_tau[:,0])
+        plt.plot(bottom_x, -mesh_case_tau[:,0])
+        plt.grid()
+
+        from dsr.turbulence.dataprocessing import calc_sij_rij
+
+        sij, rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'], True)
+
+        k = data_i['k']
+        omega = data_i['omega_frozen']
+        nut_frozen = data_i['nut_frozen']
+        calc_tau  = -2.0 * k *  nut_frozen / k * omega * sij  #+ bijDelta_ + 1 / 3 * I);
+        hifi_tauxy = calc_tau[0, 1, :]
+        mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
         #
-        # case_result, final_iteration = read_case_results(case_dir)
-        # #
-        # mesh_case_tau = reshape_to_mesh(case_result['tauij'][:,1])
-        #
-        # plt.figure()
-        # # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
-        # plt.plot(mesh_x[:,0], mesh_hifi_tau[:,1])
-        # # plt.plot(mesh_x[:,0], -mesh_case_tau[:,0])
-        #
-        # from dsr.turbulence.dataprocessing import calc_sij_rij
-        #
-        # sij, rij = calc_sij_rij(data_i['grad_u'], data_i['omega_frozen'], True)
-        #
-        # k = data_i['k']
-        # omega = data_i['omega_frozen']
-        # nut_frozen = data_i['nut_frozen']
-        # calc_tau  = -2.0 * k *  nut_frozen / k * omega * sij  #+ bijDelta_ + 1 / 3 * I);
-        # hifi_tauxy = calc_tau[0, 1, :]
-        # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
-        # #
-        # tau_wall = -data_i['uv']
-        # mesh_hifi_tau = reshape_to_mesh(tau_wall)
-        # # # #
-        # # # tau_wall = data_i['grad_u'] * nut_frozen
-        # # # hifi_tauxy = tau_wall[0, 1, :]
-        # # # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
+        tau_wall = -data_i['uv']
+        mesh_hifi_tau = reshape_to_mesh(tau_wall)
         # # #
-        # scale = 1
+        # # tau_wall = data_i['grad_u'] * nut_frozen
+        # # hifi_tauxy = tau_wall[0, 1, :]
+        # # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
         # #
-        # plt.figure()
-        # # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
-        # plt.title(f'{scale}')
-        # plt.plot(mesh_x[:,0], -mesh_hifi_tau[:,2])
-        # plt.plot(mesh_x[:,0], -scale*mesh_case_tau[:,0])
+        scale = 1
         #
-        #  2.0 * k_int * (- nut() / k_ * omega_ * S + bijDelta_ + 1 / 3 * I);
+        plt.figure()
+        # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
+        plt.title(f'{scale}')
+        plt.plot(mesh_x[:,0], -mesh_hifi_tau[:,2])
+        plt.plot(mesh_x[:,0], -scale*mesh_case_tau[:,0])
+
+         # 2.0 * k_int * (- nut() / k_ * omega_ * S + bijDelta_ + 1 / 3 * I);
 
         figsize = (26, 9)
         cm = 1 / 2.54  # centimeters in inches
@@ -1113,8 +1140,8 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
                 hifi_label = sparta_label = dsr_label = kOmegaSSTlabel = None
 
 
-        plt.xlabel( f'{tau_scale}' + r'$\tau_{ij} + x$')
-        plt.ylabel(r'$y$')
+        plt.xlabel( f'{tau_scale}' + r'$\tau_{ij} + x/H$')
+        plt.ylabel(r'$y/H$')
 
         order = [2, 1, 3, 0]
         handles, labels = ax.get_legend_handles_labels()
@@ -1168,7 +1195,7 @@ def calc_and_plot_k(dsr_PH, dsr_CD, dsr_CBFS):
             dsr_label = r'$M^{(3)}_{dsr}$'
             k_scale = 20
 
-        case_dir = f'/home/jasper/OpenFOAM/jasper-7/run/{dsr_model_dir}/{case}'
+        case_dir = f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/{dsr_model_dir}/{case}'
 
         mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh(case_dir)
 
@@ -1187,10 +1214,10 @@ def calc_and_plot_k(dsr_PH, dsr_CD, dsr_CBFS):
 
         x_target[(x_target < 0.1) & (x_target > -0.01)] = 0.05
 
-        sparta_dir = f'/home/jasper/OpenFOAM/jasper-7/run/{sparta_model_dir}/{case}'
+        sparta_dir = f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/{sparta_model_dir}/{case}'
         sparta_result, final_iteration = read_case_results(sparta_dir)
 
-        komg_dir = f'/home/jasper/OpenFOAM/jasper-7/run/kOmegaSST/{case}'
+        komg_dir = f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/kOmegaSST/{case}'
         komg_result, final_iteration = read_case_results(komg_dir)
 
         data_i = frozen['data_i']
@@ -1243,8 +1270,8 @@ def calc_and_plot_k(dsr_PH, dsr_CD, dsr_CBFS):
 
         order = [2, 1, 3, 0]
 
-        plt.xlabel(f'{k_scale}' + r'$k/U_b^2 + x$')
-        plt.ylabel(r'$y$')
+        plt.xlabel(f'{k_scale}' + r'$k/U_b^2 + x/H$')
+        plt.ylabel(r'$y/H$')
 
         handles, labels = ax.get_legend_handles_labels()
         plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order],
@@ -1275,19 +1302,18 @@ if __name__ == '__main__':
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
 
 
-    ################### to plot tauij
-    # calc_and_plot_shear_stress('dsr_146', 'dsr_211', 'dsr_351')
-
-    # ################### to plot k
-    # calc_and_plot_k('dsr_146', 'dsr_211', 'dsr_351')
+    # ################### to plot tauij
+    calc_and_plot_shear_stress('dsr_138', 'dsr_118', 'combined_282_662')
     #
-    # ################### to plot RE37000 cases
+    # # # ################### to plot k
+    # calc_and_plot_k('dsr_138', 'dsr_118', 'combined_282_662')
+    # # #
+    # # ################### to plot RE37000 cases
     # plot_experimental()
-    #
-    # ################### to plot Ux profiles
-    # plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'testing', 'dsr_146', 'dsr_211', 'dsr_351', 'kOmegaSST'],
+    # # #
+    # # # ################### to plot Ux profiles
+    # plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'dsr_111', 'dsr_118', 'combined_282_662', 'kOmegaSST'],
     #                ['PH', 'CD', 'CBFS'])
-
 
     #
     # ####################### lines below used to add CFD results to selected_models file
@@ -1311,8 +1337,7 @@ if __name__ == '__main__':
 
     # process_combined_models()
     # combined_models_scatter()
-
-    bDelta_scatter()
+    # bDelta_scatter()
 
     #
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
@@ -1336,6 +1361,30 @@ if __name__ == '__main__':
     # #
     # selected_model_file = '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv'
     # results_scatter(selected_model_file)
+
+
+
+
+
+    #
+    # df_combined = pd.read_csv('../logs_completed/aa_plots/combined_models_CFD_results_full_bDelta.csv')
+    # df_combined['sum'] = df_combined['PH_nmse'] + df_combined['CD_nmse'] + df_combined['CBFS_nmse']
+    # df_combined[(df_combined['CD_nmse'] < 0.2271) & (df_combined['PH_nmse'] < 0.2546) & (df_combined['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
+    #
+    #
+    # df_kdef_PH = pd.read_csv('../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv')
+    # df_kdef_PH['sum'] = df_kdef_PH['PH_nmse'] + df_kdef_PH['CD_nmse'] + df_kdef_PH['CBFS_nmse']
+    #
+    #
+    #
+    # df_kdef_CD = pd.read_csv('../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv')
+    # df_kdef_CD['sum'] = df_kdef_CD['PH_nmse'] + df_kdef_CD['CD_nmse'] + df_kdef_CD['CBFS_nmse']
+    # df_kdef_CD[(df_kdef_CD['CD_nmse'] < 0.2271) & (df_kdef_CD['PH_nmse'] < 0.2546) & (df_kdef_CD['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
+    #
+    #
+    # df_kdef_CBFS = pd.read_csv('../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv')
+    # df_kdef_CBFS['sum'] = df_kdef_CBFS['PH_nmse'] + df_kdef_CBFS['CD_nmse'] + df_kdef_CBFS['CBFS_nmse']
+    # df_kdef_CBFS[(df_kdef_CBFS['CD_nmse'] < 0.2082) & (df_kdef_CBFS['PH_nmse'] < 0.2033) & (df_kdef_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
 
 
     print('end')
