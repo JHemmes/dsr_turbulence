@@ -85,11 +85,19 @@ def create_plots_for_increasing_n_iterations():
     plt.show()
 
 
-def contourplot_vars():
+def contourplot_vars(case):
+
+    # find better kDeficit limits:
+    if 'PH' in case:
+        skip_wall = 15
+    elif 'CD' in case:
+        skip_wall = 2
+    elif 'CBFS' in case:
+        skip_wall = 6
 
     import pickle
 
-    frozen = pickle.load(open(f'turbulence/frozen_data/PH10595_frozen_var.p', 'rb'))
+    frozen = pickle.load(open(f'turbulence/frozen_data/{case}_frozen_var.p', 'rb'))
     data_i = frozen['data_i']
 
     mesh_x = data_i['meshRANS'][0, :, :]
@@ -101,31 +109,77 @@ def contourplot_vars():
     omega_frozen = np.reshape(data_i['omega_frozen'], mesh_x.shape, order='F')
     nut_frozen = np.reshape(data_i['nut_frozen'], mesh_x.shape, order='F')
     kDeficit = np.reshape(data_i['kDeficit'], mesh_x.shape, order='F')
+    bDelta = data_i['bDelta']
 
 
-    plt.figure()
+    vmin = np.min(k[:, skip_wall:-skip_wall])
+    vmax = np.max(k[:, skip_wall:-skip_wall])
+    levels = np.linspace(vmin, vmax, 50)
+    plt.figure(figsize=(20,10))
     plt.tight_layout()
-    plt.contourf(mesh_x, mesh_y, k, levels=30, cmap='Reds')
-    # plt.contourf(mesh_x, mesh_y, , levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-    plt.colorbar()
+    plt.contourf(mesh_x, mesh_y, k, vmin=vmin, vmax=vmax, levels=levels, cmap='Reds')
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    plt.colorbar(fraction=0.046, pad=0.04, ax=ax, shrink=0.5)
+    plt.savefig(f'../logs_completed/contourplots/{case}_k.png', bbox_inches='tight')
 
-    plt.figure()
-    plt.tight_layout()
-    plt.contourf(mesh_x, mesh_y, omega_frozen, vmin=np.min(omega_frozen), vmax=100, levels=3000, cmap='Reds')
-    # plt.contourf(mesh_x, mesh_y, , levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-    plt.colorbar()
+    vmin = np.min(omega_frozen[:, skip_wall:-skip_wall])
+    vmax = np.max(omega_frozen[:, skip_wall:-skip_wall])
+    levels = np.linspace(vmin, vmax, 50)
 
-    plt.figure()
+    plt.figure(figsize=(20,10))
     plt.tight_layout()
-    plt.contourf(mesh_x, mesh_y, nut_frozen, levels=30, cmap='Reds')
-    # plt.contourf(mesh_x, mesh_y, , levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-    plt.colorbar()
+    plt.contourf(mesh_x, mesh_y, omega_frozen, vmin=vmin, vmax=vmax, levels=levels, cmap='Reds')
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    plt.colorbar(fraction=0.046, pad=0.04, ax=ax, shrink=0.5)
+    plt.savefig(f'../logs_completed/contourplots/{case}_omega_frozen.png', bbox_inches='tight')
 
-    plt.figure()
+
+    vmin = np.min(nut_frozen[:,skip_wall:-skip_wall])
+    vmax = np.max(nut_frozen[:,skip_wall:-skip_wall])
+    #
+    levels = np.linspace(vmin, vmax, 30)
+
+    plt.figure(figsize=(20,10))
     plt.tight_layout()
-    plt.contourf(mesh_x, mesh_y, kDeficit, levels=30, cmap='Reds')
-    # plt.contourf(mesh_x, mesh_y, , levels=30, vmin=ymin, vmax=ymax, cmap='Reds')
-    plt.colorbar()
+    plt.contourf(mesh_x, mesh_y, nut_frozen, vmin=vmin, vmax=vmax, levels=levels, cmap='Reds')
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    plt.colorbar(fraction=0.046, pad=0.04, ax=ax, shrink=0.5)
+    plt.savefig(f'../logs_completed/contourplots/{case}_nut.png', bbox_inches='tight')
+
+
+    vmin = np.min(kDeficit[:,skip_wall:-skip_wall])
+    vmax = np.max(kDeficit[:,skip_wall:-skip_wall])
+    #
+    levels = np.linspace(vmin, vmax, 30)
+
+    plt.figure(figsize=(20,10))
+    plt.tight_layout()
+    plt.contourf(mesh_x, mesh_y, kDeficit, vmin=vmin, vmax=vmax, levels=levels, cmap='Reds')
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    plt.colorbar(fraction=0.046, pad=0.04, ax=ax, shrink=0.5)
+    plt.savefig(f'../logs_completed/contourplots/{case}_kDeficit.png', bbox_inches='tight')
+
+    components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
+    for component in components:
+        bDelta_component = np.reshape(bDelta[component[0], component[1], :], mesh_x.shape, order='F')
+
+        vmin = np.min(bDelta_component[:, skip_wall:-skip_wall])
+        vmax = np.max(bDelta_component[:, skip_wall:-skip_wall])
+        #
+        levels = np.linspace(vmin, vmax, 30)
+
+        plt.figure(figsize=(20,10))
+        plt.tight_layout()
+        # plt.contourf(mesh_x, mesh_y, bDelta_component, levels=30, cmap='Reds')
+        plt.contourf(mesh_x, mesh_y, bDelta_component, vmin=vmin, vmax=vmax, levels=levels, cmap='Reds')
+        ax = plt.gca()
+        ax.set_aspect('equal')
+        plt.colorbar(fraction=0.046, pad=0.04, ax=ax, shrink=0.5)
+        plt.savefig(f'../logs_completed/contourplots/{case}_bDelta_{component}.png', bbox_inches='tight')
 
 def plot_pretty_sensitivity_results(logdir, parameters):
     # first scan dirs, save required dirs
