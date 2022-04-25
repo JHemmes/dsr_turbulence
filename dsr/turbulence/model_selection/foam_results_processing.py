@@ -1042,7 +1042,6 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
         #     print(f'({CBFS_ICx[ii]} {CBFS_ICy[ii]} 0)')
 
         ###################### Cf investigation
-        bottom_x = np.insert(np.cumsum(np.sqrt(np.diff(mesh_x[:,0])**2 + np.diff(mesh_y[:,0])**2)), 0, 0)
 
 
         hifi_tauxy = data_i['tauij'][0, 1, :]
@@ -1068,13 +1067,18 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
         #
         mesh_kOmegaSST_tau= reshape_to_mesh(case_result_kOmegaSST['tauij'][:,1])
 
+
+        bottom_x = np.insert(np.cumsum(np.sqrt(np.diff(mesh_x[:,0])**2 + np.diff(mesh_y[:,0])**2)), 0, 0)
+
+
         plt.figure()
         # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
         # plt.plot(mesh_x[:,0], mesh_hifi_tau[:,0])
         # plt.plot(mesh_x[:,0], mesh_y[:,1])
-        plt.plot(bottom_x, -mesh_kOmegaSST_tau[:,0])
-        plt.plot(bottom_x, -mesh_sparta_tau[:,0])
-        plt.plot(bottom_x, -mesh_case_tau[:,0])
+        plt.plot(bottom_x, -mesh_kOmegaSST_tau[:,0], label='kOmegaSST')
+        plt.plot(bottom_x, -mesh_sparta_tau[:,0], label='sparta model 1')
+        plt.plot(bottom_x, -mesh_case_tau[:,0], label='dsr model 138')
+        plt.legend()
         plt.grid()
 
         from dsr.turbulence.dataprocessing import calc_sij_rij
@@ -1084,7 +1088,7 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
         k = data_i['k']
         omega = data_i['omega_frozen']
         nut_frozen = data_i['nut_frozen']
-        calc_tau  = -2.0 * k *  nut_frozen / k * omega * sij  #+ bijDelta_ + 1 / 3 * I);
+        calc_tau  = -2.0 * k *  nut_frozen / k * omega * sij # + data_i['bDelta'] # + 1 / 3 * I);
         hifi_tauxy = calc_tau[0, 1, :]
         mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
         #
@@ -1095,13 +1099,63 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
         # # hifi_tauxy = tau_wall[0, 1, :]
         # # mesh_hifi_tau = reshape_to_mesh(hifi_tauxy)
         # #
+        tau = data_i['tauij'][0,1,:]
+        mesh_hifi_tau = reshape_to_mesh(tau)
+
+
         scale = 1
         #
         plt.figure()
         # plt.plot(mesh_x_flat[:n_points], hifi_tauij[:n_points])
         plt.title(f'{scale}')
+        plt.grid()
         plt.plot(mesh_x[:,0], -mesh_hifi_tau[:,2])
         plt.plot(mesh_x[:,0], -scale*mesh_case_tau[:,0])
+
+
+        # rotate gradients to align with wall
+        # first calculate rotation angle required for each point:
+        bot_x = mesh_x[:,0]
+        bot_y = mesh_y[:,0]
+
+        bot_x = np.insert(bot_x, 0, 0)
+        bot_x = np.append(bot_x, 9)
+
+        bot_y = np.insert(bot_y, 0, bot_y[-1])
+        bot_y = np.insert(bot_y, -1, bot_y[-1])
+
+
+        dy = []
+        dx = []
+
+        for ii in range(len(mesh_x[:,0])):
+            dx.append(bot_x[ii+2] - bot_x[ii])
+            dy.append(bot_y[ii+2] - bot_y[ii])
+
+        dx = np.array(dx)
+        dy = np.array(dy)
+
+        thetas = np.arctan(dy/dx)
+
+        indices = np.arange(len(data_i['um']))
+        mesh_indices = reshape_to_mesh(indices)
+        bot_indices = mesh_indices[:,0]
+
+        tauij = data_i['tauij']
+        rotated_bot_tau = []
+
+        for ii in bot_indices:
+            theta = thetas[ii]
+            R = np.array([[np.cos(theta), -np.sin(theta), 0],[np.sin(theta), np.cos(theta), 0],[0, 0, 1]])
+            tau_rot = R*tauij[:,:,ii]*R.transpose()
+            rotated_bot_tau.append(tau_rot)
+
+        bottom_x = np.insert(np.cumsum(np.sqrt(np.diff(mesh_x[:,0])**2 + np.diff(mesh_y[:,0])**2)), 0, 0)
+
+        aligned_tau = [tau[0,0] for tau in rotated_bot_tau]
+        plt.figure()
+        plt.plot(bottom_x, aligned_tau)
+
 
          # 2.0 * k_int * (- nut() / k_ * omega_ * S + bijDelta_ + 1 / 3 * I);
 
