@@ -10,7 +10,7 @@ import numpy as np
 import fluidfoam
 import scipy.interpolate as interp
 import pickle
-
+from matplotlib.ticker import FormatStrFormatter
 
 def custom_readsymmtensor(path):
 
@@ -24,6 +24,22 @@ def custom_readsymmtensor(path):
         split_line = line.split(' ')
         if len(split_line) == 6:
             data.append([float(val) for val in split_line])
+
+    return np.array(data)
+
+def custom_wallShearStress(path):
+
+    with open(path) as f:
+        lines = f.readlines()
+
+    data = []
+    for line in lines:
+        if ')' in line and '(' in line:
+            line = line.strip(')\n')
+            line = line.strip('(')
+            split_line = line.split(' ')
+            if len(split_line) == 3:
+                data.append([float(val) for val in split_line])
 
     return np.array(data)
 
@@ -52,6 +68,10 @@ def read_case_results(case_dir):
             results[file] = fluidfoam.readvector(case_dir, last_sol_dir, file)
         if file in tensors:
             results[file] = custom_readsymmtensor(os.path.join(case_dir, last_sol_dir, file))
+        if file == 'wallShearStress':
+            results[file] = custom_wallShearStress(os.path.join(case_dir, last_sol_dir, file))
+
+
     # get line_results from postprocessing dir:
     pp_dir = os.path.join(case_dir, 'postProcessing')
     post_processed = False
@@ -65,6 +85,10 @@ def read_case_results(case_dir):
     results['pp'] = {}
     if post_processed:
         for d in pp_dirlist:
+
+            if d == 'wallShearStress':
+                continue
+
             if d == 'residuals':
                 try:
                     data = np.genfromtxt(os.path.join(pp_dir, d, '0', 'residuals_1.dat'))
@@ -743,7 +767,7 @@ def plot_selection(plot_list, cases):
             # results[name][case]['norm_mse'] = results[name][case]['norm_mse'] / hifi_data[case]['mse_kOmegaSST']
             #
 
-    dsr1 = 'PH_kDef_111'
+    dsr1 = 'PH_kDef_138'
     dsr2 = 'PH_kDef_118'
     dsr3 = 'combined_282_662'
     #
@@ -963,6 +987,141 @@ def interpolate_tauij_field(case_dir, mesh_x_flat, mesh_y_flat):
                                   case_result['tauij'][:, 1], (x_target, y_target), method='linear')
 
     return tauxy_lines, x_target, y_target
+
+def plot_Cf(dsr_PH, dsr_CD, dsr_CBFS):
+
+    base_dir = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models/'
+
+
+    # x         y_wall    C_p       tau_w     delta*    theta     delta99 CBFS data!
+
+
+    for ii in range(3):
+        if ii == 0:
+            case = 'PH'
+            dsr_model_dir = dsr_PH
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/PH10595_frozen_var.p', 'rb'))
+            set_aspect = True
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            hifi_label = 'LES'
+            xlim = [0, 9]
+            ylim = [-0.007, 0.02]
+            yticks = [0.00, 0.01, 0.02]
+            dsr_label = r'$M^{(1)}_{dsr}$'
+
+            markevery = 7
+            interpolate = True
+            hifi_file = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models/common/cf_PH.csv'
+
+        if ii == 1:
+            case = 'CD'
+            dsr_model_dir = dsr_CD
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/CD12600_frozen_var.p', 'rb'))
+            set_aspect = False
+            markevery = 7
+            interpolate = True
+
+            sparta_label = r'$M^{(3)}_{SpaRTA}$'
+            hifi_label = 'DNS'
+            xlim = [2, 12]
+            ylim = [-0.006, 0.025]
+            yticks = [0.00, 0.01, 0.02]
+            dsr_label = r'$M^{(2)}_{dsr}$'
+            hifi_file = '/home/jasper/OpenFOAM/jasper-7/run/dsr_models/common/cf_CD.csv'
+
+
+
+        if ii == 2:
+            case = 'CBFS'
+            dsr_model_dir = dsr_CBFS
+            markevery = 15
+
+            sparta_model_dir = 'sparta_model2'
+            frozen = pickle.load(open('turbulence/frozen_data/CBFS13700_frozen_var.p', 'rb'))
+            set_aspect = False
+
+            hifi_label = 'LES'
+            sparta_label = r'$M^{(1)}_{SpaRTA}$'
+            xlim = [-5, 15]
+            ylim = [-0.003, 0.011]
+            yticks = [0.00, 0.01]
+
+            dsr_label = r'$M^{(3)}_{dsr}$'
+            interpolate = False
+
+            hifi_data = np.genfromtxt('/home/jasper/OpenFOAM/jasper-7/run/dsr_models/common/cf_CBFS.dat')
+            hifi_cf = 2*hifi_data[:, 3]
+            hifi_x = hifi_data[:, 0]
+
+
+
+        case_dir = os.path.join(base_dir, dsr_model_dir, case)   #f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/{dsr_model_dir}/{case}'
+
+        case_result, final_iteration = read_case_results(case_dir)
+
+        mesh_x_flat, mesh_y_flat, mesh_z_flat = fluidfoam.readof.readmesh(case_dir)
+
+        mesh_x = reshape_to_mesh(mesh_x_flat)
+        mesh_y = reshape_to_mesh(mesh_y_flat)
+        # bottom_x = np.insert(np.cumsum(np.sqrt(np.diff(mesh_x[:,0])**2 + np.diff(mesh_y[:,0])**2)), 0, 0)
+        n_points = mesh_x.shape[0]
+
+        kOmegaSST_dir = os.path.join(base_dir, 'kOmegaSST', case)   #f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/{dsr_model_dir}/{case}'
+
+        kOmegaSST_result, _ = read_case_results(kOmegaSST_dir)
+
+        sparta_dir = os.path.join(base_dir, sparta_model_dir, case)   #f'/home/jasper/OpenFOAM/jasper-7/run/dsr_models/{dsr_model_dir}/{case}'
+
+        sparta_result, _ = read_case_results(sparta_dir)
+
+
+        if interpolate:
+
+            hifi_cf = np.genfromtxt(hifi_file, delimiter=',')
+            hifi_cf = hifi_cf[hifi_cf[:, 0].argsort()]
+
+            X_Y_Spline = interp.make_interp_spline(hifi_cf[:, 0], hifi_cf[:, 1])
+
+            hifi_x = mesh_x[:, 0]
+            hifi_cf = X_Y_Spline(hifi_x)
+
+
+        figsize = (24, 8)
+        cm = 1 / 2.54  # centimeters in inches
+        plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+
+        ax = plt.gca()
+        # ax.xaxis.grid(True, which='both', linestyle=':')
+        # ax.yaxis.grid(True, which='both', linestyle=':')
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        plt.grid(which='both', linestyle=':')
+        # ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+        # ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+
+
+        kOmegaSSTlabel = r'$k-\omega$ SST'
+        linewidth = 2
+
+        plt.plot(hifi_x,  hifi_cf, c='Black', marker='o', markevery=markevery, label=hifi_label)
+        plt.plot(mesh_x[:,0], -2*sparta_result['wallShearStress'][:n_points, 0], color='C1', linestyle='--', label=sparta_label, linewidth=linewidth)
+        plt.plot(mesh_x[:,0], -2*case_result['wallShearStress'][:n_points, 0], color='C0', linestyle=(0, (3, 1, 1, 1)), label=dsr_label, linewidth=linewidth)
+        plt.plot(mesh_x[:,0], -2*kOmegaSST_result['wallShearStress'][:n_points, 0], color='C2', linestyle=':', label=kOmegaSSTlabel, linewidth=linewidth)
+
+        plt.xlabel(r'$x/H$')
+        plt.ylabel(r'$C_f$')
+        plt.yticks(yticks)
+        # plt.yticks(np.arange(0, ylim[1], 0.01))
+
+        order = [2, 1, 3, 0]
+        handles, labels = ax.get_legend_handles_labels()
+        plt.legend(handles= [handles[idx] for idx in order], labels=[labels[idx] for idx in order],
+            ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9})
+        plt.savefig(f'../logs_completed/aa_plots/Cf_{case}.eps', format='eps', bbox_inches='tight')
+
+
 
 
 def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
@@ -1340,6 +1499,160 @@ def calc_and_plot_k(dsr_PH, dsr_CD, dsr_CBFS):
         # plt.plot(mesh_x_flat[:n_points], case_result['tauij'][:n_points, 1])
         # mesh_hifi_tauij = reshape_to_mesh(hifi_tauij)
 
+def plot_reward_analysis():
+    df_kdef_PH = pd.read_csv('../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv')
+    df_kdef_PH['sum'] = df_kdef_PH['PH_nmse'] + df_kdef_PH['CD_nmse'] + df_kdef_PH['CBFS_nmse']
+
+    df_kdef_CD = pd.read_csv('../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv')
+    df_kdef_CD['sum'] = df_kdef_CD['PH_nmse'] + df_kdef_CD['CD_nmse'] + df_kdef_CD['CBFS_nmse']
+
+    df_kdef_CBFS = pd.read_csv('../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv')
+    df_kdef_CBFS['sum'] = df_kdef_CBFS['PH_nmse'] + df_kdef_CBFS['CD_nmse'] + df_kdef_CBFS['CBFS_nmse']
+
+    markersize = 25
+    lw = 2
+    width = 10
+    figsize = (width, 3*width/4)
+    cm = 1 / 2.54  # centimeters in inches
+
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    models = [df_kdef_PH, df_kdef_CD, df_kdef_CBFS]
+    cases = ['PH', 'CD', 'CBFS']
+    markers = ['d', '^', 'v']
+    labels = [r'$PH_{10595}$', r'$CD_{12600}$', r'$CBFS_{13700}$']
+    colors = ['C0', 'C1', 'C2']
+
+    for ii in range(len(cases)):
+        df_models = models[ii]
+        case = cases[ii]
+
+        df_converged = df_models[df_models['sum'] < 1000]
+        plt.scatter(df_converged[f'r_max_{case}'], df_converged[f'{case}_nmse'], color=colors[ii], label=labels[ii], marker=markers[ii])
+        plt.ylim([0, 1])
+        plt.xlim([0.5, 0.7])
+
+    plt.grid(linestyle=':')
+    plt.xlabel(r'$r_{max}$')
+    plt.ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
+    plt.legend()
+
+    plt.savefig(f'../logs_completed/aa_plots/r_max_CFDerr_correlation.eps', format='eps', bbox_inches='tight')
+
+    kDef_conv_percs = []
+    kDef_first_n = []
+    for ii in range(len(cases)):
+        df_models = models[ii]
+
+        if len(df_models['training_case'].unique()) == 1:
+            training_case = df_models['training_case'].unique()[0]
+
+        if training_case == 'PH':
+            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+        elif training_case == 'CD':
+            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+        else:
+            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+            sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+
+        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+            df_models.loc[df_models[col] == 'Diverged', col] = 1000
+            df_models.loc[df_models[col] > 1000, col] = 1000
+
+        df_sorted = df_models.sort_values(sort_by_r_max,
+                                          ascending=[False, False, False], ignore_index=True)
+
+        conv_perc = []
+        first_n = []
+        for ii in np.arange(0, len(df_models), 10):
+            first_n.append(ii)
+            df_slice = df_sorted.iloc[ii:ii+10, :]
+            df_converged = df_slice[df_slice['sum'] < 900]
+            conv_perc.append(100 * len(df_converged) / (len(df_slice)))
+
+        kDef_conv_percs.append(conv_perc)
+        kDef_first_n.append(first_n)
+
+    df_bDel_PH = pd.read_csv('../logs_completed/bDel_PH/bDel_PH_selected_models_CFD_results_full_bDelta.csv')
+    df_bDel_PH['sum'] = df_bDel_PH['PH_nmse'] + df_bDel_PH['CD_nmse'] + df_bDel_PH['CBFS_nmse']
+
+    df_bDel_CD = pd.read_csv('../logs_completed/bDel_CD/bDel_CD_selected_models_CFD_results_full_bDelta.csv')
+    df_bDel_CD['sum'] = df_bDel_CD['PH_nmse'] + df_bDel_CD['CD_nmse'] + df_bDel_CD['CBFS_nmse']
+
+    df_bDel_CBFS = pd.read_csv('../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv')
+    df_bDel_CBFS['sum'] = df_bDel_CBFS['PH_nmse'] + df_bDel_CBFS['CD_nmse'] + df_bDel_CBFS['CBFS_nmse']
+
+    models = [df_bDel_PH, df_bDel_CD, df_bDel_CBFS]
+
+    bDel_conv_percs = []
+    bDel_first_n = []
+    for ii in range(len(cases)):
+        df_models = models[ii]
+
+        if len(df_models['training_case'].unique()) == 1:
+            training_case = df_models['training_case'].unique()[0]
+
+        if training_case == 'PH':
+            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+        elif training_case == 'CD':
+            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+        else:
+            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+            sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+
+        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+            df_models.loc[df_models[col] == 'Diverged', col] = 1000
+            df_models.loc[df_models[col] > 1000, col] = 1000
+
+        df_sorted = df_models.sort_values(sort_by_r_max,
+                                          ascending=[False, False, False], ignore_index=True)
+
+        conv_perc = []
+        first_n = []
+        for ii in np.arange(0, len(df_models), 10):
+            first_n.append(ii)
+            df_slice = df_sorted.iloc[ii:ii + 10, :]
+            df_converged = df_slice[df_slice['sum'] < 900]
+            conv_perc.append(100 * len(df_converged) / (len(df_slice)))
+
+        bDel_conv_percs.append(conv_perc)
+        bDel_first_n.append(first_n)
+
+
+    mean_kDef_first_n = []
+    mean_kDef_conv_perc = []
+
+    mean_bDel_first_n = []
+    mean_bDel_conv_perc = []
+
+    for ii in range(9):
+        mean_kDef_first_n.append(bDel_first_n[0][ii])
+        mean_kDef_conv_perc.append(np.mean([lst[ii] for lst in kDef_conv_percs]))
+
+        mean_bDel_first_n.append(bDel_first_n[0][ii])
+        mean_bDel_conv_perc.append(np.mean([lst[ii] for lst in bDel_conv_percs]))
+
+
+    plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+
+    plt.plot(mean_kDef_first_n, mean_kDef_conv_perc, label=r'$\mathcal{P}_{k}^\Delta$', c='C0', linestyle='--', linewidth=lw, marker='^')
+    plt.plot(mean_bDel_first_n, mean_bDel_conv_perc, label=r'$b_{ij}^\Delta$', c='C1', linestyle=':', linewidth=lw, marker='v')
+
+    plt.xlabel(r"Model ensemble")
+    plt.ylabel(r'% converging runs')
+    plt.grid(linestyle=':')
+
+    plt.legend(loc='upper left', ncol=2)
+
+    plt.savefig(f'../logs_completed/aa_plots/r_max_comvergence.eps', format='eps', bbox_inches='tight')
+
+
+
+
+    print('here')
 
 if __name__ == '__main__':
 
@@ -1352,21 +1665,27 @@ if __name__ == '__main__':
     # read_and_plot_PH()
     matplotlib.use('tkagg')
     #
+
+    plot_reward_analysis()
+
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
-
-
-    # ################### to plot tauij
-    calc_and_plot_shear_stress('dsr_138', 'dsr_118', 'combined_282_662')
     #
-    # # # ################### to plot k
+    #
+    # # # ################### to plot tauij
+    # calc_and_plot_shear_stress('dsr_138', 'dsr_118', 'combined_282_662')
+    # #
+    # # ################### to plot Cf   316 and 726
+    # plot_Cf('dsr_138', 'dsr_118', 'combined_282_662')
+    # #
+    # # ################### to plot k
     # calc_and_plot_k('dsr_138', 'dsr_118', 'combined_282_662')
-    # # #
-    # # ################### to plot RE37000 cases
+    # # # #
+    # # # ################### to plot RE37000 cases
     # plot_experimental()
-    # # #
-    # # # ################### to plot Ux profiles
-    # plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'dsr_111', 'dsr_118', 'combined_282_662', 'kOmegaSST'],
+    # # # #
+    # # # # ################### to plot Ux profiles
+    # plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'dsr_138', 'dsr_118', 'combined_282_662', 'kOmegaSST'],
     #                ['PH', 'CD', 'CBFS'])
 
     #
@@ -1397,7 +1716,7 @@ if __name__ == '__main__':
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
     # process_OF_results(selected_model_file)
 
-    # # #################### lines below used to make scatter plots of error in CFD and training rewards.
+    # #################### lines below used to make scatter plots of error in CFD and training rewards.
     # selected_model_file = '../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv'
     # results_scatter(selected_model_file)
     # # #
@@ -1416,30 +1735,275 @@ if __name__ == '__main__':
     # selected_model_file = '../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv'
     # results_scatter(selected_model_file)
 
-
-
-
-
     #
     # df_combined = pd.read_csv('../logs_completed/aa_plots/combined_models_CFD_results_full_bDelta.csv')
     # df_combined['sum'] = df_combined['PH_nmse'] + df_combined['CD_nmse'] + df_combined['CBFS_nmse']
     # df_combined[(df_combined['CD_nmse'] < 0.2271) & (df_combined['PH_nmse'] < 0.2546) & (df_combined['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
     #
     #
-    # df_kdef_PH = pd.read_csv('../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv')
-    # df_kdef_PH['sum'] = df_kdef_PH['PH_nmse'] + df_kdef_PH['CD_nmse'] + df_kdef_PH['CBFS_nmse']
+    df_kdef_PH = pd.read_csv('../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv')
+    df_kdef_PH['sum'] = df_kdef_PH['PH_nmse'] + df_kdef_PH['CD_nmse'] + df_kdef_PH['CBFS_nmse']
+    df_kdef_PH.reset_index()
     #
     #
     #
-    # df_kdef_CD = pd.read_csv('../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv')
-    # df_kdef_CD['sum'] = df_kdef_CD['PH_nmse'] + df_kdef_CD['CD_nmse'] + df_kdef_CD['CBFS_nmse']
+    df_kdef_CD = pd.read_csv('../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv')
+    df_kdef_CD['sum'] = df_kdef_CD['PH_nmse'] + df_kdef_CD['CD_nmse'] + df_kdef_CD['CBFS_nmse']
     # df_kdef_CD[(df_kdef_CD['CD_nmse'] < 0.2271) & (df_kdef_CD['PH_nmse'] < 0.2546) & (df_kdef_CD['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
     #
     #
-    # df_kdef_CBFS = pd.read_csv('../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv')
-    # df_kdef_CBFS['sum'] = df_kdef_CBFS['PH_nmse'] + df_kdef_CBFS['CD_nmse'] + df_kdef_CBFS['CBFS_nmse']
+    df_kdef_CBFS = pd.read_csv('../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv')
+    df_kdef_CBFS['sum'] = df_kdef_CBFS['PH_nmse'] + df_kdef_CBFS['CD_nmse'] + df_kdef_CBFS['CBFS_nmse']
     # df_kdef_CBFS[(df_kdef_CBFS['CD_nmse'] < 0.2082) & (df_kdef_CBFS['PH_nmse'] < 0.2033) & (df_kdef_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
 
 
+    df_7tok =  pd.DataFrame()
+    df_10tok =  pd.DataFrame()
+    df_12tok = pd.DataFrame()
+    df_20tok = pd.DataFrame()
+
+
+
+    all_conv_percs = []
+    all_first_n    = []
+    all_mean_PH = []
+    all_mean_CD = []
+    all_mean_CBFS = []
+    all_mean_sum = []
+
+    for df_models in [df_kdef_PH, df_kdef_CD, df_kdef_CBFS]:
+
+        dfappend_7tok = df_models[df_models['name'].str.contains('7tokens')]
+        dfappend_10tok = df_models[df_models['name'].str.contains('10tokens')]
+        dfappend_12tok = df_models[df_models['name'].str.contains('12tokens')]
+        dfappend_20tok = df_models[df_models['name'].str.contains('20tokens')]
+
+        df_7tok =  pd.concat([df_7tok, dfappend_7tok], axis=0, ignore_index=True)
+        df_10tok = pd.concat([df_10tok, dfappend_10tok], axis=0, ignore_index=True)
+        df_12tok = pd.concat([df_12tok, dfappend_12tok], axis=0, ignore_index=True)
+        df_20tok = pd.concat([df_20tok, dfappend_20tok], axis=0, ignore_index=True)
+
+        if len(df_models['training_case'].unique()) == 1:
+            training_case = df_models['training_case'].unique()[0]
+
+        if training_case == 'PH':
+            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+        elif training_case == 'CD':
+            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+        else:
+            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+            sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+
+        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+            df_models.loc[df_models[col] == 'Diverged', col] = 1000
+            df_models.loc[df_models[col] > 1000, col] = 1000
+
+        df_sorted = df_models.sort_values(sort_by_r_max,
+                                          ascending=[False, False, False], ignore_index=True)
+
+        mean_PH = []
+        mean_CD = []
+        mean_CBFS = []
+        mean_sum = []
+
+        conv_perc = []
+        first_n = []
+        for ii in np.arange(0, len(df_models), 10):
+            first_n.append(ii)
+            df_slice = df_sorted.iloc[ii:ii+10, :]
+            df_converged = df_slice[df_slice['sum'] < 900]
+            conv_perc.append(100 * len(df_converged) / (len(df_slice)))
+
+            mean_PH.append(df_converged['PH_nmse'].min())
+            mean_CD.append(df_converged['CD_nmse'].min())
+            mean_CBFS.append(df_converged['CBFS_nmse'].min())
+            mean_sum.append(df_converged['sum'].min())
+
+        all_mean_PH.append(mean_PH)
+        all_mean_CD.append(mean_CD)
+        all_mean_CBFS.append(mean_CBFS)
+        all_mean_sum.append(mean_sum)
+
+        all_first_n.append(first_n)
+        all_conv_percs.append(conv_perc)
+
+    print(f'7Tok converged {100* sum(df_7tok["sum"] < 100) / len(df_7tok)} %')
+    print(f'10Tok converged {100* sum(df_10tok["sum"] < 100) / len(df_10tok)} %')
+    print(f'12Tok converged {100* sum(df_12tok["sum"] < 100) / len(df_12tok)} %')
+    print(f'20Tok converged {100* sum(df_20tok["sum"] < 100) / len(df_20tok)} %')
+
+    labels = ['PH', 'CD', 'CBFS']
+    plt.figure()
+    plt.title('convergence_percentage')
+    for ii in range(len(all_first_n)):
+        plt.plot(all_first_n[ii], all_conv_percs[ii], label=labels[ii])
+    plt.legend()
+
+    labels = ['PH', 'CD', 'CBFS']
+    plt.figure()
+    plt.title('mean PH error')
+    for ii in range(len(all_first_n)):
+        plt.plot(all_first_n[ii], all_mean_PH[ii], label=labels[ii])
+    plt.legend()
+
+    labels = ['PH', 'CD', 'CBFS']
+    plt.figure()
+    plt.title('mean CD error')
+
+    for ii in range(len(all_first_n)):
+        plt.plot(all_first_n[ii], all_mean_CD[ii], label=labels[ii])
+    plt.legend()
+
+    labels = ['PH', 'CD', 'CBFS']
+    plt.figure()
+    plt.title('mean CBFS error')
+    for ii in range(len(all_first_n)):
+        plt.plot(all_first_n[ii], all_mean_CBFS[ii], label=labels[ii])
+    plt.legend()
+
+    labels = ['PH', 'CD', 'CBFS']
+    plt.figure()
+    plt.title('mean sum error')
+    for ii in range(len(all_first_n)):
+        plt.plot(all_first_n[ii], all_mean_sum[ii], label=labels[ii])
+    plt.legend()
+
+
+
+
+    mean_first_n = []
+    mean_conv_perc = []
+
+    for ii in range(9):
+        mean_first_n.append(all_first_n[0][ii])
+        mean_conv_perc.append(np.mean([lst[ii] for lst in all_conv_percs]))
+
+    #
+    df_bDel_PH = pd.read_csv('../logs_completed/bDel_PH/bDel_PH_selected_models_CFD_results_full_bDelta.csv')
+    df_bDel_PH['sum'] = df_bDel_PH['PH_nmse'] + df_bDel_PH['CD_nmse'] + df_bDel_PH['CBFS_nmse']
+
+    df_bDel_CD = pd.read_csv('../logs_completed/bDel_CD/bDel_CD_selected_models_CFD_results_full_bDelta.csv')
+    df_bDel_CD['sum'] = df_bDel_CD['PH_nmse'] + df_bDel_CD['CD_nmse'] + df_bDel_CD['CBFS_nmse']
+
+    df_bDel_CBFS = pd.read_csv('../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv')
+    df_bDel_CBFS['sum'] = df_bDel_CBFS['PH_nmse'] + df_bDel_CBFS['CD_nmse'] + df_bDel_CBFS['CBFS_nmse']
+    # df_bDel_CBFS[(df_bDel_CBFS['CD_nmse'] < 0.2082) & (df_bDel_CBFS['PH_nmse'] < 0.2033) & (
+    #             df_bDel_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
+
+
+    df_3tok =  pd.DataFrame()
+    df_5tok =  pd.DataFrame()
+    df_10tok = pd.DataFrame()
+
+
+
+    all_conv_percs = []
+    all_first_n    = []
+
+
+    for df_models in [df_bDel_PH, df_bDel_CD, df_bDel_CBFS]:
+
+        dfappend_3tok = df_models[df_models['name'].str.contains('3tokens')]
+        dfappend_5tok = df_models[df_models['name'].str.contains('5tokens')]
+        dfappend_10tok = df_models[df_models['name'].str.contains('10tokens')]
+
+        df_3tok =  pd.concat([df_3tok, dfappend_3tok], axis=0, ignore_index=True)
+        df_5tok =  pd.concat([df_5tok, dfappend_5tok], axis=0, ignore_index=True)
+        df_10tok = pd.concat([df_10tok, dfappend_10tok], axis=0, ignore_index=True)
+
+
+        if len(df_models['training_case'].unique()) == 1:
+            training_case = df_models['training_case'].unique()[0]
+
+        if training_case == 'PH':
+            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+        elif training_case == 'CD':
+            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+            sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+        else:
+            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+            sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+
+        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+            df_models.loc[df_models[col] == 'Diverged', col] = 1000
+            df_models.loc[df_models[col] > 1000, col] = 1000
+
+        df_sorted = df_models.sort_values(sort_by_r_max,
+                                          ascending=[False, False, False], ignore_index=True)
+
+        conv_perc = []
+        first_n = []
+        for ii in np.arange(0, len(df_models), 10):
+            first_n.append(ii)
+            df_slice = df_sorted.iloc[ii:ii+10, :]
+            conv_perc.append(100 * sum(df_slice['sum'] < 100) / (len(df_slice)))
+
+        all_first_n.append(first_n)
+        all_conv_percs.append(conv_perc)
+
+    labels = ['PH', 'CD', 'CBFS']
+    plt.figure()
+    for ii in range(len(all_first_n)):
+        plt.plot(all_first_n[ii], all_conv_percs[ii], label=labels[ii])
+    plt.legend()
+
+    mean_first_n = []
+    mean_conv_perc = []
+
+    for ii in range(9):
+        mean_first_n.append(all_first_n[0][ii])
+        mean_conv_perc.append(np.mean([lst[ii] for lst in all_conv_percs]))
+
+    plt.figure()
+    plt.plot(mean_first_n, mean_conv_perc)
+
+
+
+
+
+    print(f'3Tok converged {100* sum(df_3tok["sum"] < 100) / len(df_3tok)} %')
+    print(f'5Tok converged {100* sum(df_5tok["sum"] < 100) / len(df_5tok)} %')
+    print(f'10Tok converged {100* sum(df_10tok["sum"] < 100) / len(df_10tok)} %')
+
+    # df_results = pd.concat([df_results, df_row], axis=0, ignore_index=True)
+
+
+    bDel_ntokens = [3, 5, 10]
+    bDel_convergence = [30.008, 13.043, 8.108]
+
+
+    kDef_ntokens = [7, 10, 12, 20]
+    kDef_convergence = [100, 64.23, 81.70, 50]
+
+    markersize = 25
+    lw = 2
+    width = 10
+    figsize = (width, 3*width/4)
+    cm = 1 / 2.54  # centimeters in inches
+
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    plt.xlabel(r"$n_{tokens}$")
+    plt.ylabel(r'% converging runs')
+    plt.xticks(np.arange(0,25,2))
+    # plt.yticks(np.arange(0,1,0.1))
+    plt.yticks(np.arange(0,110,20))
+    ax = plt.gca()
+    ax.set_axisbelow(True)
+    plt.grid('both', linestyle=':')
+    plt.plot(kDef_ntokens, kDef_convergence, label=r'$\mathcal{P}_{k}^\Delta$', c='C0', linestyle='--', linewidth=lw, marker='^')
+    plt.plot(bDel_ntokens, bDel_convergence, label=r'$b_{ij}^\Delta$', c='C1', linestyle=':', linewidth=lw, marker='v')
+
+    # order = [2, 0, 1]
+    # handles, labels = ax.get_legend_handles_labels()
+    plt.legend(prop={'size': 12}) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
+
+    plt.savefig(f'../logs_completed/aa_plots/ntokens_convergence.eps', format='eps', bbox_inches='tight')
+
+    # errtarget = df_kdef_CD[df_kdef_CD['model_nr'] == 282]['CBFS_nmse'].values[0]
+    #
+    # df_kdef_CD[df_kdef_CD['CBFS_nmse'] < errtarget]
     print('end')
     print('end')
