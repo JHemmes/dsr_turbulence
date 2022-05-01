@@ -543,6 +543,7 @@ def write_selected_models_to_C(path):
         print(f'        #include "{model_type}{row["model_nr"]:04d}.C"')
         print('    }')
 
+
 def plot_ntokens_r_max(logdir):
 
     dirlist = os.listdir(logdir)
@@ -643,38 +644,27 @@ def plot_ntokens_r_max(logdir):
 
     markersize = 25
     lw = 2
-    width = 12
+    width = 7
     figsize = (width, 3*width/4)
     cm = 1 / 2.54  # centimeters in inches
 
     plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
     plt.xlabel(r"$n_{tokens}$")
     plt.ylabel(r"$r_{max}$")
-    plt.xticks(np.arange(0,25,5))
+    plt.xticks(np.arange(0,25,2))
     plt.yticks(np.arange(0,1,0.05))
     ax = plt.gca()
     ax.set_axisbelow(True)
     plt.grid('both', linestyle=':')
-    plt.plot(sorted_tokens, sorted_r_max_CD, label='$CD_{12600}$', c='C1', linestyle='--', linewidth=lw)
-    plt.plot(sorted_tokens, sorted_r_max_CBFS, label='$CBFS_{13700}$', c='C2', linestyle=':', linewidth=lw)
-    plt.plot(sorted_tokens, sorted_r_max_PH, label='$PH_{10595}$', c='C0', linestyle=(0, (3, 1, 1, 1)), linewidth=lw)
+    plt.plot(sorted_tokens, sorted_r_max_CD, label='$CD_{12600}$', c='C1', linestyle='--', linewidth=lw, marker='^')
+    plt.plot(sorted_tokens, sorted_r_max_CBFS, label='$CBFS_{13700}$', c='C2', linestyle=':', linewidth=lw, marker='v')
+    plt.plot(sorted_tokens, sorted_r_max_PH, label='$PH_{10595}$', c='C0', linestyle=(0, (3, 1, 1, 1)), linewidth=lw, marker='d')
 
     order = [2, 0, 1]
     handles, labels = ax.get_legend_handles_labels()
-    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order]) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
+    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order], ncol=3, loc='center', bbox_to_anchor=(0.5, 1.15), prop={'size': 8}) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
 
-    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_max.eps', format='eps', bbox_inches='tight')
-    #
-    # plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
-    # plt.xlabel(r"$n_{tokens}$")
-    # plt.ylabel(r"$r_{sum} \;(\tau)$")
-    # plt.xticks(np.arange(0,25,5))
-    # plt.yticks(np.arange(0,5,0.5))
-    # ax = plt.gca()
-    # ax.set_axisbelow(True)
-    # plt.grid('both', linestyle=':')
-    # plt.scatter(tokens, r_sum, s=markersize)
-    # plt.savefig(f'../logs_completed/aa_plots/ntokens_r_sum.pdf', format='pdf', bbox_inches='tight')
+    plt.savefig(f'../logs_completed/aa_plots/ntokens_r_max{logdir.split("/")[-1]}.eps', format='eps', bbox_inches='tight')
 
 def search_tokens(df_row, df_joined):
 
