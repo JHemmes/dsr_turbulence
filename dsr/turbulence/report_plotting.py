@@ -10,6 +10,67 @@ import matplotlib
 matplotlib.use('PS')
 import matplotlib.pyplot as plt
 
+def plot_turbulent_velocity_fluctuations():
+    # sample plot of turbulent fluctuations
+    np.random.seed(0)
+
+    tsmall = np.linspace(0, 0.5, 200)
+    tlarge = np.linspace(0, 0.5, 25)
+
+    mean = 2.7
+
+    noisesmall = np.random.normal(loc=0, scale=0.05, size=tsmall.shape)
+    noiselarge = np.random.normal(loc=mean, scale=0.1, size=tlarge.shape)
+
+    # interpolate large to small scale, add small scale noise
+    final_data = np.interp(tsmall, tlarge, noiselarge) + noisesmall
+
+    # add mean line
+    mean_line = np.mean(final_data) * np.ones(shape=tsmall.shape)
+
+    cm = 1 / 2.54  # centimeters in inches
+    plt.figure(figsize=(12 * cm, 9 * cm))
+    plt.plot(tsmall, final_data, linewidth=1)
+    plt.plot(tsmall, mean_line, '--')
+    plt.xlabel(r"$t \; [s]$")
+    plt.ylabel(r"$u_x \; \left[\frac{m}{s}\right]$")
+    plt.savefig('../turbulent_fluctuations.eps', format='eps', bbox_inches='tight')
+
+def plot_ml_polynomial():
+    # for the conversion of figsize inches to cm
+    cm = 1 / 2.54
+
+    np.random.seed(4)
+    n_points = 70
+    lower = -2
+    upper = 2
+    X = np.random.uniform(lower, upper, n_points)
+    y = X ** 3
+    y += np.random.normal(0, 0.7, n_points)
+
+    X_true = np.linspace(lower, upper, 100)
+    y_true = X_true ** 3
+
+    X_true = np.linspace(lower, upper, 100)
+    y_init = X_true ** 3 + X_true ** 2 + X_true + 1
+
+    X_pred = 1.25
+    y_pred = X_pred ** 3
+
+    cm = 1 / 2.54
+
+    plt.figure(figsize=(12 * cm, 9 * cm))
+    plt.scatter(X, y, label=r"Data point $(x_m, y_m)$")
+    plt.plot(X_true, y_init, '--C2', linewidth=1, label=R"Initial model", zorder=1)
+    plt.plot(X_true, y_true, 'C1', linewidth=1, label=R"Fitted model", zorder=1)
+    plt.scatter(x=X_pred, y=y_pred, color='C3', label=r"Prediction", zorder=1)
+    plt.xlabel(r"$X$")
+    plt.ylabel(r"$y$")
+    plt.legend()
+    plt.savefig('../MLexample.eps', format='eps', bbox_inches='tight')
+
+
+
 def create_plots_for_increasing_n_iterations():
     # WIP
     logdir = '../logs_completed/compare_baselines'
