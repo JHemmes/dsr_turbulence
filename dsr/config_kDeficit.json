@@ -1,11 +1,11 @@
 {
    "task": {
       "task_type" : "regression",
-      "name" : "OW_kDef_PH_20tok_seed50",
+      "name" : "OW_kDef_PH_20tok",
       "function_set": ["add", "sub", "mul", "div", "exp", "log", "const"],
       "enforce_sum" : false,
       "dataset" : {
-         "name" : "CBFS13700",
+         "name" : "PH10595",
          "noise": null,
          "input": ["grad_u_T1", "grad_u_T2", "grad_u_T3", "grad_u_T4", "k", "inv1", "inv2"],
          "output": "kDeficit",
@@ -63,7 +63,7 @@
       "embedding": false,
       "embedding_size": 8,
       "optimizer": "adam",
-      "learning_rate": 0.01,
+      "learning_rate": 0.005,
       "observe_action": false,
       "observe_parent": true,
       "observe_sibling": true,

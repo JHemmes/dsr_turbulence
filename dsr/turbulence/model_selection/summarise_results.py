@@ -217,8 +217,13 @@ def summarise_results(logdir):
         df_best['ranked_by'] = f'r_max_{case}'
         df_results = pd.concat([df_results, df_best], axis=0, ignore_index=True)
 
+
+        save_arr = df_joined['r_max_PH'].values
+        np.savetxt(os.path.join(logdir, f'LR{config_run["controller"]["learning_rate"]}_ent{config_run["controller"]["entropy_weight"]}_rewards.csv'), save_arr, delimiter=',')
+
         plt.figure()
         plt.hist(df_joined['r_max_PH'], bins=20)
+        plt.title(f'{df_joined["r_max_PH"].max()}')
         plt.savefig(f'../logs_completed/aa_plots/aatmp_len{config_run["prior"]["length"]["max_"]}_LR{config_run["controller"]["learning_rate"]}_ent{config_run["controller"]["entropy_weight"]}.png')
 
 
@@ -245,6 +250,37 @@ def summarise_results(logdir):
     df_save = df_save.drop_duplicates(subset=['batch_r_max_expression'])
 
     df_save.to_csv(os.path.join(logdir, 'results.csv'),index=False)
+
+def plot_reward_dsitribution(logdir):
+
+    dirlist = os.listdir(logdir)
+
+    distributions = {}
+
+    for file in dirlist:
+        if '.csv' not in file or 'results' in file:
+            continue
+
+        distributions[file] = np.genfromtxt(os.path.join(logdir, file))
+
+    bins = np.arange(0.56, 0.68, 0.005)
+
+    markersize = 25
+    lw = 2
+    width = 12
+    figsize = (width, 3*width/4)
+    cm = 1 / 2.54  # centimeters in inches
+
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    plt.hist(distributions['LR0.005_ent0.05_rewards.csv'], bins=bins, label=r'$\alpha = 0.005$, $\lambda_H = 0.05$')
+    plt.hist(distributions['LR0.005_ent0.01_rewards.csv'], bins=bins, label=r'$\alpha = 0.005$, $\lambda_H = 0.01$')
+    plt.hist(distributions['LR0.005_ent0.005_rewards.csv'], bins=bins, label=r'$\alpha = 0.005$, $\lambda_H = 0.005$')
+    plt.hist(distributions['LR0.01_ent0.005_rewards.csv'], bins=bins, label=r'$\alpha = 0.01$, $\lambda_H = 0.005$')
+    plt.xlabel(r'$r_{max}$', fontsize=12)
+    plt.ylabel(r'$n$ unique expressions', fontsize=12)
+    plt.legend()
+    plt.savefig(f'../logs_completed/aa_plots/reward_distribution.eps', format='eps', bbox_inches='tight')
+
 
 def plot_ntokens_CFDerror():
     #
@@ -385,12 +421,6 @@ def plot_ntokens_CFDerror():
         plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order], prop={'size': 8}, ncol=3, loc='center', bbox_to_anchor=(0.5, 1.15)) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
 
         plt.savefig(f'../logs_completed/aa_plots/ntokens_CFD_err_{case}.eps', format='eps', bbox_inches='tight')
-
-
-
-
-
-
 
     ######## This is the old scatterplot in the report that i was not super happy about.
     # markersize = 25
@@ -1022,11 +1052,13 @@ if __name__ == "__main__":
     #
     # logdir = '../logs_completed/kDef_PH_entweight_10tok'
     # summarise_results(logdir)
+    logdir = '../logs_completed/kDef_PH_entweight_10tok'
+    plot_reward_dsitribution(logdir)
     #
     # logdir = '../logs_completed/kDef_PH_ntokens'
     # plot_ntokens_r_max(logdir)
 
-    plot_ntokens_CFDerror() # files are hardcoded in the function itself
+    # plot_ntokens_CFDerror() # files are hardcoded in the function itself
     #
     # plot_token_distribution()
     # add_tokens(f'../logs_completed/bDel_PH',

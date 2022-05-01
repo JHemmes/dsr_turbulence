@@ -583,7 +583,7 @@ def bDelta_scatter():
 
         # df_sorted['sum'] = df_sorted['PH_nmse'] + df_sorted['CD_nmse'] + df_sorted['CBFS_nmse']
         # sum(df_sorted['sum'] < 1000)
-        df_sorted = df_sorted.head(35)
+        df_sorted = df_sorted.head(30)
         x = np.arange(df_sorted.shape[0]) + 1
 
         best_sparta = {'PH': {'CD': 0.246319164597, 'PH': 0.16591760527490615, 'CBFS': 0.40664727572452286},
@@ -642,12 +642,12 @@ def bDelta_scatter():
         ax.axhline(y=best_sparta[training_case]['PH'], color='C0', linestyle=(0, (5, 1)), label=r'SpaRTA $PH_{10595}$', linewidth = lw) # densely dashed
         ax.axhline(y=best_sparta[training_case]['CD'], color='C1', linestyle=(0, (1, 1)), label=r'SpaRTA $CD_{12600}$', linewidth = lw)
         ax.axhline(y=best_sparta[training_case]['CBFS'], color='C2', linestyle=(0, (3, 1, 1, 1, 1, 1)), label=r'SpaRTA $CBFS_{13700}$', linewidth = lw)
-        ax.set_xlabel(xlabel)
+        ax.set_xlabel(xlabel, fontsize=13)
 
-    axes[0].set_ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$')
+    axes[0].set_ylabel(r'$\varepsilon (U) / \varepsilon(U_0)$', fontsize=13)
     # plt.xlabel('Models')
     plt.ylim(ylim)
-    plt.legend(prop={'size': 8}, loc='center right', bbox_to_anchor=(1.7, 0.5))
+    plt.legend(prop={'size': 10}, loc='center right', bbox_to_anchor=(1.8, 0.5))
     plt.savefig(f'../logs_completed/aa_plots/bDelta_CFD_err_subplots.eps', format='eps', bbox_inches='tight')
 
 def combined_models_scatter():
@@ -1666,7 +1666,7 @@ if __name__ == '__main__':
     matplotlib.use('tkagg')
     #
 
-    plot_reward_analysis()
+    # plot_reward_analysis()
 
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/CBFS'
     # base_dir = '/home/jasper/OpenFOAM/jasper-7/run/PH'
@@ -1710,7 +1710,7 @@ if __name__ == '__main__':
 
     # process_combined_models()
     # combined_models_scatter()
-    # bDelta_scatter()
+    bDelta_scatter()
 
     #
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
