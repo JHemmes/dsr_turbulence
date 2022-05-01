@@ -28,13 +28,16 @@ def plot_turbulent_velocity_fluctuations():
     # add mean line
     mean_line = np.mean(final_data) * np.ones(shape=tsmall.shape)
 
+    # matplotlib.use('tkagg')
+
     cm = 1 / 2.54  # centimeters in inches
     plt.figure(figsize=(12 * cm, 9 * cm))
-    plt.plot(tsmall, final_data, linewidth=1)
-    plt.plot(tsmall, mean_line, '--')
+    plt.plot(tsmall, final_data, linewidth=1, label=r"$\bar{u} + u'$")
+    plt.plot(tsmall, mean_line, '--', label=r'$\bar{u}$')
     plt.xlabel(r"$t \; [s]$")
     plt.ylabel(r"$u_x \; \left[\frac{m}{s}\right]$")
-    plt.savefig('../turbulent_fluctuations.eps', format='eps', bbox_inches='tight')
+    plt.legend(loc='lower center')
+    plt.savefig('../logs_completed/aa_plots/turbulent_fluctuations.eps', format='eps', bbox_inches='tight')
 
 def plot_ml_polynomial():
     # for the conversion of figsize inches to cm
@@ -551,14 +554,15 @@ if __name__ == "__main__":
     else:
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
+    plot_turbulent_velocity_fluctuations()
 
     # create_plots_for_increasing_n_iterations()
     #
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
     # plot_pretty_sensitivity_results(logdir, ['entropy_weight', 'learning_rate', 'initializer', 'num_layers' , 'num_units'])
-
-    logdir = '../logs_completed/sensitivity_analysis_bDelta'
-    plot_pretty_sensitivity_results(logdir, ['learning_rate', 'num_units'])
+    #
+    # logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    # plot_pretty_sensitivity_results(logdir, ['learning_rate', 'num_units'])
 
 
     # plot_pretty_sensitivity_results(logdir, ['initializer'])
