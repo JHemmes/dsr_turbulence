@@ -352,48 +352,57 @@ def plot_pretty_sensitivity_results(logdir, parameters):
 
         filename = os.path.join(logdir, 'report_plots', f'{logdir.split("_")[-1]}_{param}.eps')
 
-        ########################## below this only bDelta combined plot
-        param = 'num_units' # (if the first param is learning_rate other one)
-        results[param]['par_val'] = [bsl_params[param]]
-
-        # write def that return the max given the data/load_iterations result
-        tmp_arr = np.array(results['baseline']['data']['base_r_best'])
-        results[param]['arrays'] = [np.max(tmp_arr, axis=0)]
-        for run in results[param]:
-            if 'log' in run:
-                results[param]['par_val'].append(results[param][run]['value'])
-                data = fetch_iteration_metrics(run)
-
-                tmp_arr = np.array(data['base_r_best'])
-                results[param]['arrays'].append(np.max(tmp_arr, axis=0))
-                del tmp_arr
-
-        # create requirements for plot:
-        # legend needs to be sorted, baseline always is C0.
-        x = np.arange(results[param]['arrays'][0].shape[0])
-        linestyles = [(0, (5, 1)), (0, (1, 1)), (0, (3, 1, 1, 1)), '-.', (0, (3, 1, 1, 1, 1, 1)), ':']
-        for ii in np.argsort(results[param]['par_val']):
-            y.append(results[param]['arrays'][ii])
-            sorted_linestyles.append(linestyles[stylecounter])
-            sorted_colors.append(colors[stylecounter])
-            stylecounter += 1
-            labels.append(base_labels_params[param](results[param]['par_val'][ii]))
-            if results[param]['par_val'][ii] == bsl_params[param]:
-                labels[-1] = labels[-1] + ' (BSL)'
-                sorted_colors[-1] = 'C0'
-                sorted_linestyles[-1] = '-'
-                stylecounter -= 1
+        # ########################## below this only bDelta combined plot
+        # param = 'num_units' # (if the first param is learning_rate other one)
+        # results[param]['par_val'] = [bsl_params[param]]
         #
-        # sorted_colors[-1] = 'C3'
+        # # write def that return the max given the data/load_iterations result
+        # tmp_arr = np.array(results['baseline']['data']['base_r_best'])
+        # results[param]['arrays'] = [np.max(tmp_arr, axis=0)]
+        # for run in results[param]:
+        #     if 'log' in run:
+        #         results[param]['par_val'].append(results[param][run]['value'])
+        #         data = fetch_iteration_metrics(run)
         #
-        filename = os.path.join(logdir, 'report_plots', 'bDeltaCombined.eps')
+        #         tmp_arr = np.array(data['base_r_best'])
+        #         results[param]['arrays'].append(np.max(tmp_arr, axis=0))
+        #         del tmp_arr
+
+        #
+        # # create requirements for plot:
+        # # legend needs to be sorted, baseline always is C0.
+        # x = np.arange(results[param]['arrays'][0].shape[0])
+        # linestyles = [(0, (5, 1)), (0, (1, 1)), (0, (3, 1, 1, 1)), '-.', (0, (3, 1, 1, 1, 1, 1)), ':']
+        # for ii in np.argsort(results[param]['par_val']):
+        #     y.append(results[param]['arrays'][ii])
+        #     sorted_linestyles.append(linestyles[stylecounter])
+        #     sorted_colors.append(colors[stylecounter])
+        #     stylecounter += 1
+        #     labels.append(base_labels_params[param](results[param]['par_val'][ii]))
+        #     if results[param]['par_val'][ii] == bsl_params[param]:
+        #         labels[-1] = labels[-1] + ' (BSL)'
+        #         sorted_colors[-1] = 'C0'
+        #         sorted_linestyles[-1] = '-'
+        #         stylecounter -= 1
+        # #
+        # # sorted_colors[-1] = 'C3'
+        # #
+        # filename = os.path.join(logdir, 'report_plots', 'bDeltaCombined.eps')
         ######################### above only for bDelta combined plot
 
         figsize = (12, 9)
         xlabel = 'Iterations'
         ylabel = r'$r_{max}(\tau)$'
 
-        report_plot(x, y, labels, sorted_colors, xlabel, ylabel, filename, figsize,
+        if logdir.split('_')[-1] == 'kDeficit':
+            ylim = (0.5853167148151242, 0.8773996731941996)
+        # (0.5853167148151242, 0.8474911390791083)
+        if logdir.split('_')[-1] == 'bDelta':
+            ylim = (0.6828746260814224, 0.9672382914002154)
+
+
+
+        report_plot(x, y, labels, sorted_colors, xlabel, ylabel, ylim, filename, figsize,
                     linewidths=False, linestyles=sorted_linestyles)
 
     print('here')
@@ -781,12 +790,13 @@ if __name__ == "__main__":
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
     # plot_turbulent_velocity_fluctuations()
-    plot_streamlines()
+    # plot_streamlines()
     # make_dsr_timing_plots()
     # create_plots_for_increasing_n_iterations()
     #
-    # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
+    logdir = '../logs_completed/sensitivity_analysis_kDeficit'
     # plot_pretty_sensitivity_results(logdir, ['entropy_weight', 'learning_rate', 'initializer', 'num_layers' , 'num_units'])
+    plot_pretty_sensitivity_results(logdir, ['learning_rate', 'entropy_weight', 'initializer', 'num_layers' , 'num_units'])
     #
     # logdir = '../logs_completed/sensitivity_analysis_bDelta'
     # plot_pretty_sensitivity_results(logdir, ['learning_rate', 'num_units'])

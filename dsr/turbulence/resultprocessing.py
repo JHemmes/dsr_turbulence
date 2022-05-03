@@ -756,27 +756,36 @@ def plot_sensitivity_results(logdir, plot_mode='all'):
                 if parameter in all_results[run]['varied']: # and len(all_results[run]['varied']) == 1:
                     plot_dict[parameter].append(run)
         #
-        # # code to create the single plot of all runs for the report below
-        # x = np.arange(all_results['OW_learning_rate_0.01']['base_r_best']['max'].shape[0])   # for kDeficit: 'OW_learning_rate_0.01' for bDelta : 'M18_learning_rate_0.01'
-        # y = [all_results['OW_learning_rate_0.01']['base_r_best']['max']]
-        # colors = ['C0']
-        # linewidths = [2]
-        # linestyles = ['-']
-        # labels = ['Best']
-        # for run in all_results:
-        #     y.append(all_results[run]['base_r_best']['max'])
-        #     colors.append(None)
-        #     linewidths.append(1)
-        #     linestyles.append(':')
-        #     labels.append(None)
-        #
-        # filename = os.path.join(logdir, 'report_plots', 'all.eps')  # note this errors if the report_plots dir does not exist
-        #
-        # figsize = (12, 9)
-        # xlabel = 'Iterations'
-        # ylabel = r'$r_{max}(\tau)$'
-        #
-        # report_plot(x, y, labels, colors, xlabel, ylabel, filename, figsize, linewidths, linestyles)
+        # code to create the single plot of all runs for the report below
+        if logdir.split('_')[-1] == 'bDelta':
+            x = np.arange(all_results['M18_learning_rate_0.01']['base_r_best']['max'].shape[0])   # for kDeficit: 'OW_learning_rate_0.01' for bDelta : 'M18_learning_rate_0.01'
+            y = [all_results['M18_learning_rate_0.01']['base_r_best']['max']]
+            ylim = (0.6828746260814224, 0.9672382914002154)
+        if logdir.split('_')[-1] == 'kDeficit':
+            x = np.arange(all_results['OW_learning_rate_0.01']['base_r_best']['max'].shape[0])   # for kDeficit: 'OW_learning_rate_0.01' for bDelta : 'M18_learning_rate_0.01'
+            y = [all_results['OW_learning_rate_0.01']['base_r_best']['max']]
+            ylim = (0.5853167148151242, 0.8773996731941996)
+
+
+
+        colors = ['C0']
+        linewidths = [2]
+        linestyles = ['-']
+        labels = ['Best']
+        for run in all_results:
+            y.append(all_results[run]['base_r_best']['max'])
+            colors.append(None)
+            linewidths.append(1)
+            linestyles.append(':')
+            labels.append(None)
+
+        filename = os.path.join(logdir, 'report_plots', 'all.eps')  # note this errors if the report_plots dir does not exist
+
+        figsize = (12, 9)
+        xlabel = 'Iterations'
+        ylabel = r'$r_{max}(\tau)$'
+
+        report_plot(x, y, labels, colors, xlabel, ylabel, ylim, filename, figsize, linewidths, linestyles)
 
     elif plot_mode == 'parameters':
         for parameter in parameters:
@@ -815,7 +824,7 @@ def create_plots(all_results, plotmode, plotlist, plot_dir):
             plt.close('all')
 
 
-def report_plot(x, y, labels, colors, xlabel, ylabel, filename, figsize, linewidths=False, linestyles=False):
+def report_plot(x, y, labels, colors, xlabel, ylabel, ylim, filename, figsize, linewidths=False, linestyles=False):
     # defined here to avoid circular imports in report_plotting
     cm = 1 / 2.54  # centimeters in inches
 
@@ -831,6 +840,7 @@ def report_plot(x, y, labels, colors, xlabel, ylabel, filename, figsize, linewid
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.grid('both')
+    plt.ylim(ylim)
     plt.legend()
     # plt.show()    #
     plt.savefig(filename, format='eps', bbox_inches='tight')
@@ -860,8 +870,9 @@ if __name__ == "__main__":
     # plot_iterations_metrics(logdir, finished=True)
 
 
-    # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
-    logdir = '../logs_completed/kDef_PH'
+    logdir = '../logs_completed/sensitivity_analysis_kDeficit'
+    logdir = '../logs_completed/sensitivity_analysis_bDelta'
+    # logdir = '../logs_completed/kDef_PH'
     # logdir = '../logs_completed/compare_iterlim_optimisation'
     plot_sensitivity_results(logdir)
 
