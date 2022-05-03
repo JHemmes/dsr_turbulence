@@ -3,11 +3,16 @@ import platform
 import numpy as np
 import json
 import pandas as pd
+import pickle
+# import plotly.figure_factory as ff
+import scipy.interpolate as interp
 
+from dsr.turbulence.model_selection.foam_results_processing import reshape_to_mesh
 from dsr.turbulence.resultprocessing import fetch_iteration_metrics, compare_dicts, report_plot, load_iterations
 
 import matplotlib
-matplotlib.use('PS')
+# matplotlib.use('PS')
+matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 
 def plot_turbulent_velocity_fluctuations():
@@ -545,6 +550,227 @@ def plot_optimise_statistics():
 
     print('here')
 
+def plot_streamlines():
+
+    for ii in range(3):
+        # ii = 2
+        if ii == 0:
+
+            case = 'PH'
+            frozen = pickle.load(open('turbulence/frozen_data/PH10595_frozen_var.p', 'rb'))
+            xlim = ylim = [None, None]
+            start_x = 2
+            find_limits = True
+            start_point_y_lower = 0.5
+            start_point_y_upper = 3
+            n_lines = 25
+            dividing_x = 4.5
+            dividing_y = 0.06026315789473684
+            xlim = [0, 9]
+            ylim = [0, 3]
+            delete_points = 4
+            plot_dividing = True
+            dividing_y = 0.99
+            dividing_x = 0.2
+            # startpoints_y = np.array([0.5       , 0.60416667, 0.70833333,0.8125    , 1.05555556, 1.29861111, 1.54166667, 1.78472222, 2.02777778, 2.27083333, 2.51388889, 2.75694444, 3.        ] )
+            startpoints_y = np.array([0.5 , 0.60416667, 0.70833333,0.8125 , 0.96875, 1.0, 1.15625, 1.3125, 1.46875, 1.625, 1.78125, 1.9375, 2.09375, 2.25, 2.40625, 2.5625, 2.71875, 2.875] )
+
+
+        if ii == 1:
+            case = 'CD'
+            sparta_model_dir = 'sparta_model1'
+            frozen = pickle.load(open('turbulence/frozen_data/CD12600_frozen_var.p', 'rb'))
+            start_x = 6.2
+            find_limits = False
+            delete_points = False
+            plot_dividing = False
+
+            hifi_label = 'DNS'
+            xlim = [2, 10]
+            ylim = [0, 2]
+            start_point_y_lower = 0.562
+            n_lines = 10
+            start_point_y_upper = 1.95
+
+            startpoints_y = np.array([0.565, 0.71622222, 0.87044444, 1.02466667, 1.17888889,
+                                      1.33311111, 1.48733333, 1.64155556, 1.79577778, 1.95])
+
+        if ii == 2:
+            case = 'CBFS'
+            frozen = pickle.load(open('turbulence/frozen_data/CBFS13700_frozen_var.p', 'rb'))
+            start_x = 2.9
+            find_limits = False
+
+            xlim = [-2, 10]
+            ylim = [0, 2.5]
+            start_point_y_lower = 0.1
+            n_lines = 15
+            dividing_x = 12
+            calc_startpoints = False
+            plot_dividing = True
+
+            start_point_y_upper = ylim[1]
+            dividing_x = 0
+            dividing_y = 1
+            delete_points = False
+
+            startpoints_y = np.array([0.1, 0.16, 0.25, 0.78571429, 0.95714286, 1.12857143, 1.3 , 1.47142857, 1.64285714,
+                                      1.81428571, 1.98571429, 2.15714286, 2.32857143, 2.5 , 2.67142857 , 2.8428571399999996])
+
+            startpoints_y = np.array([0.1, 0.16, 0.19, 0.62, 0.79142857, 0.96285714, 1.13428571, 1.3057142800000001, 1.47714285, 1.6485714200000001, 1.8199999999999998, 1.99142857, 2.1628571400000003, 2.33428571, 2.50571428, 2.6771428499999996])
+
+        data_i = frozen['data_i']
+        hifi_u = data_i['um']
+        hifi_v = data_i['vm']
+
+        mesh_x = data_i['meshRANS'][0, :, :]
+        mesh_y = data_i['meshRANS'][1, :, :]
+
+        mesh_u = reshape_to_mesh(hifi_u)
+        mesh_v = reshape_to_mesh(hifi_v)
+
+        npoints = 600
+
+        regular_x = np.linspace(mesh_x.min(), mesh_x.max(), npoints)
+        regular_y = np.linspace(mesh_y.min(), mesh_y.max(), npoints)
+
+        mesh_regular_x, mesh_regular_y = np.meshgrid(regular_x, regular_y)
+
+        mesh_x_flat = mesh_x.flatten(order='F')
+        mesh_y_flat = mesh_y.flatten(order='F')
+        mesh_u_flat = mesh_u.flatten(order='F')
+        mesh_v_flat = mesh_v.flatten(order='F')
+
+        u_regular = interp.griddata((mesh_x_flat, mesh_y_flat), mesh_u_flat, (mesh_regular_x, mesh_regular_y), method='linear')
+        v_regular = interp.griddata((mesh_x_flat, mesh_y_flat), mesh_v_flat, (mesh_regular_x, mesh_regular_y), method='linear')
+
+        u_mesh_regular = u_regular.reshape((npoints,npoints), order='F')
+        v_mesh_regular = v_regular.reshape((npoints,npoints), order='F')
+
+
+        # for ii in np.linspace(0.545, 0.560, 20):
+
+        figsize = (26, 9)
+        cm = 1 / 2.54  # centimeters in inches
+        plt.figure(figsize=tuple([val * cm for val in list(figsize)]))
+
+        plt.plot(mesh_x[0, :], mesh_y[0, :], c='Black')
+        plt.plot(mesh_x[-1, :], mesh_y[-1, :], c='Black')
+        plt.plot(mesh_x[:, 0], mesh_y[:, 0], c='Black')
+        plt.plot(mesh_x[:, -1], mesh_y[:, -1], c='Black')
+        # plt.plot(mesh_x_flat[-n_points:], mesh_y_flat[-n_points:], c='Black')
+        # plt.plot([mesh_x_flat[0], mesh_x_flat[-n_points]], [mesh_y_flat[0], mesh_y_flat[-n_points]], c='Black')
+        # plt.plot([mesh_x_flat[n_points - 1], mesh_x_flat[-1]], [mesh_y_flat[n_points - 1], mesh_y_flat[-1]], c='Black')
+        #
+        # for segment in segments:
+        #     plt.plot(segment[:, 0], segment[:, 1])
+        ax = plt.gca()
+        ax.set_aspect('equal')
+        # if find_limits:
+        #     ylim = ax.get_ylim()
+        #     xlim = ax.get_xlim()
+
+        if delete_points:
+            startpoints_y = np.delete(startpoints_y, delete_points)
+
+        startpoints_x = start_x * np.ones(startpoints_y.shape)
+
+        plt.streamplot(mesh_regular_x, mesh_regular_y, u_mesh_regular, v_mesh_regular,
+                       start_points=np.stack((startpoints_x, startpoints_y), axis=-1),
+                       density=100,
+                       linewidth=1,
+                       arrowstyle='-',
+                       color='black')
+
+        if plot_dividing:
+            # dividing_y = ii
+            # dividing_x = 6.3
+            plt.streamplot(mesh_regular_x, mesh_regular_y, u_mesh_regular, v_mesh_regular,
+                           start_points=np.array([[dividing_x, dividing_y], [dividing_x, dividing_y + 0.000001]]),
+                           density=35,
+                           linewidth=1,
+                           arrowstyle='-',
+                           color='black')
+
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        #
+        # ax.set_xlim([0, 9])
+        # ax.set_ylim([0, 3])
+        plt.contourf(mesh_x, mesh_y, np.sqrt(mesh_u**2 + mesh_v**2), levels=20, cmap='Reds')
+
+        ax = plt.gca()
+        ax.set_aspect('equal')
+
+        ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+        ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+        plt.xlabel(r'$x/H$')
+        plt.ylabel(r'$y/H$')
+        plt.savefig(f'../logs_completed/aa_plots/domain_{case}.eps', format='eps', bbox_inches='tight')
+        plt.savefig(f'../logs_completed/aa_plots/domain_{case}.pdf', format='pdf', bbox_inches='tight')
+
+
+        # maybe I can use one of these things below to get the dashed lines.... stupid streamlines
+        # strm = plt.streamplot(mesh_regular_x, mesh_regular_y, u_mesh_regular, v_mesh_regular,
+        #                       start_points=np.stack((startpoints_x, startpoints_y), axis= -1),
+        #                       density=35,
+        #                       arrowstyle='-',
+        #                       linewidth=1)
+        # strm.lines.set_linestyle(':')
+        #
+        # segments = strm.lines.get_segments()
+        # fig = ff.create_streamline(mesh_y, mesh_x, mesh_v, mesh_u, arrow_scale=.1)
+
+
+def make_dsr_timing_plots():
+
+    kdef_ntok  = [7, 10 ,12, 20]
+    kdef_duration  = [401, 1019 ,3139, 17959]
+
+    for power in np.arange(1,5,0.1):
+        factors = [kdef_duration[ii]/(kdef_ntok[ii]**power) for ii in range(4)]
+
+        print(power)
+        print(factors)
+        print([val/factors[0] for val in factors])
+        print('')
+
+    bdel_ntok  = [3, 5 ,10]
+    bdel_duration  = [5009, 27557, 190492] # PH
+    # bdel_duration  = [5009, 27557, 352811] # PH
+    # bdel_duration  = [4800, 27892, 202634] # CD
+    # bdel_duration  = [6569, 24399 ,249295] # CBFS
+
+
+    markersize = 25
+    lw = 2
+    width = 10
+    figsize = (width, 3*width/4)
+    cm = 1 / 2.54  # centimeters in inches
+
+    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    plt.plot(kdef_ntok, kdef_duration, label=r'$\mathcal{P}_{k}^\Delta$', color='C0', linewidth=lw, marker='o')
+
+    ax = plt.gca()
+    ax2 = ax.twinx()
+    ax2.plot(bdel_ntok, bdel_duration, label=r'$b_{ij}^\Delta$', color='C1', linewidth=lw, marker='D', linestyle=(0, (1, 1)))
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
+    ax2.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
+    ax.set_ylabel(r'$\mathcal{P}_{k}^\Delta$ processor time [s]')
+    ax.set_xlabel(r'$n_{tokens}$')
+    ax2.set_ylabel(r'$b_{ij}^\Delta$ processor time [s]')
+
+
+
+    lines_1, labels_1 = ax.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+
+    lines = lines_1 + lines_2
+    labels = labels_1 + labels_2
+
+    ax.legend(lines, labels) #, prop={'size': 10}, loc='upper center', bbox_to_anchor=(0.5, 1.23), ncol=5)
+    plt.savefig(f'../logs_completed/aa_plots/duration.eps', format='eps', bbox_inches='tight')
+
 
 if __name__ == "__main__":
 
@@ -554,8 +780,9 @@ if __name__ == "__main__":
     else:
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
-    plot_turbulent_velocity_fluctuations()
-
+    # plot_turbulent_velocity_fluctuations()
+    plot_streamlines()
+    # make_dsr_timing_plots()
     # create_plots_for_increasing_n_iterations()
     #
     # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
