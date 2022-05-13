@@ -790,13 +790,13 @@ if __name__ == "__main__":
         os.chdir(dsrpath[:dsrpath.find('/dsr/')+4]) # change the working directory to main dsr dir with the config files
 
     # plot_turbulent_velocity_fluctuations()
-    # plot_streamlines()
+    plot_streamlines()
     # make_dsr_timing_plots()
     # create_plots_for_increasing_n_iterations()
     #
-    logdir = '../logs_completed/sensitivity_analysis_kDeficit'
+    # logdir = '../logs_completed/sensitivity_analysis_kDeficit'
     # plot_pretty_sensitivity_results(logdir, ['entropy_weight', 'learning_rate', 'initializer', 'num_layers' , 'num_units'])
-    plot_pretty_sensitivity_results(logdir, ['learning_rate', 'entropy_weight', 'initializer', 'num_layers' , 'num_units'])
+    # plot_pretty_sensitivity_results(logdir, ['learning_rate', 'entropy_weight', 'initializer', 'num_layers' , 'num_units'])
     #
     # logdir = '../logs_completed/sensitivity_analysis_bDelta'
     # plot_pretty_sensitivity_results(logdir, ['learning_rate', 'num_units'])

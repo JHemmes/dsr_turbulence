@@ -846,6 +846,7 @@ def plot_selection(plot_list, cases):
         # add_u_profile(results[dsr3][case]['pp'], 'C2', ':', r'$M^{(3)}_{dsr}$', u_scale, linewidth)
 
         order = [2, 1, 3, 0]
+        # order = [1, 0]
 
         handles, labels = ax.get_legend_handles_labels()
         plt.legend(handles= [handles[idx] for idx in order], labels=[labels[idx] for idx in order],
@@ -1353,7 +1354,7 @@ def calc_and_plot_shear_stress(dsr_PH, dsr_CD, dsr_CBFS):
                 hifi_label = sparta_label = dsr_label = kOmegaSSTlabel = None
 
 
-        plt.xlabel( f'{tau_scale}' + r'$\tau_{ij} + x/H$')
+        plt.xlabel( f'{tau_scale}' + r'$\tau_{xy} + x/H$')
         plt.ylabel(r'$y/H$')
 
         order = [2, 1, 3, 0]
@@ -1685,8 +1686,8 @@ if __name__ == '__main__':
     # plot_experimental()
     # # # #
     # # # # ################### to plot Ux profiles
-    # plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'dsr_138', 'dsr_118', 'combined_282_662', 'kOmegaSST'],
-    #                ['PH', 'CD', 'CBFS'])
+    plot_selection(['sparta_model1', 'sparta_model2', 'sparta_model3', 'dsr_138', 'dsr_118', 'combined_282_662', 'kOmegaSST'],
+                   ['PH', 'CD', 'CBFS'])
 
     #
     # ####################### lines below used to add CFD results to selected_models file
@@ -1710,7 +1711,7 @@ if __name__ == '__main__':
 
     # process_combined_models()
     # combined_models_scatter()
-    bDelta_scatter()
+    # bDelta_scatter()
 
     #
     # selected_model_file = '/home/jasper/Documents/afstuderen/python/dsr_turbulence/logs_completed/bDel_CBFS/bDel_CBFS_selected_models.csv'
@@ -1740,270 +1741,281 @@ if __name__ == '__main__':
     # df_combined['sum'] = df_combined['PH_nmse'] + df_combined['CD_nmse'] + df_combined['CBFS_nmse']
     # df_combined[(df_combined['CD_nmse'] < 0.2271) & (df_combined['PH_nmse'] < 0.2546) & (df_combined['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
     #
-    #
-    df_kdef_PH = pd.read_csv('../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv')
-    df_kdef_PH['sum'] = df_kdef_PH['PH_nmse'] + df_kdef_PH['CD_nmse'] + df_kdef_PH['CBFS_nmse']
-    df_kdef_PH.reset_index()
-    #
-    #
-    #
-    df_kdef_CD = pd.read_csv('../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv')
-    df_kdef_CD['sum'] = df_kdef_CD['PH_nmse'] + df_kdef_CD['CD_nmse'] + df_kdef_CD['CBFS_nmse']
-    # df_kdef_CD[(df_kdef_CD['CD_nmse'] < 0.2271) & (df_kdef_CD['PH_nmse'] < 0.2546) & (df_kdef_CD['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
-    #
-    #
-    df_kdef_CBFS = pd.read_csv('../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv')
-    df_kdef_CBFS['sum'] = df_kdef_CBFS['PH_nmse'] + df_kdef_CBFS['CD_nmse'] + df_kdef_CBFS['CBFS_nmse']
-    # df_kdef_CBFS[(df_kdef_CBFS['CD_nmse'] < 0.2082) & (df_kdef_CBFS['PH_nmse'] < 0.2033) & (df_kdef_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
 
-
-    df_7tok =  pd.DataFrame()
-    df_10tok =  pd.DataFrame()
-    df_12tok = pd.DataFrame()
-    df_20tok = pd.DataFrame()
-
-
-
-    all_conv_percs = []
-    all_first_n    = []
-    all_mean_PH = []
-    all_mean_CD = []
-    all_mean_CBFS = []
-    all_mean_sum = []
-
-    for df_models in [df_kdef_PH, df_kdef_CD, df_kdef_CBFS]:
-
-        dfappend_7tok = df_models[df_models['name'].str.contains('7tokens')]
-        dfappend_10tok = df_models[df_models['name'].str.contains('10tokens')]
-        dfappend_12tok = df_models[df_models['name'].str.contains('12tokens')]
-        dfappend_20tok = df_models[df_models['name'].str.contains('20tokens')]
-
-        df_7tok =  pd.concat([df_7tok, dfappend_7tok], axis=0, ignore_index=True)
-        df_10tok = pd.concat([df_10tok, dfappend_10tok], axis=0, ignore_index=True)
-        df_12tok = pd.concat([df_12tok, dfappend_12tok], axis=0, ignore_index=True)
-        df_20tok = pd.concat([df_20tok, dfappend_20tok], axis=0, ignore_index=True)
-
-        if len(df_models['training_case'].unique()) == 1:
-            training_case = df_models['training_case'].unique()[0]
-
-        if training_case == 'PH':
-            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
-            sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
-        elif training_case == 'CD':
-            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
-            sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
-        else:
-            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
-            sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
-
-        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
-            df_models.loc[df_models[col] == 'Diverged', col] = 1000
-            df_models.loc[df_models[col] > 1000, col] = 1000
-
-        df_sorted = df_models.sort_values(sort_by_r_max,
-                                          ascending=[False, False, False], ignore_index=True)
-
-        mean_PH = []
-        mean_CD = []
-        mean_CBFS = []
-        mean_sum = []
-
-        conv_perc = []
-        first_n = []
-        for ii in np.arange(0, len(df_models), 10):
-            first_n.append(ii)
-            df_slice = df_sorted.iloc[ii:ii+10, :]
-            df_converged = df_slice[df_slice['sum'] < 900]
-            conv_perc.append(100 * len(df_converged) / (len(df_slice)))
-
-            mean_PH.append(df_converged['PH_nmse'].min())
-            mean_CD.append(df_converged['CD_nmse'].min())
-            mean_CBFS.append(df_converged['CBFS_nmse'].min())
-            mean_sum.append(df_converged['sum'].min())
-
-        all_mean_PH.append(mean_PH)
-        all_mean_CD.append(mean_CD)
-        all_mean_CBFS.append(mean_CBFS)
-        all_mean_sum.append(mean_sum)
-
-        all_first_n.append(first_n)
-        all_conv_percs.append(conv_perc)
-
-    print(f'7Tok converged {100* sum(df_7tok["sum"] < 100) / len(df_7tok)} %')
-    print(f'10Tok converged {100* sum(df_10tok["sum"] < 100) / len(df_10tok)} %')
-    print(f'12Tok converged {100* sum(df_12tok["sum"] < 100) / len(df_12tok)} %')
-    print(f'20Tok converged {100* sum(df_20tok["sum"] < 100) / len(df_20tok)} %')
-
-    labels = ['PH', 'CD', 'CBFS']
-    plt.figure()
-    plt.title('convergence_percentage')
-    for ii in range(len(all_first_n)):
-        plt.plot(all_first_n[ii], all_conv_percs[ii], label=labels[ii])
-    plt.legend()
-
-    labels = ['PH', 'CD', 'CBFS']
-    plt.figure()
-    plt.title('mean PH error')
-    for ii in range(len(all_first_n)):
-        plt.plot(all_first_n[ii], all_mean_PH[ii], label=labels[ii])
-    plt.legend()
-
-    labels = ['PH', 'CD', 'CBFS']
-    plt.figure()
-    plt.title('mean CD error')
-
-    for ii in range(len(all_first_n)):
-        plt.plot(all_first_n[ii], all_mean_CD[ii], label=labels[ii])
-    plt.legend()
-
-    labels = ['PH', 'CD', 'CBFS']
-    plt.figure()
-    plt.title('mean CBFS error')
-    for ii in range(len(all_first_n)):
-        plt.plot(all_first_n[ii], all_mean_CBFS[ii], label=labels[ii])
-    plt.legend()
-
-    labels = ['PH', 'CD', 'CBFS']
-    plt.figure()
-    plt.title('mean sum error')
-    for ii in range(len(all_first_n)):
-        plt.plot(all_first_n[ii], all_mean_sum[ii], label=labels[ii])
-    plt.legend()
-
-
-
-
-    mean_first_n = []
-    mean_conv_perc = []
-
-    for ii in range(9):
-        mean_first_n.append(all_first_n[0][ii])
-        mean_conv_perc.append(np.mean([lst[ii] for lst in all_conv_percs]))
 
     #
-    df_bDel_PH = pd.read_csv('../logs_completed/bDel_PH/bDel_PH_selected_models_CFD_results_full_bDelta.csv')
-    df_bDel_PH['sum'] = df_bDel_PH['PH_nmse'] + df_bDel_PH['CD_nmse'] + df_bDel_PH['CBFS_nmse']
-
-    df_bDel_CD = pd.read_csv('../logs_completed/bDel_CD/bDel_CD_selected_models_CFD_results_full_bDelta.csv')
-    df_bDel_CD['sum'] = df_bDel_CD['PH_nmse'] + df_bDel_CD['CD_nmse'] + df_bDel_CD['CBFS_nmse']
-
-    df_bDel_CBFS = pd.read_csv('../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv')
-    df_bDel_CBFS['sum'] = df_bDel_CBFS['PH_nmse'] + df_bDel_CBFS['CD_nmse'] + df_bDel_CBFS['CBFS_nmse']
-    # df_bDel_CBFS[(df_bDel_CBFS['CD_nmse'] < 0.2082) & (df_bDel_CBFS['PH_nmse'] < 0.2033) & (
-    #             df_bDel_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
-
-
-    df_3tok =  pd.DataFrame()
-    df_5tok =  pd.DataFrame()
-    df_10tok = pd.DataFrame()
-
-
-
-    all_conv_percs = []
-    all_first_n    = []
-
-
-    for df_models in [df_bDel_PH, df_bDel_CD, df_bDel_CBFS]:
-
-        dfappend_3tok = df_models[df_models['name'].str.contains('3tokens')]
-        dfappend_5tok = df_models[df_models['name'].str.contains('5tokens')]
-        dfappend_10tok = df_models[df_models['name'].str.contains('10tokens')]
-
-        df_3tok =  pd.concat([df_3tok, dfappend_3tok], axis=0, ignore_index=True)
-        df_5tok =  pd.concat([df_5tok, dfappend_5tok], axis=0, ignore_index=True)
-        df_10tok = pd.concat([df_10tok, dfappend_10tok], axis=0, ignore_index=True)
-
-
-        if len(df_models['training_case'].unique()) == 1:
-            training_case = df_models['training_case'].unique()[0]
-
-        if training_case == 'PH':
-            sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
-            sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
-        elif training_case == 'CD':
-            sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
-            sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
-        else:
-            sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
-            sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
-
-        for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
-            df_models.loc[df_models[col] == 'Diverged', col] = 1000
-            df_models.loc[df_models[col] > 1000, col] = 1000
-
-        df_sorted = df_models.sort_values(sort_by_r_max,
-                                          ascending=[False, False, False], ignore_index=True)
-
-        conv_perc = []
-        first_n = []
-        for ii in np.arange(0, len(df_models), 10):
-            first_n.append(ii)
-            df_slice = df_sorted.iloc[ii:ii+10, :]
-            conv_perc.append(100 * sum(df_slice['sum'] < 100) / (len(df_slice)))
-
-        all_first_n.append(first_n)
-        all_conv_percs.append(conv_perc)
-
-    labels = ['PH', 'CD', 'CBFS']
-    plt.figure()
-    for ii in range(len(all_first_n)):
-        plt.plot(all_first_n[ii], all_conv_percs[ii], label=labels[ii])
-    plt.legend()
-
-    mean_first_n = []
-    mean_conv_perc = []
-
-    for ii in range(9):
-        mean_first_n.append(all_first_n[0][ii])
-        mean_conv_perc.append(np.mean([lst[ii] for lst in all_conv_percs]))
-
-    plt.figure()
-    plt.plot(mean_first_n, mean_conv_perc)
-
-
-
-
-
-    print(f'3Tok converged {100* sum(df_3tok["sum"] < 100) / len(df_3tok)} %')
-    print(f'5Tok converged {100* sum(df_5tok["sum"] < 100) / len(df_5tok)} %')
-    print(f'10Tok converged {100* sum(df_10tok["sum"] < 100) / len(df_10tok)} %')
-
-    # df_results = pd.concat([df_results, df_row], axis=0, ignore_index=True)
-
-
-    bDel_ntokens = [3, 5, 10]
-    bDel_convergence = [30.008, 13.043, 8.108]
-
-
-    kDef_ntokens = [7, 10, 12, 20]
-    kDef_convergence = [100, 64.23, 81.70, 50]
-
-    markersize = 25
-    lw = 2
-    width = 10
-    figsize = (width, 3*width/4)
-    cm = 1 / 2.54  # centimeters in inches
-
-    plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
-    plt.xlabel(r"$n_{tokens}$")
-    plt.ylabel(r'% converging runs')
-    plt.xticks(np.arange(0,25,2))
-    # plt.yticks(np.arange(0,1,0.1))
-    plt.yticks(np.arange(0,110,20))
-    ax = plt.gca()
-    ax.set_axisbelow(True)
-    plt.grid('both', linestyle=':')
-    plt.plot(kDef_ntokens, kDef_convergence, label=r'$\mathcal{P}_{k}^\Delta$', c='C0', linestyle='--', linewidth=lw, marker='^')
-    plt.plot(bDel_ntokens, bDel_convergence, label=r'$b_{ij}^\Delta$', c='C1', linestyle=':', linewidth=lw, marker='v')
-
-    # order = [2, 0, 1]
-    # handles, labels = ax.get_legend_handles_labels()
-    plt.legend(prop={'size': 12}) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
-
-    plt.savefig(f'../logs_completed/aa_plots/ntokens_convergence.eps', format='eps', bbox_inches='tight')
-
-    # errtarget = df_kdef_CD[df_kdef_CD['model_nr'] == 282]['CBFS_nmse'].values[0]
+    # ################ DO NOT DELETE, this is used for a plot!!!!
+    # df_kdef_PH = pd.read_csv('../logs_completed/kDef_PH/kDef_PH_selected_models_CFD_results.csv')
+    # df_kdef_PH['sum'] = df_kdef_PH['PH_nmse'] + df_kdef_PH['CD_nmse'] + df_kdef_PH['CBFS_nmse']
+    # df_kdef_PH.reset_index()
+    # #
+    # #
+    # #
+    # df_kdef_CD = pd.read_csv('../logs_completed/kDef_CD/kDef_CD_selected_models_CFD_results.csv')
+    # df_kdef_CD['sum'] = df_kdef_CD['PH_nmse'] + df_kdef_CD['CD_nmse'] + df_kdef_CD['CBFS_nmse']
+    # # df_kdef_CD[(df_kdef_CD['CD_nmse'] < 0.2271) & (df_kdef_CD['PH_nmse'] < 0.2546) & (df_kdef_CD['CBFS_nmse'] < 0.3804)]  # sparta model 2 scores
+    # #
+    # #
+    # df_kdef_CBFS = pd.read_csv('../logs_completed/kDef_CBFS/kDef_CBFS_selected_models_CFD_results.csv')
+    # df_kdef_CBFS['sum'] = df_kdef_CBFS['PH_nmse'] + df_kdef_CBFS['CD_nmse'] + df_kdef_CBFS['CBFS_nmse']
+    # # df_kdef_CBFS[(df_kdef_CBFS['CD_nmse'] < 0.2082) & (df_kdef_CBFS['PH_nmse'] < 0.2033) & (df_kdef_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
     #
+    #
+    # df_7tok =  pd.DataFrame()
+    # df_10tok =  pd.DataFrame()
+    # df_12tok = pd.DataFrame()
+    # df_20tok = pd.DataFrame()
+    #
+    #
+    #
+    # all_conv_percs = []
+    # all_first_n    = []
+    # all_mean_PH = []
+    # all_mean_CD = []
+    # all_mean_CBFS = []
+    # all_mean_sum = []
+    #
+    # for df_models in [df_kdef_PH, df_kdef_CD, df_kdef_CBFS]:
+    #
+    #     dfappend_7tok = df_models[df_models['name'].str.contains('7tokens')]
+    #     dfappend_10tok = df_models[df_models['name'].str.contains('10tokens')]
+    #     dfappend_12tok = df_models[df_models['name'].str.contains('12tokens')]
+    #     dfappend_20tok = df_models[df_models['name'].str.contains('20tokens')]
+    #
+    #     df_7tok =  pd.concat([df_7tok, dfappend_7tok], axis=0, ignore_index=True)
+    #     df_10tok = pd.concat([df_10tok, dfappend_10tok], axis=0, ignore_index=True)
+    #     df_12tok = pd.concat([df_12tok, dfappend_12tok], axis=0, ignore_index=True)
+    #     df_20tok = pd.concat([df_20tok, dfappend_20tok], axis=0, ignore_index=True)
+    #
+    #     if len(df_models['training_case'].unique()) == 1:
+    #         training_case = df_models['training_case'].unique()[0]
+    #
+    #     if training_case == 'PH':
+    #         sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+    #         sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+    #     elif training_case == 'CD':
+    #         sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+    #         sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+    #     else:
+    #         sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+    #         sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+    #
+    #     for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+    #         df_models.loc[df_models[col] == 'Diverged', col] = 1000
+    #         df_models.loc[df_models[col] > 1000, col] = 1000
+    #
+    #     df_sorted = df_models.sort_values(sort_by_r_max,
+    #                                       ascending=[False, False, False], ignore_index=True)
+    #
+    #     mean_PH = []
+    #     mean_CD = []
+    #     mean_CBFS = []
+    #     mean_sum = []
+    #
+    #     conv_perc = []
+    #     first_n = []
+    #     for ii in np.arange(0, len(df_models), 10):
+    #         first_n.append(ii)
+    #         df_slice = df_sorted.iloc[ii:ii+10, :]
+    #         df_converged = df_slice[df_slice['sum'] < 900]
+    #         conv_perc.append(100 * len(df_converged) / (len(df_slice)))
+    #
+    #         mean_PH.append(df_converged['PH_nmse'].min())
+    #         mean_CD.append(df_converged['CD_nmse'].min())
+    #         mean_CBFS.append(df_converged['CBFS_nmse'].min())
+    #         mean_sum.append(df_converged['sum'].min())
+    #
+    #     all_mean_PH.append(mean_PH)
+    #     all_mean_CD.append(mean_CD)
+    #     all_mean_CBFS.append(mean_CBFS)
+    #     all_mean_sum.append(mean_sum)
+    #
+    #     all_first_n.append(first_n)
+    #     all_conv_percs.append(conv_perc)
+    #
+    # print(f'7Tok converged {100* sum(df_7tok["sum"] < 100) / len(df_7tok)} %')
+    # print(f'10Tok converged {100* sum(df_10tok["sum"] < 100) / len(df_10tok)} %')
+    # print(f'12Tok converged {100* sum(df_12tok["sum"] < 100) / len(df_12tok)} %')
+    # print(f'20Tok converged {100* sum(df_20tok["sum"] < 100) / len(df_20tok)} %')
+    #
+    # labels = ['PH', 'CD', 'CBFS']
+    # plt.figure()
+    # plt.title('convergence_percentage')
+    # for ii in range(len(all_first_n)):
+    #     plt.plot(all_first_n[ii], all_conv_percs[ii], label=labels[ii])
+    # plt.legend()
+    #
+    # labels = ['PH', 'CD', 'CBFS']
+    # plt.figure()
+    # plt.title('mean PH error')
+    # for ii in range(len(all_first_n)):
+    #     plt.plot(all_first_n[ii], all_mean_PH[ii], label=labels[ii])
+    # plt.legend()
+    #
+    # labels = ['PH', 'CD', 'CBFS']
+    # plt.figure()
+    # plt.title('mean CD error')
+    #
+    # for ii in range(len(all_first_n)):
+    #     plt.plot(all_first_n[ii], all_mean_CD[ii], label=labels[ii])
+    # plt.legend()
+    #
+    # labels = ['PH', 'CD', 'CBFS']
+    # plt.figure()
+    # plt.title('mean CBFS error')
+    # for ii in range(len(all_first_n)):
+    #     plt.plot(all_first_n[ii], all_mean_CBFS[ii], label=labels[ii])
+    # plt.legend()
+    #
+    # labels = ['PH', 'CD', 'CBFS']
+    # plt.figure()
+    # plt.title('mean sum error')
+    # for ii in range(len(all_first_n)):
+    #     plt.plot(all_first_n[ii], all_mean_sum[ii], label=labels[ii])
+    # plt.legend()
+    #
+    #
+    #
+    #
+    # mean_first_n = []
+    # mean_conv_perc = []
+    #
+    # for ii in range(9):
+    #     mean_first_n.append(all_first_n[0][ii])
+    #     mean_conv_perc.append(np.mean([lst[ii] for lst in all_conv_percs]))
+    #
+    # #
+    # df_bDel_PH = pd.read_csv('../logs_completed/bDel_PH/bDel_PH_selected_models_CFD_results_full_bDelta.csv')
+    # df_bDel_PH['sum'] = df_bDel_PH['PH_nmse'] + df_bDel_PH['CD_nmse'] + df_bDel_PH['CBFS_nmse']
+    #
+    # df_bDel_CD = pd.read_csv('../logs_completed/bDel_CD/bDel_CD_selected_models_CFD_results_full_bDelta.csv')
+    # df_bDel_CD['sum'] = df_bDel_CD['PH_nmse'] + df_bDel_CD['CD_nmse'] + df_bDel_CD['CBFS_nmse']
+    #
+    # df_bDel_CBFS = pd.read_csv('../logs_completed/bDel_CBFS/bDel_CBFS_selected_models_CFD_results_full_bDelta.csv')
+    # df_bDel_CBFS['sum'] = df_bDel_CBFS['PH_nmse'] + df_bDel_CBFS['CD_nmse'] + df_bDel_CBFS['CBFS_nmse']
+    # # df_bDel_CBFS[(df_bDel_CBFS['CD_nmse'] < 0.2082) & (df_bDel_CBFS['PH_nmse'] < 0.2033) & (
+    # #             df_bDel_CBFS['CBFS_nmse'] < 0.5793)]  # sparta model 3 scores
+    #
+    #
+    # df_3tok =  pd.DataFrame()
+    # df_5tok =  pd.DataFrame()
+    # df_10tok = pd.DataFrame()
+    #
+    #
+    #
+    # all_conv_percs = []
+    # all_first_n    = []
+    #
+    #
+    # for df_models in [df_bDel_PH, df_bDel_CD, df_bDel_CBFS]:
+    #
+    #     dfappend_3tok = df_models[df_models['name'].str.contains('3tokens')]
+    #     dfappend_5tok = df_models[df_models['name'].str.contains('5tokens')]
+    #     dfappend_10tok = df_models[df_models['name'].str.contains('10tokens')]
+    #
+    #     df_3tok =  pd.concat([df_3tok, dfappend_3tok], axis=0, ignore_index=True)
+    #     df_5tok =  pd.concat([df_5tok, dfappend_5tok], axis=0, ignore_index=True)
+    #     df_10tok = pd.concat([df_10tok, dfappend_10tok], axis=0, ignore_index=True)
+    #
+    #
+    #     if len(df_models['training_case'].unique()) == 1:
+    #         training_case = df_models['training_case'].unique()[0]
+    #
+    #     if training_case == 'PH':
+    #         sort_by_CFD = ['PH_nmse', 'CD_nmse', 'CBFS_nmse']
+    #         sort_by_r_max = ['r_max_PH', 'r_max_CD', 'r_max_CBFS']
+    #     elif training_case == 'CD':
+    #         sort_by_CFD = ['CD_nmse', 'PH_nmse', 'CBFS_nmse']
+    #         sort_by_r_max = ['r_max_CD', 'r_max_PH', 'r_max_CBFS']
+    #     else:
+    #         sort_by_CFD = ['CBFS_nmse', 'PH_nmse', 'CD_nmse']
+    #         sort_by_r_max = ['r_max_CBFS', 'r_max_PH', 'r_max_CD']
+    #
+    #     for col in ['PH_nmse', 'CBFS_nmse', 'CD_nmse']:
+    #         df_models.loc[df_models[col] == 'Diverged', col] = 1000
+    #         df_models.loc[df_models[col] > 1000, col] = 1000
+    #
+    #     df_sorted = df_models.sort_values(sort_by_r_max,
+    #                                       ascending=[False, False, False], ignore_index=True)
+    #
+    #     conv_perc = []
+    #     first_n = []
+    #     for ii in np.arange(0, len(df_models), 10):
+    #         first_n.append(ii)
+    #         df_slice = df_sorted.iloc[ii:ii+10, :]
+    #         conv_perc.append(100 * sum(df_slice['sum'] < 100) / (len(df_slice)))
+    #
+    #     all_first_n.append(first_n)
+    #     all_conv_percs.append(conv_perc)
+    #
+    # labels = ['PH', 'CD', 'CBFS']
+    # plt.figure()
+    # for ii in range(len(all_first_n)):
+    #     plt.plot(all_first_n[ii], all_conv_percs[ii], label=labels[ii])
+    # plt.legend()
+    #
+    # mean_first_n = []
+    # mean_conv_perc = []
+    #
+    # for ii in range(9):
+    #     mean_first_n.append(all_first_n[0][ii])
+    #     mean_conv_perc.append(np.mean([lst[ii] for lst in all_conv_percs]))
+    #
+    # plt.figure()
+    # plt.plot(mean_first_n, mean_conv_perc)
+    #
+    #
+    #
+    #
+    #
+    # print(f'3Tok converged {100* sum(df_3tok["sum"] < 100) / len(df_3tok)} %')
+    # print(f'5Tok converged {100* sum(df_5tok["sum"] < 100) / len(df_5tok)} %')
+    # print(f'10Tok converged {100* sum(df_10tok["sum"] < 100) / len(df_10tok)} %')
+    #
+    # # df_results = pd.concat([df_results, df_row], axis=0, ignore_index=True)
+    #
+    #
+    # bDel_ntokens = [3, 5, 10]
+    # bDel_convergence = [30.008, 13.043, 8.108]
+    #
+    #
+    # kDef_ntokens = [7, 10, 12, 20]
+    # kDef_convergence = [100, 64.23, 81.70, 50]
+    #
+    # markersize = 25
+    # lw = 2
+    # width = 10
+    # figsize = (width, 3*width/4)
+    # cm = 1 / 2.54  # centimeters in inches
+    #
+    # plt.figure(figsize=tuple([val*cm for val in list(figsize)]))
+    # plt.xlabel(r"$n_{tokens}$")
+    # plt.ylabel(r'% converging runs')
+    # plt.xticks(np.arange(0,25,2))
+    # # plt.yticks(np.arange(0,1,0.1))
+    # plt.yticks(np.arange(0,110,20))
+    # ax = plt.gca()
+    # ax.set_axisbelow(True)
+    # plt.grid('both', linestyle=':')
+    # plt.plot(kDef_ntokens, kDef_convergence, label=r'$\mathcal{P}_{k}^\Delta$', c='C0', linestyle='--', linewidth=lw, marker='^')
+    # plt.plot(bDel_ntokens, bDel_convergence, label=r'$b_{ij}^\Delta$', c='C1', linestyle=':', linewidth=lw, marker='v')
+    #
+    # # order = [2, 0, 1]
+    # # handles, labels = ax.get_legend_handles_labels()
+    # plt.legend(prop={'size': 12}) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
+    #
+    # plt.savefig(f'../logs_completed/aa_plots/ntokens_convergence.eps', format='eps', bbox_inches='tight')
+    #
+    # # errtarget = df_kdef_CD[df_kdef_CD['model_nr'] == 282]['CBFS_nmse'].values[0]
+    # #
     # df_kdef_CD[df_kdef_CD['CBFS_nmse'] < errtarget]
+
+    ################################################ do not delete until here
+
+
+
+
+
+
     print('end')
     print('end')

@@ -275,13 +275,13 @@ def plot_reward_dsitribution(logdir):
     plt.hist(distributions['LR0.005_ent0.05_rewards.csv'], bins=bins, label=r'$\alpha = 0.005$, $\lambda_H = 0.05$')
     plt.hist(distributions['LR0.005_ent0.01_rewards.csv'], bins=bins, label=r'$\alpha = 0.005$, $\lambda_H = 0.01$')
     plt.hist(distributions['LR0.005_ent0.005_rewards.csv'], bins=bins, label=r'$\alpha = 0.005$, $\lambda_H = 0.005$')
-    plt.hist(distributions['LR0.01_ent0.005_rewards.csv'], bins=bins, label=r'$\alpha = 0.01$, $\lambda_H = 0.005$ (BSL)')
+    plt.hist(distributions['LR0.01_ent0.005_rewards.csv'], bins=bins, label=r'$\alpha = 0.010$, $\lambda_H = 0.005$ (BSL)')
     plt.xlabel(r'$r_{max}$', fontsize=12)
     plt.ylabel(r'$n$ unique expressions', fontsize=12)
     ax = plt.gca()
     order = [3, 2, 1, 0]
     handles, labels = ax.get_legend_handles_labels()
-    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order]) # ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
+    plt.legend(handles=[handles[idx] for idx in order], labels=[labels[idx] for idx in order], prop={'size': 9.5})# ,ncol=4, loc='center', bbox_to_anchor=(0.5, 1.1), prop={'size': 9}
     plt.savefig(f'../logs_completed/aa_plots/reward_distribution.eps', format='eps', bbox_inches='tight')
 
 
